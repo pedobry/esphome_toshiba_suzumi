@@ -1,0 +1,50 @@
+esphome:
+  name: "climate-living-room"
+
+esp32:
+  board: nodemcu-32s
+  framework:
+    type: arduino
+
+external_components:
+  - source: 
+      type: git
+      url: https://github.com/pedobry/esphome_toshiba_suzumi
+    components: [toshiba_suzumi]
+
+substitutions:
+  mqtt_broker: 10.0.0.196
+
+logger:
+  level: info
+
+uart:
+  id: uart_bus
+  tx_pin: 33
+  rx_pin: 32
+  parity: EVEN
+  baud_rate: 9600
+
+climate:
+  - platform: toshiba_suzumi
+    name: living-room
+    uart_id: uart_bus
+    outdoor_temp:        # Optional. Outdoor temperature sensor
+      name: Outdoor Temp
+
+mqtt:
+  broker: ${mqtt_broker}
+  username: mqtt
+  password: password
+
+ota:
+  password: "1ab7cba5af8a3c317xxxxxxxxxxxxx"
+
+wifi:
+  ssid: redacted
+  password: redacted
+
+  # Enable fallback hotspot (captive portal) in case wifi connection fails
+  ap:
+    ssid: "A Fallback Hotspot"
+    password: "xxxxxxxxxxx"
