@@ -1,6 +1,6 @@
 import esphome.codegen as cg
 import esphome.config_validation as cv
-from esphome.components import sensor, climate, uart
+from esphome.components import sensor, climate, uart, select
 from esphome.const import (
     CONF_ID,
     STATE_CLASS_MEASUREMENT,
@@ -9,13 +9,15 @@ from esphome.const import (
 )
 
 DEPENDENCIES = ["uart"]
-AUTO_LOAD = ["sensor"]
+AUTO_LOAD = ["sensor", "select"]
 
 CONF_ROOM_TEMP = "room_temp"
 CONF_OUTDOOR_TEMP = "outdoor_temp"
+CONST_PWR_SELECT = "power_select"
 
 toshiba_ns = cg.esphome_ns.namespace("toshiba_suzumi")
 ToshibaClimateUart = toshiba_ns.class_("ToshibaClimateUart", cg.PollingComponent, climate.Climate, uart.UARTDevice)
+ToshibaPwrModeSelect = toshiba_ns.class_('ToshibaPwrModeSelect', select.Select)
 
 CONFIG_SCHEMA = climate.CLIMATE_SCHEMA.extend(
     {
@@ -26,8 +28,11 @@ CONFIG_SCHEMA = climate.CLIMATE_SCHEMA.extend(
                 device_class=DEVICE_CLASS_TEMPERATURE,
                 state_class=STATE_CLASS_MEASUREMENT,
             ),
+        cv.Optional(CONST_PWR_SELECT): select.SELECT_SCHEMA.extend({
+            cv.GenerateID(): cv.declare_id(ToshibaPwrModeSelect),
+        }),
     }
-).extend(uart.UART_DEVICE_SCHEMA).extend(cv.polling_component_schema("60s"))
+).extend(uart.UART_DEVICE_SCHEMA).extend(cv.polling_component_schema("120s"))
 
 async def to_code(config):
     var = cg.new_Pvariable(config[CONF_ID])
@@ -39,3 +44,8 @@ async def to_code(config):
         conf = config[CONF_OUTDOOR_TEMP]
         sens = await sensor.new_sensor(conf)
         cg.add(var.set_outdoor_temp_sensor(sens))
+
+    if CONST_PWR_SELECT in config:
+        sel = await select.new_select(config[CONST_PWR_SELECT], options=['50 %', '75 %', '100 %'])
+        await cg.register_parented(sel, config[CONF_ID])
+        cg.add(var.set_pwr_select(sel))

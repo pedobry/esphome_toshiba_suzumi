@@ -12,9 +12,6 @@ external_components:
       url: https://github.com/pedobry/esphome_toshiba_suzumi
     components: [toshiba_suzumi]
 
-substitutions:
-  mqtt_broker: 10.0.0.196
-
 logger:
   level: info
 
@@ -31,14 +28,16 @@ climate:
     uart_id: uart_bus
     outdoor_temp:        # Optional. Outdoor temperature sensor
       name: Outdoor Temp
+    power_select:
+      name: "Power level"
 
-mqtt:
-  broker: ${mqtt_broker}
-  username: mqtt
-  password: password
+# Enable Home Assistant API
+api:
+  encryption:
+    key: redacted
 
 ota:
-  password: "1ab7cba5af8a3c317xxxxxxxxxxxxx"
+  password: redacted
 
 wifi:
   ssid: redacted
