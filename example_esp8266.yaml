@@ -1,10 +1,7 @@
 esphome:
   name: "climate-living-room"
-
-esp32:
-  board: nodemcu-32s
-  framework:
-    type: arduino
+  platform: ESP8266
+  board: d1_mini
 
 external_components:
   - source: 
@@ -17,8 +14,8 @@ logger:
 
 uart:
   id: uart_bus
-  tx_pin: 33
-  rx_pin: 32
+  tx_pin: 13
+  rx_pin: 15
   parity: EVEN
   baud_rate: 9600
 
@@ -61,3 +58,5 @@ wifi:
   ap:
     ssid: "A Fallback Hotspot"
     password: "xxxxxxxxxxx"
+
+captive_portal:

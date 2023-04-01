@@ -1,0 +1,14 @@
+***
+
+APRIL 1st, 2023
+
+* updated examples to filter outside temp value 127
+* added an optional button to scan for unsupported sensors
+* tested on ESP8266 - Lolin D1 mini
+
+
+ORIGINAL RELEASE (Dec 2022)
+
+* initial release
+
+***

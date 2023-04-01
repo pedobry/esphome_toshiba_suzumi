@@ -122,7 +122,7 @@ void ToshibaClimateUart::requestData(ToshibaCommandType cmd) {
   std::vector<uint8_t> payload = {2, 0, 3, 16, 0, 0, 6, 1, 48, 1, 0, 1};
   payload.push_back(static_cast<uint8_t>(cmd));
   payload.push_back(checksum(payload, payload.size()));
-  ESP_LOGD(TAG, "Requesting data from sensor %d, checksum: %d", payload[12], payload[13]);
+  ESP_LOGI(TAG, "Requesting data from sensor %d, checksum: %d", payload[12], payload[13]);
   this->enqueue_command_(ToshibaCommand{.cmd = cmd, .payload = std::vector<uint8_t>{payload}});
 }
 
@@ -386,6 +386,16 @@ void ToshibaClimateUart::on_set_pwr_level(const std::string &value) {
 }
 
 void ToshibaPwrModeSelect::control(const std::string &value) { parent_->on_set_pwr_level(value); }
+
+/**
+ * Scan all statuses from 128 to 255 in order to find unknown features.
+*/
+void ToshibaClimateUart::scan() {
+  ESP_LOGI(TAG, "Scan started.");
+  for (uint8_t i = 128; i < 255; i++) {
+    this->requestData(static_cast<ToshibaCommandType>(i));
+  }
+}
 
 }  // namespace toshiba_suzumi
 }  // namespace esphome
