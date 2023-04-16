@@ -7,7 +7,6 @@
 namespace esphome {
 namespace toshiba_suzumi {
 
-static const std::string CUSTOM_FAN_LEVEL_QUIET = "Quiet";
 static const std::string CUSTOM_FAN_LEVEL_1 = "Level 1";
 static const std::string CUSTOM_FAN_LEVEL_2 = "Level 2";
 static const std::string CUSTOM_FAN_LEVEL_3 = "Level 3";

@@ -221,6 +221,9 @@ void ToshibaClimateUart::parseResponse(std::vector<uint8_t> rawData) {
       if (static_cast<FAN>(value) == FAN::AUTO) {
         ESP_LOGI(TAG, "Received fan mode: AUTO");
         this->set_fan_mode_(CLIMATE_FAN_AUTO);
+      } else if (static_cast<FAN>(value) == FAN::QUIET) {
+        ESP_LOGI(TAG, "Received fan mode: QUIET");
+        this->set_fan_mode_(CLIMATE_FAN_QUIET);
       } else {
         auto fanMode = IntToCustomFanMode(static_cast<FAN>(value));
         ESP_LOGI(TAG, "Received fan mode: %s", fanMode.c_str());
@@ -332,6 +335,10 @@ void ToshibaClimateUart::control(const climate::ClimateCall &call) {
       ESP_LOGD(TAG, "Setting fan mode to %s", climate_fan_mode_to_string(fan_mode));
       this->set_fan_mode_(fan_mode);
       this->sendCmd(ToshibaCommandType::FAN, static_cast<uint8_t>(FAN::AUTO));
+    } else if (fan_mode == CLIMATE_FAN_QUIET) {
+      ESP_LOGD(TAG, "Setting fan mode to %s", climate_fan_mode_to_string(fan_mode));
+      this->set_fan_mode_(fan_mode);
+      this->sendCmd(ToshibaCommandType::FAN, static_cast<uint8_t>(FAN::QUIET));
     }
   }
 
@@ -364,13 +371,13 @@ ClimateTraits ToshibaClimateUart::traits() {
   traits.set_supports_current_temperature(true);
 
   traits.add_supported_fan_mode(CLIMATE_FAN_AUTO);
+  traits.add_supported_fan_mode(CLIMATE_FAN_QUIET);
   // Toshiba AC has more FAN levels that standard climate component, we have to use custom.
   traits.add_supported_custom_fan_mode(CUSTOM_FAN_LEVEL_1);
   traits.add_supported_custom_fan_mode(CUSTOM_FAN_LEVEL_2);
   traits.add_supported_custom_fan_mode(CUSTOM_FAN_LEVEL_3);
   traits.add_supported_custom_fan_mode(CUSTOM_FAN_LEVEL_4);
   traits.add_supported_custom_fan_mode(CUSTOM_FAN_LEVEL_5);
-  traits.add_supported_custom_fan_mode(CUSTOM_FAN_LEVEL_QUIET);
 
   traits.set_visual_temperature_step(1);
   traits.set_visual_min_temperature(MIN_TEMP);
