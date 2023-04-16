@@ -119,6 +119,20 @@ and then watching ESPHome logs for data:
 
 ![ESPHome log](/images/scan_log.png)
 
+### ESPHome older than 2023.3.0
+
+There is a change in internal implementation of climate control in 2023.3.0 - the fan mode Quiet is implemented as regular fan mode. As a result, the implementation of Quiet mode as custom fan mode won't work anymore.
+
+It was fixed in current code, but users with ESPHome older than 2023.3.0 needs to use older tag:
+
+* users with **ESPHome 2023.3.0** or newer should use branch master
+
+    `url: https://github.com/pedobry/esphome_toshiba_suzumi`
+
+* users with **ESPHome 2023.2.x and older** should use this url:
+
+    `url: https://github.com/pedobry/esphome_toshiba_suzumi@2023.2.0`
+
 ## Links
 
 https://www.espressif.com/en/products/devkits/esp32-devkitc/
