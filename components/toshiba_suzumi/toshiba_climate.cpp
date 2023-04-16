@@ -364,13 +364,13 @@ ClimateTraits ToshibaClimateUart::traits() {
   traits.set_supports_current_temperature(true);
 
   traits.add_supported_fan_mode(CLIMATE_FAN_AUTO);
+  traits.add_supported_fan_mode(CUSTOM_FAN_LEVEL_QUIET);
   // Toshiba AC has more FAN levels that standard climate component, we have to use custom.
   traits.add_supported_custom_fan_mode(CUSTOM_FAN_LEVEL_1);
   traits.add_supported_custom_fan_mode(CUSTOM_FAN_LEVEL_2);
   traits.add_supported_custom_fan_mode(CUSTOM_FAN_LEVEL_3);
   traits.add_supported_custom_fan_mode(CUSTOM_FAN_LEVEL_4);
   traits.add_supported_custom_fan_mode(CUSTOM_FAN_LEVEL_5);
-  traits.add_supported_custom_fan_mode(CUSTOM_FAN_LEVEL_QUIET);
 
   traits.set_visual_temperature_step(1);
   traits.set_visual_min_temperature(MIN_TEMP);
