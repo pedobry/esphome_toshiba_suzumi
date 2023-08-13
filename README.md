@@ -66,6 +66,7 @@ uart:
 climate:
   - platform: toshiba_suzumi
     name: living-room
+    id: living_room      # Optional. Used by the scan button (read below)
     uart_id: uart_bus
     outdoor_temp:        # Optional. Outdoor temperature sensor
       name: Outdoor Temp
