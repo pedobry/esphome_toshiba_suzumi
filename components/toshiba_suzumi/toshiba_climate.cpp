@@ -365,7 +365,7 @@ void ToshibaClimateUart::control(const climate::ClimateCall &call) {
 
 ClimateTraits ToshibaClimateUart::traits() {
   auto traits = climate::ClimateTraits();
-  traits.set_supported_modes({climate::CLIMATE_MODE_OFF, climate::CLIMATE_MODE_AUTO, climate::CLIMATE_MODE_COOL,
+  traits.set_supported_modes({climate::CLIMATE_MODE_OFF, climate::CLIMATE_MODE_HEAT_COOL, climate::CLIMATE_MODE_COOL,
                               climate::CLIMATE_MODE_HEAT, climate::CLIMATE_MODE_DRY, climate::CLIMATE_MODE_FAN_ONLY});
   traits.set_supported_swing_modes({climate::CLIMATE_SWING_OFF, climate::CLIMATE_SWING_VERTICAL});
   traits.set_supports_current_temperature(true);

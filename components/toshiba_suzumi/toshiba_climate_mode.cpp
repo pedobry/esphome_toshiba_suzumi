@@ -8,8 +8,8 @@ namespace toshiba_suzumi {
 
 const MODE ClimateModeToInt(climate::ClimateMode mode) {
   switch (mode) {
-    case climate::CLIMATE_MODE_AUTO:
-      return MODE::AUTO;
+    case climate::CLIMATE_MODE_HEAT_COOL:
+      return MODE::HEAT_COOL;
     case climate::CLIMATE_MODE_COOL:
       return MODE::COOL;
     case climate::CLIMATE_MODE_HEAT:
@@ -20,14 +20,14 @@ const MODE ClimateModeToInt(climate::ClimateMode mode) {
       return MODE::FAN_ONLY;
     default:
       ESP_LOGE(TAG, "Invalid climate mode.");
-      return MODE::AUTO;
+      return MODE::HEAT_COOL;
   }
 }
 
 const climate::ClimateMode IntToClimateMode(MODE mode) {
   switch (mode) {
-    case MODE::AUTO:
-      return climate::CLIMATE_MODE_AUTO;
+    case MODE::HEAT_COOL:
+      return climate::CLIMATE_MODE_HEAT_COOL;
     case MODE::COOL:
       return climate::CLIMATE_MODE_COOL;
     case MODE::HEAT:
