@@ -267,7 +267,11 @@ void ToshibaClimateUart::parseResponse(std::vector<uint8_t> rawData) {
       auto climateState = static_cast<STATE>(value);
       ESP_LOGI(TAG, "Received AC unit power state: %s", climate_state_to_string(climateState));
       if (climateState == STATE::OFF) {
+        // AC unit was just powered off, set mode to OFF
         this->mode = climate::CLIMATE_MODE_OFF;
+      } else if (this->mode == climate::CLIMATE_MODE_OFF) {
+        // AC unit was just powered on, query unit for it's MODE
+        this->requestData(ToshibaCommandType::MODE);
       }
       this->power_state_ = climateState;
       break;
