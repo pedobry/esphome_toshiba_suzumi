@@ -100,14 +100,55 @@ const std::string IntToPowerLevel(PWR_LEVEL mode) {
   }
 }
 
+const optional<SPECIAL_MODE> SpecialModeToInt(const std::string &mode) {
+  if (str_equals_case_insensitive(mode, SPECIAL_MODE_OFF)) {
+    return SPECIAL_MODE::OFF;
+  } else if (str_equals_case_insensitive(mode, SPECIAL_MODE_HI_POWER)) {
+    return SPECIAL_MODE::HI_POWER;
+  } else if (str_equals_case_insensitive(mode, SPECIAL_MODE_ECO)) {
+    return SPECIAL_MODE::ECO;
+  } else if (str_equals_case_insensitive(mode, SPECIAL_MODE_EIGHT_DEG)) {
+    return SPECIAL_MODE::EIGHT_DEG;
+  } else if (str_equals_case_insensitive(mode, SPECIAL_MODE_FIREPLACE)) {
+    return SPECIAL_MODE::FIREPLACE_1;
+  } else if (str_equals_case_insensitive(mode, SPECIAL_MODE_SILENT)) {
+    return SPECIAL_MODE::SILENT_1;
+  } else {
+    return SPECIAL_MODE::OFF;
+  }
+}
+
+const std::string IntToSpecialMode(SPECIAL_MODE mode) {
+  switch (mode) {
+    case SPECIAL_MODE::OFF:
+      return SPECIAL_MODE_OFF;
+    case SPECIAL_MODE::HI_POWER:
+      return SPECIAL_MODE_HI_POWER;
+    case SPECIAL_MODE::ECO:
+      return SPECIAL_MODE_ECO;
+    case SPECIAL_MODE::EIGHT_DEG:
+      return SPECIAL_MODE_EIGHT_DEG;
+    case SPECIAL_MODE::FIREPLACE_1:
+      return SPECIAL_MODE_FIREPLACE;
+    case SPECIAL_MODE::SILENT_1:
+      return SPECIAL_MODE_SILENT;
+    default:
+      return "Unknown";
+  }
+}
+
 const SWING ClimateSwingModeToInt(climate::ClimateSwingMode mode) {
   switch (mode) {
     case climate::CLIMATE_SWING_OFF:
       return SWING::OFF;
+    case climate::CLIMATE_SWING_BOTH:
+      return SWING::BOTH;
     case climate::CLIMATE_SWING_VERTICAL:
-      return SWING::ON;
+      return SWING::VERTICAL;
+    case climate::CLIMATE_SWING_HORIZONTAL:
+      return SWING::HORIZONTAL;
     default:
-      ESP_LOGE(TAG, "Invalid swing mode.");
+      ESP_LOGE(TAG, "Invalid swing mode %d.", mode);
       return SWING::OFF;
   }
 }
@@ -116,10 +157,14 @@ const climate::ClimateSwingMode IntToClimateSwingMode(SWING mode) {
   switch (mode) {
     case SWING::OFF:
       return climate::CLIMATE_SWING_OFF;
-    case SWING::ON:
+    case SWING::VERTICAL:
       return climate::CLIMATE_SWING_VERTICAL;
+    case SWING::HORIZONTAL:
+      return climate::CLIMATE_SWING_HORIZONTAL;
+    case SWING::BOTH:
+      return climate::CLIMATE_SWING_BOTH;
     default:
-      ESP_LOGE(TAG, "Invalid swing mode.");
+      ESP_LOGE(TAG, "Invalid swing mode %d.", mode);
       return climate::CLIMATE_SWING_OFF;
   }
 }

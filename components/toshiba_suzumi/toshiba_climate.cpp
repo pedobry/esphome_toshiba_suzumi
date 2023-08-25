@@ -136,6 +136,7 @@ void ToshibaClimateUart::getInitData() {
   this->requestData(ToshibaCommandType::SWING);
   this->requestData(ToshibaCommandType::ROOM_TEMP);
   this->requestData(ToshibaCommandType::OUTDOOR_TEMP);
+  this->requestData(ToshibaCommandType::SPECIAL_MODE);
 }
 
 void ToshibaClimateUart::setup() {
@@ -276,6 +277,14 @@ void ToshibaClimateUart::parseResponse(std::vector<uint8_t> rawData) {
       this->power_state_ = climateState;
       break;
     }
+    case ToshibaCommandType::SPECIAL_MODE: {
+      auto special_mode = IntToSpecialMode(static_cast<SPECIAL_MODE>(value));
+      ESP_LOGI(TAG, "Received special mode: %d", value);
+      if (special_mode_select_ != nullptr) {
+        special_mode_select_->publish_state(special_mode);
+      }
+      break;
+    }
     default:
       ESP_LOGW(TAG, "Unknown sensor: %d with value %d", sensor, value);
       break;
@@ -293,6 +302,9 @@ void ToshibaClimateUart::dump_config() {
   if (pwr_select_ != nullptr) {
     LOG_SELECT("", "Power selector", this->pwr_select_);
   }
+  if (special_mode_select_ != nullptr) {
+    LOG_SELECT("", "Special mode selector", this->special_mode_select_);
+  } 
 }
 
 /**
@@ -371,7 +383,12 @@ ClimateTraits ToshibaClimateUart::traits() {
   auto traits = climate::ClimateTraits();
   traits.set_supported_modes({climate::CLIMATE_MODE_OFF, climate::CLIMATE_MODE_HEAT_COOL, climate::CLIMATE_MODE_COOL,
                               climate::CLIMATE_MODE_HEAT, climate::CLIMATE_MODE_DRY, climate::CLIMATE_MODE_FAN_ONLY});
-  traits.set_supported_swing_modes({climate::CLIMATE_SWING_OFF, climate::CLIMATE_SWING_VERTICAL});
+  if (this->horizontal_swing_) {
+    traits.set_supported_swing_modes({climate::CLIMATE_SWING_OFF, climate::CLIMATE_SWING_VERTICAL,
+                                      climate::CLIMATE_SWING_HORIZONTAL, climate::CLIMATE_SWING_BOTH});
+  } else {
+    traits.set_supported_swing_modes({climate::CLIMATE_SWING_OFF, climate::CLIMATE_SWING_VERTICAL});
+  }
   traits.set_supports_current_temperature(true);
 
   traits.add_supported_fan_mode(CLIMATE_FAN_AUTO);
@@ -396,7 +413,15 @@ void ToshibaClimateUart::on_set_pwr_level(const std::string &value) {
   pwr_select_->publish_state(value);
 }
 
+void ToshibaClimateUart::on_set_special_mode(const std::string &value) {
+  ESP_LOGD(TAG, "Setting special mode to %s", value.c_str());
+  auto special_mode = SpecialModeToInt(value);
+  this->sendCmd(ToshibaCommandType::SPECIAL_MODE, static_cast<uint8_t>(special_mode.value()));
+  special_mode_select_->publish_state(value);
+}
+
 void ToshibaPwrModeSelect::control(const std::string &value) { parent_->on_set_pwr_level(value); }
+void ToshibaSpecialModeSelect::control(const std::string &value) { parent_->on_set_special_mode(value); }
 
 /**
  * Scan all statuses from 128 to 255 in order to find unknown features.

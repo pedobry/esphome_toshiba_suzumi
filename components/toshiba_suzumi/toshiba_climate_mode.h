@@ -7,15 +7,22 @@
 namespace esphome {
 namespace toshiba_suzumi {
 
-static const std::string CUSTOM_FAN_LEVEL_1 = "Level 1";
-static const std::string CUSTOM_FAN_LEVEL_2 = "Level 2";
-static const std::string CUSTOM_FAN_LEVEL_3 = "Level 3";
-static const std::string CUSTOM_FAN_LEVEL_4 = "Level 4";
-static const std::string CUSTOM_FAN_LEVEL_5 = "Level 5";
+static const std::string &CUSTOM_FAN_LEVEL_1 = "Level 1";
+static const std::string &CUSTOM_FAN_LEVEL_2 = "Level 2";
+static const std::string &CUSTOM_FAN_LEVEL_3 = "Level 3";
+static const std::string &CUSTOM_FAN_LEVEL_4 = "Level 4";
+static const std::string &CUSTOM_FAN_LEVEL_5 = "Level 5";
 
 static const std::string &CUSTOM_PWR_LEVEL_50 = "50 %";
 static const std::string &CUSTOM_PWR_LEVEL_75 = "75 %";
 static const std::string &CUSTOM_PWR_LEVEL_100 = "100 %";
+
+static const std::string &SPECIAL_MODE_OFF = "Off";
+static const std::string &SPECIAL_MODE_HI_POWER = "Hi POWER";
+static const std::string &SPECIAL_MODE_ECO = "ECO";
+static const std::string &SPECIAL_MODE_SILENT = "SILENT";
+static const std::string &SPECIAL_MODE_EIGHT_DEG = "8 degrees";
+static const std::string &SPECIAL_MODE_FIREPLACE = "Fireplace";
 
 enum class CustomFanModes { QUIET, LEVEL_1, LEVEL_2, LEVEL_3, LEVEL_4, LEVEL_5, AUTO };
 
@@ -30,9 +37,20 @@ enum class FAN {
   FANMODE_5 = 54,
   AUTO = 65
 };
-enum class SWING { OFF = 49, ON = 65 };
+enum class SWING { OFF = 49, BOTH =  67, VERTICAL = 65, HORIZONTAL = 66, HADA = 68 };
 enum class STATE { ON = 48, OFF = 49 };
 enum class PWR_LEVEL { PCT_50 = 50, PCT_75 = 75, PCT_100 = 100 };
+
+enum SPECIAL_MODE {
+  OFF = 0,
+  HI_POWER = 1,
+  ECO = 3,
+  EIGHT_DEG = 4,
+  SILENT_1 = 2,
+  SILENT_2 = 10,
+  FIREPLACE_1 = 32,
+  FIREPLACE_2 = 48
+};
 
 enum class ToshibaCommandType : uint8_t {
   HANDSHAKE = 0,  // dummy command to handle all handshake requests
@@ -46,6 +64,7 @@ enum class ToshibaCommandType : uint8_t {
   TARGET_TEMP = 179,
   ROOM_TEMP = 187,
   OUTDOOR_TEMP = 190,
+  SPECIAL_MODE = 247,
 };
 
 const MODE ClimateModeToInt(climate::ClimateMode mode);
@@ -61,6 +80,9 @@ const ::std::string IntToCustomFanMode(FAN mode);
 
 const optional<PWR_LEVEL> StringToPwrLevel(const std::string &mode);
 const std::string IntToPowerLevel(PWR_LEVEL mode);
+
+const optional<SPECIAL_MODE> SpecialModeToInt(const std::string &mode);
+const std::string IntToSpecialMode(SPECIAL_MODE mode);
 
 }  // namespace toshiba_suzumi
 }  // namespace esphome

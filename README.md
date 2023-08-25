@@ -72,6 +72,15 @@ climate:
       name: Outdoor Temp
     power_select:
       name: "Power level"
+    #horizontal_swing: true # Optional. Uncomment if your HVAC supports also horizontal swing
+    #special_mode:          # Optional. Enable only the features your HVAC supports.
+      #name: "Special mode"
+      #modes:
+        #- "Off"
+        #- "ECO"
+        #- "Hi POWER"
+        #- "8 degrees"
+        #- "Fireplace"      
 ...
 ```
 

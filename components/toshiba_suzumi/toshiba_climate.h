@@ -41,6 +41,8 @@ class ToshibaClimateUart : public PollingComponent, public climate::Climate, pub
 
   void set_outdoor_temp_sensor(sensor::Sensor *outdoor_temp_sensor) { outdoor_temp_sensor_ = outdoor_temp_sensor; }
   void set_pwr_select(select::Select *pws_select) { pwr_select_ = pws_select; }
+  void set_horizontal_swing(bool enabled) { horizontal_swing_ = enabled; }
+  void set_special_mode_select(select::Select *special_mode_select) { special_mode_select_ = special_mode_select; }
 
  protected:
   /// Override control to change settings of the climate device.
@@ -57,6 +59,8 @@ class ToshibaClimateUart : public PollingComponent, public climate::Climate, pub
   STATE power_state_ = STATE::OFF;
   select::Select *pwr_select_ = nullptr;
   sensor::Sensor *outdoor_temp_sensor_ = nullptr;
+  bool horizontal_swing_ = false;
+  select::Select *special_mode_select_ = nullptr;
 
   void enqueue_command_(const ToshibaCommand &command);
   void send_to_uart(const ToshibaCommand command);
@@ -69,11 +73,18 @@ class ToshibaClimateUart : public PollingComponent, public climate::Climate, pub
   void handle_rx_byte_(uint8_t c);
   bool validate_message_();
   void on_set_pwr_level(const std::string &value);
+  void on_set_special_mode(const std::string &value);
 
   friend class ToshibaPwrModeSelect;
+  friend class ToshibaSpecialModeSelect;
 };
 
 class ToshibaPwrModeSelect : public select::Select, public esphome::Parented<ToshibaClimateUart> {
+ protected:
+  virtual void control(const std::string &value) override;
+};
+
+class ToshibaSpecialModeSelect : public select::Select, public esphome::Parented<ToshibaClimateUart> {
  protected:
   virtual void control(const std::string &value) override;
 };
