@@ -205,12 +205,14 @@ void ToshibaClimateUart::parseResponse(std::vector<uint8_t> rawData) {
       value = rawData[13];
       break;
     case 16:  // probably ACK for issued command
+      ESP_LOGD(TAG, "Received message with length: %d and value %s", length, format_hex_pretty(rawData).c_str());
       return;
     case 17:  // response to requestData with the actual value of sensor/setting
       sensor = static_cast<ToshibaCommandType>(rawData[14]);
       value = rawData[15];
       break;
     default:
+      ESP_LOGW(TAG, "Received unknown message with length: %d and value %s", length, format_hex_pretty(rawData).c_str());
       return;
   }
   switch (sensor) {
@@ -270,7 +272,7 @@ void ToshibaClimateUart::parseResponse(std::vector<uint8_t> rawData) {
       if (climateState == STATE::OFF) {
         // AC unit was just powered off, set mode to OFF
         this->mode = climate::CLIMATE_MODE_OFF;
-      } else if (this->mode == climate::CLIMATE_MODE_OFF) {
+      } else if (this->mode == climate::CLIMATE_MODE_OFF && climateState == STATE::ON) {
         // AC unit was just powered on, query unit for it's MODE
         this->requestData(ToshibaCommandType::MODE);
       }
