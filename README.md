@@ -76,11 +76,14 @@ climate:
     #special_mode:          # Optional. Enable only the features your HVAC supports.
       #name: "Special mode"
       #modes:
-        #- "Off"
-        #- "ECO"
+        #- "Standard"
         #- "Hi POWER"
+        #- "ECO"
+        #- "Fireplace 1" 
+        #- "Fireplace 2" 
         #- "8 degrees"
-        #- "Fireplace"      
+        #- "Silent#1" 
+        #- "Silent#2"    
 ...
 ```
 
