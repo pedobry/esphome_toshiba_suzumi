@@ -31,10 +31,10 @@ AC unit has a wifi connector on extension cable, usually with pink and blue colo
 |pin number| color | ESP32 pin  |ESP8266 pin|
 |----------|-------|------------|-----------|
 |    1     | blue  | 33 (TX)    | 13 (TX)   |
-|    2     | purple| GND        | GND       |
+|    2     | pink  | GND        | GND       |
 |    3     | black | \+5V (Vin) | \+5V (Vin)|
 |    4     | white | 32 (RX)    | 15 (RX)   |
-|    5     | purple| unused     | unused    |
+|    5     | pink  | unused     | unused    |
 
 </p>
 
