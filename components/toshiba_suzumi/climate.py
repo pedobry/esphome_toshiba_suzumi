@@ -39,7 +39,7 @@ CONFIG_SCHEMA = climate.CLIMATE_SCHEMA.extend(
         cv.Optional(FEATURE_HORIZONTAL_SWING): cv.boolean,
         cv.Optional(CONF_SPECIAL_MODE): select.SELECT_SCHEMA.extend({
             cv.GenerateID(): cv.declare_id(ToshibaSpecialModeSelect),
-            cv.Required(CONF_SPECIAL_MODE_MODES): cv.ensure_list(cv.one_of("Off","Hi POWER","ECO","Fireplace","SILENT","8 degrees"))
+            cv.Required(CONF_SPECIAL_MODE_MODES): cv.ensure_list(cv.one_of("Standard","Hi POWER","ECO","Fireplace 1","Fireplace 2","8 degrees", "Silent#1","Silent#2"))
         }),
     }
 ).extend(uart.UART_DEVICE_SCHEMA).extend(cv.polling_component_schema("120s"))

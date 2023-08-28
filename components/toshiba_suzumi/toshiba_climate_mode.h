@@ -17,12 +17,16 @@ static const std::string &CUSTOM_PWR_LEVEL_50 = "50 %";
 static const std::string &CUSTOM_PWR_LEVEL_75 = "75 %";
 static const std::string &CUSTOM_PWR_LEVEL_100 = "100 %";
 
-static const std::string &SPECIAL_MODE_OFF = "Off";
+static const std::string &SPECIAL_MODE_STANDARD = "Standard";
 static const std::string &SPECIAL_MODE_HI_POWER = "Hi POWER";
 static const std::string &SPECIAL_MODE_ECO = "ECO";
-static const std::string &SPECIAL_MODE_SILENT = "SILENT";
+// Special modes described at:
+// https://partner.toshiba-klima.at/data/01_RAS/02_Multi/01_R32/01_multi_indoor/02_SHORAI_EDGE_J2KVSG/02_Manuals/OM_RAS_18_B22_B24_J2KVSG_J2AVSG_E_ML.pdf
+static const std::string &SPECIAL_MODE_FIREPLACE_1 = "Fireplace 1";
+static const std::string &SPECIAL_MODE_FIREPLACE_2 = "Fireplace 2";
 static const std::string &SPECIAL_MODE_EIGHT_DEG = "8 degrees";
-static const std::string &SPECIAL_MODE_FIREPLACE = "Fireplace";
+static const std::string &SPECIAL_MODE_SILENT_1 = "Silent#1"; 
+static const std::string &SPECIAL_MODE_SILENT_2 = "Silent#2"; 
 
 enum class CustomFanModes { QUIET, LEVEL_1, LEVEL_2, LEVEL_3, LEVEL_4, LEVEL_5, AUTO };
 
@@ -42,14 +46,14 @@ enum class STATE { ON = 48, OFF = 49 };
 enum class PWR_LEVEL { PCT_50 = 50, PCT_75 = 75, PCT_100 = 100 };
 
 enum SPECIAL_MODE {
-  OFF = 0,
+  STANDARD = 0,
   HI_POWER = 1,
   ECO = 3,
-  EIGHT_DEG = 4,
-  SILENT_1 = 2,
-  SILENT_2 = 10,
   FIREPLACE_1 = 32,
-  FIREPLACE_2 = 48
+  FIREPLACE_2 = 48,
+  EIGHT_DEG = 4,
+  SILENT_1 = 2, 
+  SILENT_2 = 10
 };
 
 enum class ToshibaCommandType : uint8_t {
