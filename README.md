@@ -6,6 +6,8 @@ Toshiba air conditioner has an option for connecting remote module purchased sep
 
 This component use ESPHome UART to connect with Toshiba AC and communicates directly with Home Assistant.
 
+<a href="https://www.buymeacoffee.com/pedobryk" target="_blank"><img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" alt="Buy Me A Coffee" style="height: 60px !important;width: 217px !important;" ></a>
+
 ## Hardware
 
 * tested with ESP32 (WROOM 32D)
@@ -66,7 +68,7 @@ uart:
 climate:
   - platform: toshiba_suzumi
     name: living-room
-    id: living_room      # Optional. Used by the scan button (read below)
+    id: living_room      # Optional. Used by the scan button (read bellow)
     uart_id: uart_bus
     outdoor_temp:        # Optional. Outdoor temperature sensor
       name: Outdoor Temp
