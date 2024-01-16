@@ -8,6 +8,19 @@ This component use ESPHome UART to connect with Toshiba AC and communicates dire
 
 <a href="https://www.buymeacoffee.com/pedobryk" target="_blank"><img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" alt="Buy Me A Coffee" style="height: 60px !important;width: 217px !important;" ></a>
 
+### Supported Toshiba units
+
+Any unit which have an option to purchase o wifi adapter RB-N105S-G/RB-N106S-G:
+
+* Seiya RAS-B24 J2KVG-E
+* Suzumi Plus RAS-B18, B22 and B24 PKVSG-E
+* Shorai Premium RAS-B18, B22 and B24 J2KVRG-E
+* Daiseikai 9 RAS-B10, B13 and B16 PKVPG-E
+* Shorai Edge RAS-B07, B10, B13, B16, B18, B22 and B24 J2KVSG-E
+* Seiya RAS-B10, B13, B16 and B18 J2KVG-E
+* Suzumi Plus RAS-B10, B13 and B16 PKVSG-E
+* Shorai Premium RAS-B10, B13 and B16 J2KVRG-E
+
 ## Hardware
 
 * tested with ESP32 (WROOM 32D)
@@ -26,7 +39,7 @@ This component use ESPHome UART to connect with Toshiba AC and communicates dire
 
 ### Pinout
 
-AC unit has a wifi connector on extension cable, usually with pink and blue colors (see the schema above).
+AC unit has a wifi connector CN22 with an extension cable, usually with pink and blue colors (see the schema above).
 
 <p align="center">
 
