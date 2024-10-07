@@ -25,8 +25,8 @@ static const std::string &SPECIAL_MODE_ECO = "ECO";
 static const std::string &SPECIAL_MODE_FIREPLACE_1 = "Fireplace 1";
 static const std::string &SPECIAL_MODE_FIREPLACE_2 = "Fireplace 2";
 static const std::string &SPECIAL_MODE_EIGHT_DEG = "8 degrees";
-static const std::string &SPECIAL_MODE_SILENT_1 = "Silent#1"; 
-static const std::string &SPECIAL_MODE_SILENT_2 = "Silent#2"; 
+static const std::string &SPECIAL_MODE_SILENT_1 = "Silent#1";
+static const std::string &SPECIAL_MODE_SILENT_2 = "Silent#2";
 
 enum class CustomFanModes { QUIET, LEVEL_1, LEVEL_2, LEVEL_3, LEVEL_4, LEVEL_5, AUTO };
 
@@ -52,7 +52,7 @@ enum SPECIAL_MODE {
   FIREPLACE_1 = 32,
   FIREPLACE_2 = 48,
   EIGHT_DEG = 4,
-  SILENT_1 = 2, 
+  SILENT_1 = 2,
   SILENT_2 = 10
 };
 
@@ -68,6 +68,7 @@ enum class ToshibaCommandType : uint8_t {
   TARGET_TEMP = 179,
   ROOM_TEMP = 187,
   OUTDOOR_TEMP = 190,
+  WIFI_LED = 223,
   SPECIAL_MODE = 247,
 };
 
