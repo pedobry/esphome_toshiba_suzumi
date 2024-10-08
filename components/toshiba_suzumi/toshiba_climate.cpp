@@ -144,8 +144,11 @@ void ToshibaClimateUart::setup() {
   this->start_handshake();
   // load initial sensor data from the unit
   this->getInitData();
-  // Disable Wifi LED
-  this->sendCmd(ToshibaCommandType::WIFI_LED, 128);
+
+  if (this->wifi_led_disabled_) {
+    // Disable Wifi LED
+    this->sendCmd(ToshibaCommandType::WIFI_LED, 128);
+  }
 }
 
 /**
