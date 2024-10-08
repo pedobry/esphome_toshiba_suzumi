@@ -31,6 +31,7 @@ climate:
         - filter_out: 127 
     power_select:
       name: "Power level"
+    #min_temp: 7 # Optional. Min temp is by default set to 17°C. If your AC has 8° heating mode, you can set different min temperature here.
     #horizontal_swing: true # Optional. Uncomment if your HVAC supports also horizontal swing
     #special_mode:          # Optional. Enable only the features your HVAC supports.
       #name: "Special mode"

@@ -306,7 +306,8 @@ void ToshibaClimateUart::dump_config() {
   }
   if (special_mode_select_ != nullptr) {
     LOG_SELECT("", "Special mode selector", this->special_mode_select_);
-  } 
+  }
+  ESP_LOGI(TAG, "Min Temp: %d", this->min_temp_);
 }
 
 /**
@@ -403,7 +404,7 @@ ClimateTraits ToshibaClimateUart::traits() {
   traits.add_supported_custom_fan_mode(CUSTOM_FAN_LEVEL_5);
 
   traits.set_visual_temperature_step(1);
-  traits.set_visual_min_temperature(MIN_TEMP);
+  traits.set_visual_min_temperature(this->min_temp_);
   traits.set_visual_max_temperature(MAX_TEMP);
   return traits;
 }

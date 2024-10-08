@@ -11,7 +11,6 @@ namespace esphome {
 namespace toshiba_suzumi {
 
 static const char *const TAG = "ToshibaClimateUart";
-static const uint8_t MIN_TEMP = 17;
 static const uint8_t MAX_TEMP = 30;
 
 static const std::vector<uint8_t> HANDSHAKE[6] = {
@@ -43,6 +42,7 @@ class ToshibaClimateUart : public PollingComponent, public climate::Climate, pub
   void set_pwr_select(select::Select *pws_select) { pwr_select_ = pws_select; }
   void set_horizontal_swing(bool enabled) { horizontal_swing_ = enabled; }
   void set_special_mode_select(select::Select *special_mode_select) { special_mode_select_ = special_mode_select; }
+  void set_min_temp(uint8_t min_temp) { min_temp_ = min_temp; }
 
  protected:
   /// Override control to change settings of the climate device.
@@ -60,6 +60,7 @@ class ToshibaClimateUart : public PollingComponent, public climate::Climate, pub
   select::Select *pwr_select_ = nullptr;
   sensor::Sensor *outdoor_temp_sensor_ = nullptr;
   bool horizontal_swing_ = false;
+  uint8_t min_temp_ = 17; // default min temp for units without 8° heating mode
   select::Select *special_mode_select_ = nullptr;
 
   void enqueue_command_(const ToshibaCommand &command);

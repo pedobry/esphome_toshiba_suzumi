@@ -18,6 +18,7 @@ CONF_SPECIAL_MODE = "special_mode"
 CONF_SPECIAL_MODE_MODES = "modes"
 
 FEATURE_HORIZONTAL_SWING = "horizontal_swing"
+MIN_TEMP = "min_temp"
 
 toshiba_ns = cg.esphome_ns.namespace("toshiba_suzumi")
 ToshibaClimateUart = toshiba_ns.class_("ToshibaClimateUart", cg.PollingComponent, climate.Climate, uart.UARTDevice)
@@ -41,6 +42,7 @@ CONFIG_SCHEMA = climate.CLIMATE_SCHEMA.extend(
             cv.GenerateID(): cv.declare_id(ToshibaSpecialModeSelect),
             cv.Required(CONF_SPECIAL_MODE_MODES): cv.ensure_list(cv.one_of("Standard","Hi POWER","ECO","Fireplace 1","Fireplace 2","8 degrees", "Silent#1","Silent#2"))
         }),
+        cv.Optional(MIN_TEMP): cv.int_,
     }
 ).extend(uart.UART_DEVICE_SCHEMA).extend(cv.polling_component_schema("120s"))
 
@@ -62,6 +64,9 @@ async def to_code(config):
 
     if FEATURE_HORIZONTAL_SWING in config:
         cg.add(var.set_horizontal_swing(True))
+
+    if MIN_TEMP in config:
+        var = cg.add(var.set_min_temp(config[MIN_TEMP]))
 
     if CONF_SPECIAL_MODE in config:
         sel = await select.new_select(config[CONF_SPECIAL_MODE], options=config[CONF_SPECIAL_MODE][CONF_SPECIAL_MODE_MODES])
