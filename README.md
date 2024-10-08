@@ -98,7 +98,8 @@ climate:
         #- "Fireplace 2" 
         #- "8 degrees"
         #- "Silent#1" 
-        #- "Silent#2"    
+        #- "Silent#2"
+    #disable_wifi_led: true # Optional. Disable Wifi LED on internal unit.
 ...
 ```
 

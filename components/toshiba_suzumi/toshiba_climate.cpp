@@ -144,6 +144,11 @@ void ToshibaClimateUart::setup() {
   this->start_handshake();
   // load initial sensor data from the unit
   this->getInitData();
+
+  if (this->wifi_led_disabled_) {
+    // Disable Wifi LED
+    this->sendCmd(ToshibaCommandType::WIFI_LED, 128);
+  }
 }
 
 /**
@@ -306,7 +311,7 @@ void ToshibaClimateUart::dump_config() {
   }
   if (special_mode_select_ != nullptr) {
     LOG_SELECT("", "Special mode selector", this->special_mode_select_);
-  } 
+  }
 }
 
 /**

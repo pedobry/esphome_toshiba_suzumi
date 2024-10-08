@@ -40,6 +40,7 @@ climate:
         #- "Hi POWER"
         #- "8 degrees"
         #- "Fireplace"
+    #disable_wifi_led: true # Optional. Disable Wifi LED on internal unit.
 
 # Enable button to scan for unknown values in AC unit. This is optional.
 button:

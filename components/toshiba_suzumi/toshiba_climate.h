@@ -42,6 +42,7 @@ class ToshibaClimateUart : public PollingComponent, public climate::Climate, pub
   void set_outdoor_temp_sensor(sensor::Sensor *outdoor_temp_sensor) { outdoor_temp_sensor_ = outdoor_temp_sensor; }
   void set_pwr_select(select::Select *pws_select) { pwr_select_ = pws_select; }
   void set_horizontal_swing(bool enabled) { horizontal_swing_ = enabled; }
+  void disable_wifi_led(bool disabled) { wifi_led_disabled_ = disabled; }
   void set_special_mode_select(select::Select *special_mode_select) { special_mode_select_ = special_mode_select; }
 
  protected:
@@ -60,6 +61,7 @@ class ToshibaClimateUart : public PollingComponent, public climate::Climate, pub
   select::Select *pwr_select_ = nullptr;
   sensor::Sensor *outdoor_temp_sensor_ = nullptr;
   bool horizontal_swing_ = false;
+  bool wifi_led_disabled_ = false;
   select::Select *special_mode_select_ = nullptr;
 
   void enqueue_command_(const ToshibaCommand &command);
