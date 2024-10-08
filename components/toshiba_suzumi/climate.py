@@ -19,6 +19,7 @@ CONF_SPECIAL_MODE_MODES = "modes"
 
 FEATURE_HORIZONTAL_SWING = "horizontal_swing"
 MIN_TEMP = "min_temp"
+DISABLE_WIFI_LED = "disable_wifi_led"
 
 toshiba_ns = cg.esphome_ns.namespace("toshiba_suzumi")
 ToshibaClimateUart = toshiba_ns.class_("ToshibaClimateUart", cg.PollingComponent, climate.Climate, uart.UARTDevice)
@@ -38,6 +39,7 @@ CONFIG_SCHEMA = climate.CLIMATE_SCHEMA.extend(
             cv.GenerateID(): cv.declare_id(ToshibaPwrModeSelect),
         }),
         cv.Optional(FEATURE_HORIZONTAL_SWING): cv.boolean,
+        cv.Optional(DISABLE_WIFI_LED): cv.boolean,
         cv.Optional(CONF_SPECIAL_MODE): select.SELECT_SCHEMA.extend({
             cv.GenerateID(): cv.declare_id(ToshibaSpecialModeSelect),
             cv.Required(CONF_SPECIAL_MODE_MODES): cv.ensure_list(cv.one_of("Standard","Hi POWER","ECO","Fireplace 1","Fireplace 2","8 degrees", "Silent#1","Silent#2"))
@@ -67,6 +69,9 @@ async def to_code(config):
 
     if MIN_TEMP in config:
         var = cg.add(var.set_min_temp(config[MIN_TEMP]))
+
+    if DISABLE_WIFI_LED in config:
+        cg.add(var.disable_wifi_led(True))
 
     if CONF_SPECIAL_MODE in config:
         sel = await select.new_select(config[CONF_SPECIAL_MODE], options=config[CONF_SPECIAL_MODE][CONF_SPECIAL_MODE_MODES])
