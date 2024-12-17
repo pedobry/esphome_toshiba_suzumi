@@ -354,6 +354,23 @@ void ToshibaClimateUart::control(const climate::ClimateCall &call) {
   if (call.get_target_temperature().has_value()) {
     auto target_temp = *call.get_target_temperature();
     uint8_t intTemp = (uint8_t) target_temp;
+    bool special_mode_changed = false;
+    if (intTemp >= this->min_temp_ && this->special_mode_ == SPECIAL_MODE::EIGHT_DEG) {
+      this->special_mode_ = SPECIAL_MODE::STANDARD;
+      special_mode_changed = true;
+      ESP_LOGD(TAG, "Changing to Standard Mode");
+    }
+    else if (intTemp < this->min_temp_ && this->special_mode_ != SPECIAL_MODE::EIGHT_DEG)
+    {
+      this->special_mode_ = SPECIAL_MODE::EIGHT_DEG;
+      special_mode_changed = true;      
+      ESP_LOGD(TAG, "Changing to FrostGuard Mode");
+    }
+    if (special_mode_changed) {
+      this->sendCmd(ToshibaCommandType::SPECIAL_MODE, static_cast<uint8_t>(this->special_mode_.value()));
+      special_mode_select_->publish_state(IntToSpecialMode(this->special_mode_.value()));
+    }
+    
     ESP_LOGD(TAG, "Setting target temp to %d", intTemp);
     if (this->special_mode_ == SPECIAL_MODE::EIGHT_DEG) {
       intTemp += SPECIAL_TEMP_OFFSET;
@@ -418,14 +435,10 @@ ClimateTraits ToshibaClimateUart::traits() {
   traits.add_supported_custom_fan_mode(CUSTOM_FAN_LEVEL_4);
   traits.add_supported_custom_fan_mode(CUSTOM_FAN_LEVEL_5);
 
-  traits.set_visual_temperature_step(1);
-  if (this->special_mode_ == SPECIAL_MODE::EIGHT_DEG) {    
-    traits.set_visual_min_temperature(SPECIAL_MODE_EIGHT_DEG_MIN_TEMP);
-    traits.set_visual_max_temperature(SPECIAL_MODE_EIGHT_DEG_MAX_TEMP);
-  } else {
-    traits.set_visual_min_temperature(this->min_temp_);
-    traits.set_visual_max_temperature(MAX_TEMP);
-  }
+  traits.set_visual_temperature_step(1); 
+  traits.set_visual_min_temperature(SPECIAL_MODE_EIGHT_DEG_MIN_TEMP);
+  traits.set_visual_max_temperature(MAX_TEMP);
+    
   return traits;
 }
 
@@ -442,11 +455,11 @@ void ToshibaClimateUart::on_set_special_mode(const std::string &value) {
   this->sendCmd(ToshibaCommandType::SPECIAL_MODE, static_cast<uint8_t>(new_special_mode.value()));
   special_mode_select_->publish_state(value);
   if (new_special_mode != this->special_mode_) {
-    if (this->special_mode_ == SPECIAL_MODE::EIGHT_DEG) {      
+    if (this->special_mode_ == SPECIAL_MODE::EIGHT_DEG && this->target_temperature < this->min_temp_) {      
       this->target_temperature = NORMAL_MODE_DEF_TEMP;
     }
     this->special_mode_ = new_special_mode;
-    if (new_special_mode == SPECIAL_MODE::EIGHT_DEG) {
+    if (new_special_mode == SPECIAL_MODE::EIGHT_DEG && this->target_temperature >= this->min_temp_) {
       this->target_temperature = SPECIAL_MODE_EIGHT_DEG_DEF_TEMP;
     }
 
