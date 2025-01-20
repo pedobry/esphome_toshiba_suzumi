@@ -68,7 +68,7 @@ async def to_code(config):
         cg.add(var.set_horizontal_swing(True))
 
     if MIN_TEMP in config:
-        var = cg.add(var.set_min_temp(config[MIN_TEMP]))
+        cg.add(var.set_min_temp(config[MIN_TEMP]))
 
     if DISABLE_WIFI_LED in config:
         cg.add(var.disable_wifi_led(True))
