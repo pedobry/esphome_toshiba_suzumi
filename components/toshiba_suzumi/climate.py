@@ -42,7 +42,7 @@ CONFIG_SCHEMA = climate.CLIMATE_SCHEMA.extend(
         cv.Optional(DISABLE_WIFI_LED): cv.boolean,
         cv.Optional(CONF_SPECIAL_MODE): select.SELECT_SCHEMA.extend({
             cv.GenerateID(): cv.declare_id(ToshibaSpecialModeSelect),
-            cv.Required(CONF_SPECIAL_MODE_MODES): cv.ensure_list(cv.one_of("Standard","Hi POWER","ECO","Fireplace 1","Fireplace 2","8 degrees", "Silent#1","Silent#2"))
+            cv.Required(CONF_SPECIAL_MODE_MODES): cv.ensure_list(cv.one_of("Standard","Hi POWER","ECO","Fireplace 1","Fireplace 2","8 degrees","Silent#1","Silent#2","Sleep","Floor","Comfort"))
         }),
         cv.Optional(MIN_TEMP): cv.int_,
     }
