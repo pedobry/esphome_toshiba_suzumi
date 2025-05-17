@@ -478,16 +478,26 @@ void ToshibaClimateUart::on_set_special_mode(const std::string &value) {
   this->sendCmd(ToshibaCommandType::SPECIAL_MODE, static_cast<uint8_t>(new_special_mode.value()));
   special_mode_select_->publish_state(value);
   if (new_special_mode != this->special_mode_) {
-    if (this->special_mode_ == SPECIAL_MODE::EIGHT_DEG && this->target_temperature < this->min_temp_) {      
+    if (this->special_mode_ == SPECIAL_MODE::EIGHT_DEG && this->target_temperature < this->min_temp_) {  
+      // when switching from FrostGuard to Standard mode, set target temperature to default for Standard mode
       this->target_temperature = NORMAL_MODE_DEF_TEMP;
+      this->setVisualTempRange(this->min_temp_, MAX_TEMP);
     }
     this->special_mode_ = new_special_mode;
     if (new_special_mode == SPECIAL_MODE::EIGHT_DEG && this->target_temperature >= this->min_temp_) {
+      // when switching from Standard to FrostGuard mode, set target temperature to default for FrostGuard mode
       this->target_temperature = SPECIAL_MODE_EIGHT_DEG_DEF_TEMP;
+      this->setVisualTempRange(SPECIAL_MODE_EIGHT_DEG_MIN_TEMP, SPECIAL_MODE_EIGHT_DEG_MAX_TEMP);
     }
-
+    // update Climate component in HA with new target temperature
     this->publish_state();
   }
+}
+
+void ToshibaClimateUart::setVisualTempRange(const std::string &min_temp, const std::string &max_temp) {
+  auto traits = this->traits();
+  traits.set_visual_min_temperature(min_temp);
+  traits.set_visual_max_temperature(max_temp);
 }
 
 void ToshibaPwrModeSelect::control(const std::string &value) { parent_->on_set_pwr_level(value); }
