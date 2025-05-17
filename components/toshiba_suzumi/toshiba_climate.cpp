@@ -223,6 +223,10 @@ void ToshibaClimateUart::parseResponse(std::vector<uint8_t> rawData) {
   switch (sensor) {
     case ToshibaCommandType::TARGET_TEMP:
       ESP_LOGI(TAG, "Received target temp: %d", value);
+      if (this->special_mode_ == SPECIAL_MODE::EIGHT_DEG) {
+        value -= SPECIAL_TEMP_OFFSET;
+        ESP_LOGI(TAG, "Note: Special Mode \"%s\" is active, shifting target temp to %d", SPECIAL_MODE_EIGHT_DEG, value);
+      }
       this->target_temperature = value;
       break;
     case ToshibaCommandType::FAN: {
@@ -293,12 +297,14 @@ void ToshibaClimateUart::parseResponse(std::vector<uint8_t> rawData) {
       this->power_state_ = climateState;
       break;
     }
-    case ToshibaCommandType::SPECIAL_MODE: {
-      auto special_mode = IntToSpecialMode(static_cast<SPECIAL_MODE>(value));
+    case ToshibaCommandType::SPECIAL_MODE: {  
+      this->special_mode_ = static_cast<SPECIAL_MODE>(value);    
+      auto special_mode = IntToSpecialMode(this->special_mode_.value());
       ESP_LOGI(TAG, "Received special mode: %d", value);
       if (special_mode_select_ != nullptr) {
         special_mode_select_->publish_state(special_mode);
       }
+      this->publish_state();
       break;
     }
     default:
@@ -357,7 +363,28 @@ void ToshibaClimateUart::control(const climate::ClimateCall &call) {
   if (call.get_target_temperature().has_value()) {
     auto target_temp = *call.get_target_temperature();
     uint8_t intTemp = (uint8_t) target_temp;
+    bool special_mode_changed = false;
+    if (intTemp >= this->min_temp_ && this->special_mode_ == SPECIAL_MODE::EIGHT_DEG) {
+      this->special_mode_ = SPECIAL_MODE::STANDARD;
+      special_mode_changed = true;
+      ESP_LOGD(TAG, "Changing to Standard Mode");
+    }
+    else if (intTemp < this->min_temp_ && this->special_mode_ != SPECIAL_MODE::EIGHT_DEG)
+    {
+      this->special_mode_ = SPECIAL_MODE::EIGHT_DEG;
+      special_mode_changed = true;      
+      ESP_LOGD(TAG, "Changing to FrostGuard Mode");
+    }
+    if (special_mode_changed) {
+      this->sendCmd(ToshibaCommandType::SPECIAL_MODE, static_cast<uint8_t>(this->special_mode_.value()));
+      special_mode_select_->publish_state(IntToSpecialMode(this->special_mode_.value()));
+    }
+    
     ESP_LOGD(TAG, "Setting target temp to %d", intTemp);
+    if (this->special_mode_ == SPECIAL_MODE::EIGHT_DEG) {
+      intTemp += SPECIAL_TEMP_OFFSET;
+      ESP_LOGD(TAG, "Note: Special Mode \"%s\" active, shifting setpoint temp to %d", SPECIAL_MODE_EIGHT_DEG, intTemp);
+    }
     this->target_temperature = target_temp;
     this->sendCmd(ToshibaCommandType::TARGET_TEMP, intTemp);
   }
@@ -431,9 +458,10 @@ ClimateTraits ToshibaClimateUart::traits() {
   traits.add_supported_custom_fan_mode(CUSTOM_FAN_LEVEL_4);
   traits.add_supported_fan_mode(CLIMATE_FAN_HIGH);
 
-  traits.set_visual_temperature_step(1);
-  traits.set_visual_min_temperature(this->min_temp_);
+  traits.set_visual_temperature_step(1); 
+  traits.set_visual_min_temperature(SPECIAL_MODE_EIGHT_DEG_MIN_TEMP);
   traits.set_visual_max_temperature(MAX_TEMP);
+    
   return traits;
 }
 
@@ -445,10 +473,21 @@ void ToshibaClimateUart::on_set_pwr_level(const std::string &value) {
 }
 
 void ToshibaClimateUart::on_set_special_mode(const std::string &value) {
+  auto new_special_mode = SpecialModeToInt(value);
   ESP_LOGD(TAG, "Setting special mode to %s", value.c_str());
-  auto special_mode = SpecialModeToInt(value);
-  this->sendCmd(ToshibaCommandType::SPECIAL_MODE, static_cast<uint8_t>(special_mode.value()));
+  this->sendCmd(ToshibaCommandType::SPECIAL_MODE, static_cast<uint8_t>(new_special_mode.value()));
   special_mode_select_->publish_state(value);
+  if (new_special_mode != this->special_mode_) {
+    if (this->special_mode_ == SPECIAL_MODE::EIGHT_DEG && this->target_temperature < this->min_temp_) {      
+      this->target_temperature = NORMAL_MODE_DEF_TEMP;
+    }
+    this->special_mode_ = new_special_mode;
+    if (new_special_mode == SPECIAL_MODE::EIGHT_DEG && this->target_temperature >= this->min_temp_) {
+      this->target_temperature = SPECIAL_MODE_EIGHT_DEG_DEF_TEMP;
+    }
+
+    this->publish_state();
+  }
 }
 
 void ToshibaPwrModeSelect::control(const std::string &value) { parent_->on_set_pwr_level(value); }
