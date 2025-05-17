@@ -7,11 +7,8 @@
 namespace esphome {
 namespace toshiba_suzumi {
 
-static const std::string &CUSTOM_FAN_LEVEL_1 = "Level 1";
-static const std::string &CUSTOM_FAN_LEVEL_2 = "Level 2";
-static const std::string &CUSTOM_FAN_LEVEL_3 = "Level 3";
-static const std::string &CUSTOM_FAN_LEVEL_4 = "Level 4";
-static const std::string &CUSTOM_FAN_LEVEL_5 = "Level 5";
+static const std::string &CUSTOM_FAN_LEVEL_2 = "Low-Medium";
+static const std::string &CUSTOM_FAN_LEVEL_4 = "Medium-High";
 
 static const std::string &CUSTOM_PWR_LEVEL_50 = "50 %";
 static const std::string &CUSTOM_PWR_LEVEL_75 = "75 %";
@@ -31,18 +28,16 @@ static const std::string &SPECIAL_MODE_SLEEP = "Sleep";
 static const std::string &SPECIAL_MODE_FLOOR = "Floor";
 static const std::string &SPECIAL_MODE_COMFORT = "Comfort";
 
-enum class CustomFanModes { QUIET, LEVEL_1, LEVEL_2, LEVEL_3, LEVEL_4, LEVEL_5, AUTO };
-
 // codes as reverse engineered from Toshiba AC communication with original Wifi module.
 enum class MODE { HEAT_COOL = 65, COOL = 66, HEAT = 67, DRY = 68, FAN_ONLY = 69 };
 enum class FAN {
-  QUIET = 49,
-  FANMODE_1 = 50,
+  FAN_QUIET = 49,
+  FAN_LOW = 50,
   FANMODE_2 = 51,
-  FANMODE_3 = 52,
+  FAN_MEDIUM = 52,
   FANMODE_4 = 53,
-  FANMODE_5 = 54,
-  AUTO = 65
+  FAN_HIGH = 54,
+  FAN_AUTO = 65
 };
 enum class SWING { OFF = 49, BOTH =  67, VERTICAL = 65, HORIZONTAL = 66 };
 enum class STATE { ON = 48, OFF = 49 };
