@@ -117,6 +117,12 @@ const optional<SPECIAL_MODE> SpecialModeToInt(const std::string &mode) {
     return SPECIAL_MODE::SILENT_1;
   } else if (str_equals_case_insensitive(mode, SPECIAL_MODE_SILENT_2)) {
     return SPECIAL_MODE::SILENT_2;
+  } else if (str_equals_case_insensitive(mode, SPECIAL_MODE_SLEEP)) {
+    return SPECIAL_MODE::SLEEP;
+  } else if (str_equals_case_insensitive(mode, SPECIAL_MODE_FLOOR)) {
+    return SPECIAL_MODE::FLOOR;
+  } else if (str_equals_case_insensitive(mode, SPECIAL_MODE_COMFORT)) {
+    return SPECIAL_MODE::COMFORT;
   } else {
     return SPECIAL_MODE::STANDARD;
   }
@@ -140,6 +146,12 @@ const std::string IntToSpecialMode(SPECIAL_MODE mode) {
       return SPECIAL_MODE_SILENT_1;
     case SPECIAL_MODE::SILENT_2:
       return SPECIAL_MODE_SILENT_2;
+    case SPECIAL_MODE::SLEEP:
+      return SPECIAL_MODE_SLEEP;
+    case SPECIAL_MODE::FLOOR:
+      return SPECIAL_MODE_FLOOR;
+    case SPECIAL_MODE::COMFORT:
+      return SPECIAL_MODE_COMFORT;
     default:
       return "Unknown";
   }
