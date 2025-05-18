@@ -75,5 +75,8 @@ async def to_code(config):
 
     if CONF_SPECIAL_MODE in config:
         sel = await select.new_select(config[CONF_SPECIAL_MODE], options=config[CONF_SPECIAL_MODE][CONF_SPECIAL_MODE_MODES])
+        if "8 degrees" in config[CONF_SPECIAL_MODE][CONF_SPECIAL_MODE_MODES]:
+            # if "8 degrees" feature is in the list, set the min visual temperature to 5
+            cg.add(var.set_min_temp(5))
         await cg.register_parented(sel, config[CONF_ID])
         cg.add(var.set_special_mode_select(sel))

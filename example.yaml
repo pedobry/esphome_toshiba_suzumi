@@ -34,16 +34,21 @@ climate:
         - filter_out: 127 
     power_select:
       name: "Power level"
-    #min_temp: 7 # Optional. Min temp is by default set to 17°C. If your AC has 8° heating mode, you can set different min temperature here.
     #horizontal_swing: true # Optional. Uncomment if your HVAC supports also horizontal swing
     #special_mode:          # Optional. Enable only the features your HVAC supports.
       #name: "Special mode"
       #modes:
-        #- "Off"
-        #- "ECO"
+        #- "Standard"
         #- "Hi POWER"
-        #- "8 degrees"
-        #- "Fireplace"
+        #- "ECO"
+        #- "Fireplace 1" 
+        #- "Fireplace 2" 
+        #- "8 degrees"  # When enabling this mode, the temp range is set to 5-30°C
+        #- "Silent#1" 
+        #- "Silent#2"
+        #- "Sleep"
+        #- "Floor"
+        #- "Comfort"
     #disable_wifi_led: true # Optional. Disable Wifi LED on internal unit.
 
 # Enable button to scan for unknown values in AC unit. This is optional.
@@ -53,6 +58,7 @@ button:
     icon: "mdi:reload"
     on_press:
       then:
+         # id(living_room) is the id of the climate component above
         - lambda: |-
             auto* controller = static_cast<toshiba_suzumi::ToshibaClimateUart*>(id(living_room));
             controller->scan();

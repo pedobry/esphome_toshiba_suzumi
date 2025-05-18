@@ -81,13 +81,15 @@ uart:
 climate:
   - platform: toshiba_suzumi
     name: living-room
-    id: living_room      # Optional. Used by the scan button (read bellow)
+    id: living_room
     uart_id: uart_bus
     outdoor_temp:        # Optional. Outdoor temperature sensor
       name: Outdoor Temp
+      filters:
+        # Filter out value 127 as that's what unit sends when it can's measure the outside temp.
+        - filter_out: 127 
     power_select:
       name: "Power level"
-    #min_temp: 7 # Optional. Min temp is by default set to 17°C. If your AC has 8° heating mode, you can set different min temperature here.
     #horizontal_swing: true # Optional. Uncomment if your HVAC supports also horizontal swing
     #special_mode:          # Optional. Enable only the features your HVAC supports.
       #name: "Special mode"
@@ -95,11 +97,14 @@ climate:
         #- "Standard"
         #- "Hi POWER"
         #- "ECO"
-        #- "Fireplace 1" 
-        #- "Fireplace 2" 
-        #- "8 degrees"
-        #- "Silent#1" 
+        #- "Fireplace 1"
+        #- "Fireplace 2"
+        #- "8 degrees"  # When enabling this mode, the temp range is set to 5-30°C
+        #- "Silent#1"
         #- "Silent#2"
+        #- "Sleep"
+        #- "Floor"
+        #- "Comfort"
     #disable_wifi_led: true # Optional. Disable Wifi LED on internal unit.
 ...
 ```
@@ -113,6 +118,10 @@ When configured correctly, new ESPHome device will appear in Home Assistant inte
 You can then create a Thermostat card on the dashboard.
 
 ![HomeAssistant card](/images/HA_card.png)
+
+### Temperature range (FrostGuard)
+Homeassistant thermostat component is by default set with a range of 17-30°C.
+If your unit is equipped with "8 degress" aka FrostGuard, you can enable that in YAML configuration (Special modes). The range is then automatically set to 5-30°C and when you set target temp above 17°C, it will switch to Standard mode, when you set target temp below 17°C, it will switch automatically to FrostGuard.
 
 ## Filter some oustide temp value
 
@@ -159,9 +168,12 @@ It was fixed in current code, but users with ESPHome older than 2023.3.0 needs t
 
     `url: https://github.com/pedobry/esphome_toshiba_suzumi`
 
-* users with **ESPHome 2023.2.x and older** should use this url:
+* users with **ESPHome 2023.2.x and older** should use branch 2023.2.0:
 
-    `url: https://github.com/pedobry/esphome_toshiba_suzumi@2023.2.0`
+    ```
+    url: https://github.com/pedobry/esphome_toshiba_suzumi
+    ref: 2023.2.0
+    ```
 
 ## Links
 

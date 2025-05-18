@@ -11,7 +11,15 @@ namespace esphome {
 namespace toshiba_suzumi {
 
 static const char *const TAG = "ToshibaClimateUart";
+// default max temp for units
 static const uint8_t MAX_TEMP = 30;
+// default min temp for units without 8° heating mode
+static const uint8_t MIN_TEMP_STANDARD = 17;
+static const uint8_t SPECIAL_TEMP_OFFSET = 16;
+static const uint8_t SPECIAL_MODE_EIGHT_DEG_MIN_TEMP = 5;
+static const uint8_t SPECIAL_MODE_EIGHT_DEG_MAX_TEMP = 13;
+static const uint8_t SPECIAL_MODE_EIGHT_DEG_DEF_TEMP = 8;
+static const uint8_t NORMAL_MODE_DEF_TEMP = 20;
 
 static const std::vector<uint8_t> HANDSHAKE[6] = {
     {2, 255, 255, 0, 0, 0, 0, 2},       {2, 255, 255, 1, 0, 0, 1, 2, 254}, {2, 0, 0, 0, 0, 0, 2, 2, 2, 250},
@@ -58,6 +66,7 @@ class ToshibaClimateUart : public PollingComponent, public climate::Climate, pub
   uint32_t last_command_timestamp_ = 0;
   uint32_t last_rx_char_timestamp_ = 0;
   STATE power_state_ = STATE::OFF;
+  optional<SPECIAL_MODE> special_mode_ = SPECIAL_MODE::STANDARD;
   select::Select *pwr_select_ = nullptr;
   sensor::Sensor *outdoor_temp_sensor_ = nullptr;
   bool horizontal_swing_ = false;
