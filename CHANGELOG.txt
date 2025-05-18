@@ -1,4 +1,15 @@
 ***
+May 18th 2025
+
+* added support for FrostGuard (8 degree) mode
+* removed deprecated conf functions (fix for ESPHome 2025.11.0)
+* replace CUSTOM_FAN_1, CUSTOM_FAN_3, CUSTOM_FAN_3 with regular fan modes FAN_LOW, FAN_MEDIUM and FAN_HIGH
+* added special modes "Sleep", "Floor" and "Comfort"
+
+Oct 7th 2024
+
+* add configuration option to disable WiFi LED on AC unit
+
 April 4th, 2023
 
 * fixed fan Quiet mode for ESPHome 2023.3.0

@@ -26,7 +26,7 @@ ToshibaClimateUart = toshiba_ns.class_("ToshibaClimateUart", cg.PollingComponent
 ToshibaPwrModeSelect = toshiba_ns.class_('ToshibaPwrModeSelect', select.Select)
 ToshibaSpecialModeSelect = toshiba_ns.class_('ToshibaSpecialModeSelect', select.Select)
 
-CONFIG_SCHEMA = climate.CLIMATE_SCHEMA.extend(
+CONFIG_SCHEMA = climate.climate_schema(ToshibaClimateUart).extend(
     {
         cv.GenerateID(): cv.declare_id(ToshibaClimateUart),
         cv.Optional(CONF_OUTDOOR_TEMP): sensor.sensor_schema(
@@ -35,12 +35,12 @@ CONFIG_SCHEMA = climate.CLIMATE_SCHEMA.extend(
                 device_class=DEVICE_CLASS_TEMPERATURE,
                 state_class=STATE_CLASS_MEASUREMENT,
             ),
-        cv.Optional(CONF_PWR_SELECT): select.SELECT_SCHEMA.extend({
+        cv.Optional(CONF_PWR_SELECT): select.select_schema(ToshibaPwrModeSelect).extend({
             cv.GenerateID(): cv.declare_id(ToshibaPwrModeSelect),
         }),
         cv.Optional(FEATURE_HORIZONTAL_SWING): cv.boolean,
         cv.Optional(DISABLE_WIFI_LED): cv.boolean,
-        cv.Optional(CONF_SPECIAL_MODE): select.SELECT_SCHEMA.extend({
+        cv.Optional(CONF_SPECIAL_MODE): select.select_schema(ToshibaSpecialModeSelect).extend({
             cv.GenerateID(): cv.declare_id(ToshibaSpecialModeSelect),
             cv.Required(CONF_SPECIAL_MODE_MODES): cv.ensure_list(cv.one_of("Standard","Hi POWER","ECO","Fireplace 1","Fireplace 2","8 degrees","Silent#1","Silent#2","Sleep","Floor","Comfort"))
         }),
@@ -75,5 +75,8 @@ async def to_code(config):
 
     if CONF_SPECIAL_MODE in config:
         sel = await select.new_select(config[CONF_SPECIAL_MODE], options=config[CONF_SPECIAL_MODE][CONF_SPECIAL_MODE_MODES])
+        if "8 degrees" in config[CONF_SPECIAL_MODE][CONF_SPECIAL_MODE_MODES]:
+            # if "8 degrees" feature is in the list, set the min visual temperature to 5
+            cg.add(var.set_min_temp(5))
         await cg.register_parented(sel, config[CONF_ID])
         cg.add(var.set_special_mode_select(sel))
