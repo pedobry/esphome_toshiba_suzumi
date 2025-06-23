@@ -5,8 +5,10 @@ from esphome.const import (
     CONF_ID,
     STATE_CLASS_MEASUREMENT,
     UNIT_CELSIUS,
-    DEVICE_CLASS_TEMPERATURE
+    DEVICE_CLASS_TEMPERATURE,
+    ESPHOME_VERSION
 )
+from packaging import version
 
 DEPENDENCIES = ["uart"]
 AUTO_LOAD = ["sensor", "select"]
@@ -26,27 +28,50 @@ ToshibaClimateUart = toshiba_ns.class_("ToshibaClimateUart", cg.PollingComponent
 ToshibaPwrModeSelect = toshiba_ns.class_('ToshibaPwrModeSelect', select.Select)
 ToshibaSpecialModeSelect = toshiba_ns.class_('ToshibaSpecialModeSelect', select.Select)
 
-CONFIG_SCHEMA = climate.CLIMATE_SCHEMA.extend(
-    {
-        cv.GenerateID(): cv.declare_id(ToshibaClimateUart),
-        cv.Optional(CONF_OUTDOOR_TEMP): sensor.sensor_schema(
-                unit_of_measurement=UNIT_CELSIUS,
-                accuracy_decimals=0,
-                device_class=DEVICE_CLASS_TEMPERATURE,
-                state_class=STATE_CLASS_MEASUREMENT,
-            ),
-        cv.Optional(CONF_PWR_SELECT): select.SELECT_SCHEMA.extend({
-            cv.GenerateID(): cv.declare_id(ToshibaPwrModeSelect),
-        }),
-        cv.Optional(FEATURE_HORIZONTAL_SWING): cv.boolean,
-        cv.Optional(DISABLE_WIFI_LED): cv.boolean,
-        cv.Optional(CONF_SPECIAL_MODE): select.SELECT_SCHEMA.extend({
-            cv.GenerateID(): cv.declare_id(ToshibaSpecialModeSelect),
-            cv.Required(CONF_SPECIAL_MODE_MODES): cv.ensure_list(cv.one_of("Standard","Hi POWER","ECO","Fireplace 1","Fireplace 2","8 degrees","Silent#1","Silent#2","Sleep","Floor","Comfort"))
-        }),
-        cv.Optional(MIN_TEMP): cv.int_,
-    }
-).extend(uart.UART_DEVICE_SCHEMA).extend(cv.polling_component_schema("120s"))
+if version.parse(ESPHOME_VERSION) >= version.parse("2024.5.0"):
+    CONFIG_SCHEMA = climate.climate_schema(ToshibaClimateUart).extend(
+        {
+            cv.GenerateID(): cv.declare_id(ToshibaClimateUart),
+            cv.Optional(CONF_OUTDOOR_TEMP): sensor.sensor_schema(
+                    unit_of_measurement=UNIT_CELSIUS,
+                    accuracy_decimals=0,
+                    device_class=DEVICE_CLASS_TEMPERATURE,
+                    state_class=STATE_CLASS_MEASUREMENT,
+                ),
+            cv.Optional(CONF_PWR_SELECT): select.select_schema(ToshibaPwrModeSelect).extend({
+                cv.GenerateID(): cv.declare_id(ToshibaPwrModeSelect),
+            }),
+            cv.Optional(FEATURE_HORIZONTAL_SWING): cv.boolean,
+            cv.Optional(DISABLE_WIFI_LED): cv.boolean,
+            cv.Optional(CONF_SPECIAL_MODE): select_schema(ToshibaSpecialModeSelect).extend({
+                cv.GenerateID(): cv.declare_id(ToshibaSpecialModeSelect),
+                cv.Required(CONF_SPECIAL_MODE_MODES): cv.ensure_list(cv.one_of("Standard","Hi POWER","ECO","Fireplace 1","Fireplace 2","8 degrees","Silent#1","Silent#2","Sleep","Floor","Comfort"))
+            }),
+            cv.Optional(MIN_TEMP): cv.int_,
+        }
+    ).extend(uart.UART_DEVICE_SCHEMA).extend(cv.polling_component_schema("120s"))
+else:
+    CONFIG_SCHEMA = climate.CLIMATE_SCHEMA.extend(
+        {
+            cv.GenerateID(): cv.declare_id(ToshibaClimateUart),
+            cv.Optional(CONF_OUTDOOR_TEMP): sensor.sensor_schema(
+                    unit_of_measurement=UNIT_CELSIUS,
+                    accuracy_decimals=0,
+                    device_class=DEVICE_CLASS_TEMPERATURE,
+                    state_class=STATE_CLASS_MEASUREMENT,
+                ),
+            cv.Optional(CONF_PWR_SELECT): select.SELECT_SCHEMA.extend({
+                cv.GenerateID(): cv.declare_id(ToshibaPwrModeSelect),
+            }),
+            cv.Optional(FEATURE_HORIZONTAL_SWING): cv.boolean,
+            cv.Optional(DISABLE_WIFI_LED): cv.boolean,
+            cv.Optional(CONF_SPECIAL_MODE): select.SELECT_SCHEMA.extend({
+                cv.GenerateID(): cv.declare_id(ToshibaSpecialModeSelect),
+                cv.Required(CONF_SPECIAL_MODE_MODES): cv.ensure_list(cv.one_of("Standard","Hi POWER","ECO","Fireplace 1","Fireplace 2","8 degrees","Silent#1","Silent#2","Sleep","Floor","Comfort"))
+            }),
+            cv.Optional(MIN_TEMP): cv.int_,
+        }
+    ).extend(uart.UART_DEVICE_SCHEMA).extend(cv.polling_component_schema("120s"))
 
 async def to_code(config):
     var = cg.new_Pvariable(config[CONF_ID])
