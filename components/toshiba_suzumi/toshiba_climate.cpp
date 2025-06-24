@@ -228,7 +228,7 @@ void ToshibaClimateUart::parseResponse(std::vector<uint8_t> rawData) {
         // if special mode is EIGHT_DEG, shift the target temperature by SPECIAL_TEMP_OFFSET
         value -= SPECIAL_TEMP_OFFSET;
 
-        ESP_LOGI(TAG, "Note: Special Mode \"%s\" is active, shifting target temp to %d", SPECIAL_MODE_EIGHT_DEG.c_str(), value);
+        ESP_LOGI(TAG, "Note: Special Mode \"%s\" is active, shifting target temp to %d", SPECIAL_MODE_EIGHT_DEG, value);
       }
       this->target_temperature = value;
       break;
@@ -387,7 +387,7 @@ void ToshibaClimateUart::control(const climate::ClimateCall &call) {
     ESP_LOGD(TAG, "Setting target temp to %d", newTargetTemp);
     if (this->special_mode_ == SPECIAL_MODE::EIGHT_DEG) {
       newTargetTemp += SPECIAL_TEMP_OFFSET;
-      ESP_LOGD(TAG, "Note: Special Mode \"%s\" active, shifting setpoint temp to %d", SPECIAL_MODE_EIGHT_DEG.c_str(),
+      ESP_LOGD(TAG, "Note: Special Mode \"%s\" active, shifting setpoint temp to %d", SPECIAL_MODE_EIGHT_DEG,
                newTargetTemp);
     }
     // set the target temperature from HA to Climate component

@@ -7,26 +7,26 @@
 namespace esphome {
 namespace toshiba_suzumi {
 
-static const std::string &CUSTOM_FAN_LEVEL_2 = "Low-Medium";
-static const std::string &CUSTOM_FAN_LEVEL_4 = "Medium-High";
+constexpr const char* CUSTOM_FAN_LEVEL_2 = "Low-Medium";
+constexpr const char* CUSTOM_FAN_LEVEL_4 = "Medium-High";
 
-static const std::string &CUSTOM_PWR_LEVEL_50 = "50 %";
-static const std::string &CUSTOM_PWR_LEVEL_75 = "75 %";
-static const std::string &CUSTOM_PWR_LEVEL_100 = "100 %";
+constexpr const char* CUSTOM_PWR_LEVEL_50 = "50 %";
+constexpr const char* CUSTOM_PWR_LEVEL_75 = "75 %";
+constexpr const char* CUSTOM_PWR_LEVEL_100 = "100 %";
 
-static const std::string &SPECIAL_MODE_STANDARD = "Standard";
-static const std::string &SPECIAL_MODE_HI_POWER = "Hi POWER";
-static const std::string &SPECIAL_MODE_ECO = "ECO";
+constexpr const char* SPECIAL_MODE_STANDARD = "Standard";
+constexpr const char* SPECIAL_MODE_HI_POWER = "Hi POWER";
+constexpr const char* SPECIAL_MODE_ECO = "ECO";
 // Special modes described at:
 // https://partner.toshiba-klima.at/data/01_RAS/02_Multi/01_R32/01_multi_indoor/02_SHORAI_EDGE_J2KVSG/02_Manuals/OM_RAS_18_B22_B24_J2KVSG_J2AVSG_E_ML.pdf
-static const std::string &SPECIAL_MODE_FIREPLACE_1 = "Fireplace 1";
-static const std::string &SPECIAL_MODE_FIREPLACE_2 = "Fireplace 2";
-static const std::string &SPECIAL_MODE_EIGHT_DEG = "8 degrees";
-static const std::string &SPECIAL_MODE_SILENT_1 = "Silent#1";
-static const std::string &SPECIAL_MODE_SILENT_2 = "Silent#2";
-static const std::string &SPECIAL_MODE_SLEEP = "Sleep";
-static const std::string &SPECIAL_MODE_FLOOR = "Floor";
-static const std::string &SPECIAL_MODE_COMFORT = "Comfort";
+constexpr const char* SPECIAL_MODE_FIREPLACE_1 = "Fireplace 1";
+constexpr const char* SPECIAL_MODE_FIREPLACE_2 = "Fireplace 2";
+constexpr const char* SPECIAL_MODE_EIGHT_DEG = "8 degrees";
+constexpr const char* SPECIAL_MODE_SILENT_1 = "Silent#1";
+constexpr const char* SPECIAL_MODE_SILENT_2 = "Silent#2";
+constexpr const char* SPECIAL_MODE_SLEEP = "Sleep";
+constexpr const char* SPECIAL_MODE_FLOOR = "Floor";
+constexpr const char* SPECIAL_MODE_COMFORT = "Comfort";
 
 // codes as reverse engineered from Toshiba AC communication with original Wifi module.
 enum class MODE { HEAT_COOL = 65, COOL = 66, HEAT = 67, DRY = 68, FAN_ONLY = 69 };
