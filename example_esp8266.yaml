@@ -15,7 +15,7 @@ logger:
 uart:
   id: uart_bus
   tx_pin: 13
-  rx_pin: 15
+  rx_pin: 12
   parity: EVEN
   baud_rate: 9600
 
