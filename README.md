@@ -54,7 +54,7 @@ AC unit has a wifi connector CN22 with an extension cable, usually with pink and
 </p>
 
 ‼️‼️‼️<br>
-**WARNING: Do NOT connect PIN 5 (pink wire) to anything. Double check that you have wired the ESP device correctly. Only connect and disconnect the ESP while the AC unit is disconnected from main power. Shorts or wring wiring can lead to AC unit board damage.**<br>
+**WARNING: Do NOT connect PIN 5 (the outermost pink wire) to anything. Double check that you have wired the ESP device correctly. Only connect and disconnect the ESP while the AC unit is disconnected from main power. Shorts or wrong wiring will damage AC unit board.**<br>
 ‼️‼️‼️
 
 ## Installation
