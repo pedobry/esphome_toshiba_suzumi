@@ -49,7 +49,7 @@ AC unit has a wifi connector CN22 with an extension cable, usually with pink and
 |    2     | pink  | GND        | GND       |
 |    3     | black | \+5V (Vin) | \+5V (Vin)|
 |    4     | white | 32 (RX)    | 12 (RX)   |
-|    5     | pink  | unused     | unused    |
+|    5     | pink  | do NOT use | do NOT use |
 
 </p>
 
