@@ -19,8 +19,9 @@ AUTO_LOAD = ["sensor", "select"]
 CONF_ROOM_TEMP = "room_temp"
 CONF_OUTDOOR_TEMP = "outdoor_temp"
 CONF_PWR_SELECT = "power_select"
-CONF_SPECIAL_MODE = "special_mode"
-CONF_SPECIAL_MODE_MODES = "modes"
+CONF_SPECIAL_MODE = "special_mode" # deprecated - replaced by CONF_SUPPORTED_PRESETS
+CONF_SPECIAL_MODE_MODES = "modes" # deprecated - replaced by CONF_SUPPORTED_PRESETS
+CONF_SUPPORTED_PRESETS = "supported_presets"
 
 FEATURE_HORIZONTAL_SWING = "horizontal_swing"
 MIN_TEMP = "min_temp"
@@ -47,10 +48,13 @@ if version.parse(ESPHOME_VERSION) >= version.parse("2025.5.0"):
             }),
             cv.Optional(FEATURE_HORIZONTAL_SWING): cv.boolean,
             cv.Optional(DISABLE_WIFI_LED): cv.boolean,
+            # CONF_SPECIAL_MODE is deprecated - replaced by CONF_SUPPORTED_PRESETS
+            # Keep it for backward compatibility
             cv.Optional(CONF_SPECIAL_MODE): select.select_schema(ToshibaSpecialModeSelect).extend({
                 cv.GenerateID(): cv.declare_id(ToshibaSpecialModeSelect),
                 cv.Required(CONF_SPECIAL_MODE_MODES): cv.ensure_list(cv.one_of("Standard","Hi POWER","ECO","Fireplace 1","Fireplace 2","8 degrees","Silent#1","Silent#2","Sleep","Floor","Comfort"))
             }),
+            cv.Optional(CONF_SUPPORTED_PRESETS): cv.ensure_list(cv.one_of("Standard","Hi POWER","ECO","Fireplace 1","Fireplace 2","8 degrees","Silent#1","Silent#2","Sleep","Floor","Comfort")),
             cv.Optional(MIN_TEMP): cv.int_,
         }
     ).extend(uart.UART_DEVICE_SCHEMA).extend(cv.polling_component_schema("120s"))    
@@ -70,10 +74,13 @@ else:
             }),
             cv.Optional(FEATURE_HORIZONTAL_SWING): cv.boolean,
             cv.Optional(DISABLE_WIFI_LED): cv.boolean,
+            # CONF_SPECIAL_MODE is deprecated - replaced by CONF_SUPPORTED_PRESETS
+            # Keep it for backward compatibility
             cv.Optional(CONF_SPECIAL_MODE): select.SELECT_SCHEMA.extend({
                 cv.GenerateID(): cv.declare_id(ToshibaSpecialModeSelect),
                 cv.Required(CONF_SPECIAL_MODE_MODES): cv.ensure_list(cv.one_of("Standard","Hi POWER","ECO","Fireplace 1","Fireplace 2","8 degrees","Silent#1","Silent#2","Sleep","Floor","Comfort"))
             }),
+            cv.Optional(CONF_SUPPORTED_PRESETS): cv.ensure_list(cv.one_of("Standard","Hi POWER","ECO","Fireplace 1","Fireplace 2","8 degrees","Silent#1","Silent#2","Sleep","Floor","Comfort")),
             cv.Optional(MIN_TEMP): cv.int_,
         }
     ).extend(uart.UART_DEVICE_SCHEMA).extend(cv.polling_component_schema("120s"))
@@ -103,10 +110,18 @@ async def to_code(config):
     if DISABLE_WIFI_LED in config:
         cg.add(var.disable_wifi_led(True))
 
-    if CONF_SPECIAL_MODE in config:
-        sel = await select.new_select(config[CONF_SPECIAL_MODE], options=config[CONF_SPECIAL_MODE][CONF_SPECIAL_MODE_MODES])
-        if "8 degrees" in config[CONF_SPECIAL_MODE][CONF_SPECIAL_MODE_MODES]:
+    if CONF_SUPPORTED_PRESETS in config:
+        presets = config[CONF_SUPPORTED_PRESETS]
+        cg.add(var.set_supported_presets(presets))
+        if "8 degrees" in presets:
             # if "8 degrees" feature is in the list, set the min visual temperature to 5
             cg.add(var.set_min_temp(5))
-        await cg.register_parented(sel, config[CONF_ID])
-        cg.add(var.set_special_mode_select(sel))
+
+    # CONF_SPECIAL_MODE is deprecated - replaced by CONF_SUPPORTED_PRESETS
+    # Keep it for backward compatibility
+    if CONF_SPECIAL_MODE in config:
+        presets = config[CONF_SPECIAL_MODE][CONF_SPECIAL_MODE_MODES]
+        cg.add(var.set_supported_presets(presets))
+        if "8 degrees" in presets:
+            # if "8 degrees" feature is in the list, set the min visual temperature to 5
+            cg.add(var.set_min_temp(5))

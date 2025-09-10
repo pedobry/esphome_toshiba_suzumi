@@ -50,7 +50,7 @@ class ToshibaClimateUart : public PollingComponent, public climate::Climate, pub
   void set_pwr_select(select::Select *pws_select) { pwr_select_ = pws_select; }
   void set_horizontal_swing(bool enabled) { horizontal_swing_ = enabled; }
   void disable_wifi_led(bool disabled) { wifi_led_disabled_ = disabled; }
-  void set_special_mode_select(select::Select *special_mode_select) { special_mode_select_ = special_mode_select; }
+  void set_supported_presets(const std::vector<std::string> &presets) { supported_presets_ = presets; }
   void set_min_temp(uint8_t min_temp) { min_temp_ = min_temp; }
 
  protected:
@@ -72,7 +72,7 @@ class ToshibaClimateUart : public PollingComponent, public climate::Climate, pub
   bool horizontal_swing_ = false;
   uint8_t min_temp_ = 17; // default min temp for units without 8° heating mode
   bool wifi_led_disabled_ = false;
-  select::Select *special_mode_select_ = nullptr;
+  std::vector<std::string> supported_presets_;
 
   void enqueue_command_(const ToshibaCommand &command);
   void send_to_uart(const ToshibaCommand command);
@@ -85,18 +85,11 @@ class ToshibaClimateUart : public PollingComponent, public climate::Climate, pub
   void handle_rx_byte_(uint8_t c);
   bool validate_message_();
   void on_set_pwr_level(const std::string &value);
-  void on_set_special_mode(const std::string &value);
 
   friend class ToshibaPwrModeSelect;
-  friend class ToshibaSpecialModeSelect;
 };
 
 class ToshibaPwrModeSelect : public select::Select, public esphome::Parented<ToshibaClimateUart> {
- protected:
-  virtual void control(const std::string &value) override;
-};
-
-class ToshibaSpecialModeSelect : public select::Select, public esphome::Parented<ToshibaClimateUart> {
  protected:
   virtual void control(const std::string &value) override;
 };

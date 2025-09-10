@@ -87,8 +87,13 @@ const ::std::string IntToCustomFanMode(FAN mode);
 const optional<PWR_LEVEL> StringToPwrLevel(const std::string &mode);
 const std::string IntToPowerLevel(PWR_LEVEL mode);
 
-const optional<SPECIAL_MODE> SpecialModeToInt(const std::string &mode);
-const std::string IntToSpecialMode(SPECIAL_MODE mode);
+const optional<SPECIAL_MODE> PresetToSpecialMode(const std::string &preset);
+const std::string SpecialModeToPreset(SPECIAL_MODE mode);
+
+const climate::ClimatePreset StringToClimatePreset(const std::string &preset);
+const std::string ClimatePresetToString(climate::ClimatePreset preset);
+const optional<SPECIAL_MODE> ClimatePresetToSpecialMode(climate::ClimatePreset preset);
+const optional<climate::ClimatePreset> SpecialModeToClimatePreset(SPECIAL_MODE mode);
 
 }  // namespace toshiba_suzumi
 }  // namespace esphome
