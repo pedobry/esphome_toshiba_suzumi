@@ -1,4 +1,14 @@
 ***
+Sep 10th 2025
+
+* implement Special modes as Climate presets instead of HA selector. Due to backward compatibility, the list of special modes can be either as new "supported_presets" YAML option, or the old "supported_modes" option. I recommend to migrate to the new config schema as the old one will be removed in the future.
+
+***
+Jun 23rd 2025
+
+* updated schema definition to support ESPHome 2025.5+. 
+
+***
 May 18th 2025
 
 * added support for FrostGuard (8 degree) mode

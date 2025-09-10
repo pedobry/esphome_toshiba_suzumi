@@ -35,20 +35,18 @@ climate:
     power_select:
       name: "Power level"
     #horizontal_swing: true # Optional. Uncomment if your HVAC supports also horizontal swing
-    #special_mode:          # Optional. Enable only the features your HVAC supports.
-      #name: "Special mode"
-      #modes:
-        #- "Standard"
-        #- "Hi POWER"
-        #- "ECO"
-        #- "Fireplace 1" 
-        #- "Fireplace 2" 
-        #- "8 degrees"  # When enabling this mode, the temp range is set to 5-30°C
-        #- "Silent#1" 
-        #- "Silent#2"
-        #- "Sleep"
-        #- "Floor"
-        #- "Comfort"
+    #supported_presets:          # Optional. Enable only the features your HVAC
+      #- "Standard"
+      #- "Hi POWER"
+      #- "ECO"
+      #- "Fireplace 1"
+      #- "Fireplace 2"
+      #- "8 degrees"             # When enabling this mode, the temp range is set to 5-30°C
+      #- "Silent#1"
+      #- "Silent#2"
+      #- "Sleep"
+      #- "Floor"
+      #- "Comfort"
     #disable_wifi_led: true # Optional. Disable Wifi LED on internal unit.
 
 # Enable button to scan for unknown values in AC unit. This is optional.
