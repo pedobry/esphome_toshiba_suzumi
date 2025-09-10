@@ -31,6 +31,10 @@ Any unit which have an option to purchase o wifi adapter RB-N105S-G/RB-N106S-G:
 ### ESP32 (WROOM 32D)
 
    ![schema](/images/schema.jpg)
+
+   Please pay attention to correctly wire the level shifter - it must have both High Voltage (5V and GND from the AC unit) and Low Voltage (3.3V and GND from ESP) connected.
+  
+
    ![adapter](/images/adapter.jpg)
 
 ### ESP 8266EX (Lolin D1 mini)
@@ -45,13 +49,15 @@ AC unit has a wifi connector CN22 with an extension cable, usually with pink and
 
 |pin number| color | ESP32 pin  |ESP8266 pin|
 |----------|-------|------------|-----------|
-|    1     | blue  | 33 (TX)    | 13 (TX)   |
-|    2     | pink  | GND        | GND       |
-|    3     | black | \+5V (Vin) | \+5V (Vin)|
-|    4     | white | 32 (RX)    | 12 (RX)   |
-|    5     | pink  | do NOT use | do NOT use |
+|    1     |🟦 blue  | 33 (TX)    | 13 (TX)   |
+|    2     |🟪 pink  | GND        | GND       |
+|    3     |⬛️ black | \+5V (Vin) | \+5V (Vin)|
+|    4     |⬜️ white | 32 (RX)    | 12 (RX)   |
+|    5     |🟪 pink  | **do NOT use** | **do NOT use** |
 
 </p>
+
+The matching connector is JST PA2.0 ([Aliexpress](https://www.aliexpress.com/item/1005007176563512.html))
 
 ‼️‼️‼️<br>
 **WARNING: Do NOT connect PIN 5 (the outermost pink wire) to anything. Double check that you have wired the ESP device correctly. Only connect and disconnect the ESP while the AC unit is disconnected from main power. Shorts or wrong wiring will damage AC unit board.**<br>
@@ -123,7 +129,7 @@ You can then create a Thermostat card on the dashboard.
 
 ### Temperature range (FrostGuard)
 Homeassistant thermostat component is by default set with a range of 17-30°C.
-If your unit is equipped with "8 degress" aka FrostGuard, you can enable that in YAML configuration (Special modes). The range is then automatically set to 5-30°C and when you set target temp above 17°C, it will switch to Standard mode, when you set target temp below 17°C, it will switch automatically to FrostGuard.
+If your unit is equipped with "8 degress" aka FrostGuard, you can enable that in YAML configuration (Supported presets). The range is then automatically set to 5-30°C and when you set target temp above 17°C, it will switch to Standard mode, when you set target temp below 17°C, it will switch automatically to FrostGuard.
 
 ## Filter some oustide temp value
 
