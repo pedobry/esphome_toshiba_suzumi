@@ -69,7 +69,8 @@ enum class ToshibaCommandType : uint8_t {
   TARGET_TEMP = 179,
   ROOM_TEMP = 187,
   OUTDOOR_TEMP = 190,
-  WIFI_LED = 223,
+  WIFI_LED_1 = 222,
+  WIFI_LED_2 = 223,
   SPECIAL_MODE = 247,
 };
 

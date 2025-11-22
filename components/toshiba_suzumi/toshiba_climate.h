@@ -44,6 +44,7 @@ class ToshibaClimateUart : public PollingComponent, public climate::Climate, pub
   void dump_config() override;
   void update() override;
   void scan();
+  void set_wifi_led(bool enabled);
   float get_setup_priority() const override { return setup_priority::LATE; }
 
   void set_outdoor_temp_sensor(sensor::Sensor *outdoor_temp_sensor) { outdoor_temp_sensor_ = outdoor_temp_sensor; }
