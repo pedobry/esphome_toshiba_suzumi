@@ -9,20 +9,32 @@ This component use ESPHome UART to connect with Toshiba AC and communicates dire
 <a href="https://www.buymeacoffee.com/pedobryk" target="_blank"><img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" alt="Buy Me A Coffee" style="height: 60px !important;width: 217px !important;" ></a>
 
 ## ESPHome versions
-Current main branch supports latest ESPHome 2025.11. There have been some internal changes in climate entity in ESPHome which makes it incompatible with previous ESPHome versions.
+Current main branch supports latest ESPHome **2026.1**. There have been some internal changes in climate entity in ESPHome which makes it incompatible with previous ESPHome versions.
 
-If you use ESPHome 2025.10 or earlier, use tag 2025.10 like this:
+If you use ESPHome **2025.10 or earlier**, use tag `2025.10` like this:
 
 ```
 external_components:
   - source: 
       type: git
       url: https://github.com/pedobry/esphome_toshiba_suzumi
-      ref: 2025.10
+      ref: "2025.10"
     components: [toshiba_suzumi]
     refresh: 1min
 ```
-This older version won't be maintained, I'd recommend to upgrade to ESPHome 2025.11.
+If you use ESPHome **2025.11 or 2025.12**, use tag `2025.12` like this:
+
+```
+external_components:
+  - source: 
+      type: git
+      url: https://github.com/pedobry/esphome_toshiba_suzumi
+      ref: "2025.12"
+    components: [toshiba_suzumi]
+    refresh: 1min
+```
+
+These older version won't be maintained, I'd recommend to upgrade to ESPHome 2026.1
 
 ## Supported Toshiba units
 

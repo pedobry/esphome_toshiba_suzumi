@@ -423,10 +423,10 @@ void ToshibaClimateUart::control(const climate::ClimateCall &call) {
   }
 
   if (call.has_custom_fan_mode()) {
-    const char* fan_mode = call.get_custom_fan_mode();
-    auto payload = StringToFanLevel(fan_mode);
+    auto fan_mode = call.get_custom_fan_mode();
+    auto payload = StringToFanLevel(fan_mode.c_str());
     if (payload.has_value()) {
-      ESP_LOGD(TAG, "Setting fan mode to custom: %s", fan_mode);
+      ESP_LOGD(TAG, "Setting fan mode to custom: %s", fan_mode.c_str());
       this->set_custom_fan_mode_(fan_mode);
       this->sendCmd(ToshibaCommandType::FAN, static_cast<uint8_t>(payload.value()));
     }
@@ -470,9 +470,9 @@ void ToshibaClimateUart::control(const climate::ClimateCall &call) {
   }
 
   if (call.has_custom_preset()) {
-    const char* custom_preset = call.get_custom_preset();
-    ESP_LOGD(TAG, "Setting custom preset to %s", custom_preset);
-    auto special_mode = PresetToSpecialMode(custom_preset);
+    auto custom_preset = call.get_custom_preset();
+    ESP_LOGD(TAG, "Setting custom preset to %s", custom_preset.c_str());
+    auto special_mode = PresetToSpecialMode(custom_preset.c_str());
     if (special_mode.has_value()) {
       this->sendCmd(ToshibaCommandType::SPECIAL_MODE, static_cast<uint8_t>(special_mode.value()));
       // Set custom preset
@@ -493,7 +493,7 @@ void ToshibaClimateUart::control(const climate::ClimateCall &call) {
         this->special_mode_ = special_mode.value();
       }
     } else {
-      ESP_LOGW(TAG, "Unknown custom preset: %s", custom_preset);
+      ESP_LOGW(TAG, "Unknown custom preset: %s", custom_preset.c_str());
     }
   }
 
