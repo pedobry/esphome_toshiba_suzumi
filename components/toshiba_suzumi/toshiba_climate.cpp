@@ -728,12 +728,12 @@ void ToshibaClimateUart::handle_debug_response_(const std::vector<uint8_t> &raw_
   uint8_t response_id = 0;
   if (this->extract_response_id_(raw_data, response_id)) {
     if (response_id != this->active_request_id_) {
-      ESP_LOGD(TAG, "Debug response ID mismatch: requested 0x%02X but got 0x%02X. Using response ID.",
+      ESP_LOGD(TAG, "Debug response ID mismatch: requested %u but got %u. Using response ID.",
                this->active_request_id_, response_id);
     }
     sensor_id = response_id;
   } else {
-    ESP_LOGD(TAG, "Debug response ID could not be extracted. Mapping payload to requested ID 0x%02X.",
+    ESP_LOGD(TAG, "Debug response ID could not be extracted. Mapping payload to requested ID %u.",
              this->active_request_id_);
   }
 
@@ -744,12 +744,12 @@ void ToshibaClimateUart::handle_debug_response_(const std::vector<uint8_t> &raw_
   if (!is_known_sensor_id(sensor_id)) {
     ESP_LOGD(TAG, "Unknown debug sensor: %u with value %s", sensor_id, payload_hex.c_str());
   } else {
-    ESP_LOGD(TAG, "Debug payload id:0x%02X payload:%s", sensor_id, payload_hex.c_str());
+    ESP_LOGD(TAG, "Debug payload id:%u payload:%s", sensor_id, payload_hex.c_str());
   }
   if (!this->debug_id_discovered_[sensor_id]) {
     this->debug_id_discovered_[sensor_id] = true;
     this->debug_discovered_ids_.push_back(sensor_id);
-    ESP_LOGI(TAG, "Debug discovered responding ID: 0x%02X", sensor_id);
+    ESP_LOGI(TAG, "Debug discovered responding ID: %u", sensor_id);
   }
 
   std::string &last_payload = this->debug_last_payloads_[sensor_id];
