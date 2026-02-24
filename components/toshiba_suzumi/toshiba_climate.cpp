@@ -1,6 +1,9 @@
 #include "toshiba_climate.h"
 #include "toshiba_climate_mode.h"
+#include "esphome/core/application.h"
 #include "esphome/core/log.h"
+#include <algorithm>
+#include <cstdio>
 
 namespace esphome {
 namespace toshiba_suzumi {
@@ -9,6 +12,8 @@ using namespace esphome::climate;
 
 static const int RECEIVE_TIMEOUT = 200;
 static const int COMMAND_DELAY = 100;
+static const uint8_t WIFI_LED_DISABLED_VALUE = 128;
+static const uint8_t WIFI_LED_ENABLED_VALUE = 129;
 
 /**
  * Checksum is calculated from all bytes excluding start byte.
@@ -115,15 +120,26 @@ void ToshibaClimateUart::sendCmd(ToshibaCommandType cmd, uint8_t value) {
   payload.push_back(value);
   payload.push_back(checksum(payload, payload.size()));
   ESP_LOGD(TAG, "Sending ToshibaCommand: %d, value: %d, checksum: %d", cmd, value, payload[14]);
-  this->enqueue_command_(ToshibaCommand{.cmd = cmd, .payload = std::vector<uint8_t>{payload}});
+  this->enqueue_command_(ToshibaCommand{.cmd = cmd, .payload = std::vector<uint8_t>{payload}, .delay = 0});
 }
 
-void ToshibaClimateUart::requestData(ToshibaCommandType cmd) {
+void ToshibaClimateUart::requestData(ToshibaCommandType cmd, bool is_debug_request) {
   std::vector<uint8_t> payload = {2, 0, 3, 16, 0, 0, 6, 1, 48, 1, 0, 1};
   payload.push_back(static_cast<uint8_t>(cmd));
   payload.push_back(checksum(payload, payload.size()));
-  ESP_LOGI(TAG, "Requesting data from sensor %d, checksum: %d", payload[12], payload[13]);
-  this->enqueue_command_(ToshibaCommand{.cmd = cmd, .payload = std::vector<uint8_t>{payload}});
+  if (is_debug_request) {
+    ESP_LOGD(TAG, "Debug request sensor %d, checksum: %d", payload[12], payload[13]);
+  } else {
+    ESP_LOGI(TAG, "Requesting data from sensor %d, checksum: %d", payload[12], payload[13]);
+  }
+  this->enqueue_command_(ToshibaCommand{
+      .cmd = cmd,
+      .payload = std::vector<uint8_t>{payload},
+      .delay = 0,
+      .is_data_request = true,
+      .is_debug_request = is_debug_request,
+      .request_id = static_cast<uint8_t>(cmd),
+  });
 }
 
 void ToshibaClimateUart::getInitData() {
@@ -137,6 +153,9 @@ void ToshibaClimateUart::getInitData() {
   this->requestData(ToshibaCommandType::ROOM_TEMP);
   this->requestData(ToshibaCommandType::OUTDOOR_TEMP);
   this->requestData(ToshibaCommandType::SPECIAL_MODE);
+  if (wifi_led_switch_ != nullptr) {
+    this->requestData(ToshibaCommandType::WIFI_LED);
+  }
 }
 
 void ToshibaClimateUart::setup() {
@@ -144,11 +163,6 @@ void ToshibaClimateUart::setup() {
   this->start_handshake();
   // load initial sensor data from the unit
   this->getInitData();
-
-  if (this->wifi_led_disabled_) {
-    // Disable Wifi LED
-    this->sendCmd(ToshibaCommandType::WIFI_LED, 128);
-  }
 }
 
 /**
@@ -164,22 +178,35 @@ void ToshibaClimateUart::process_command_queue_() {
   // Nothing to do - drop the message to free up communication and allow to send next command.
   if (now - this->last_rx_char_timestamp_ > RECEIVE_TIMEOUT) {
     this->rx_message_.clear();
+    this->active_request_is_data_ = false;
+    this->active_request_is_debug_ = false;
   }
 
   // when there is no RX message and there is a command to send
   if (cmdDelay > COMMAND_DELAY && !this->command_queue_.empty() && this->rx_message_.empty()) {
-    auto newCommand = this->command_queue_.front();
+    auto cmd_it = this->command_queue_.begin();
+    if (cmd_it->is_debug_request) {
+      auto normal_it = std::find_if(this->command_queue_.begin(), this->command_queue_.end(),
+                                    [](const ToshibaCommand &cmd) { return !cmd.is_debug_request; });
+      if (normal_it != this->command_queue_.end()) {
+        cmd_it = normal_it;
+      }
+    }
+    auto newCommand = *cmd_it;
     if (newCommand.cmd == ToshibaCommandType::DELAY && cmdDelay < newCommand.delay) {
       // delay command did not finished yet
       return;
     }
     // DELAY commands don't send data over UART, just remove them from queue
     if (newCommand.cmd == ToshibaCommandType::DELAY) {
-      this->command_queue_.erase(this->command_queue_.begin());
+      this->command_queue_.erase(cmd_it);
       return;
-    }    
-    this->send_to_uart(this->command_queue_.front());
-    this->command_queue_.erase(this->command_queue_.begin());
+    }
+    this->active_request_is_data_ = newCommand.is_data_request;
+    this->active_request_is_debug_ = newCommand.is_debug_request;
+    this->active_request_id_ = newCommand.request_id;
+    this->send_to_uart(newCommand);
+    this->command_queue_.erase(cmd_it);
   }
 }
 
@@ -201,10 +228,27 @@ void ToshibaClimateUart::loop() {
     this->read_byte(&c);
     this->handle_rx_byte_(c);
   }
+  if (this->debug_enabled_ && this->command_queue_.empty() && this->rx_message_.empty() &&
+      this->debug_initial_scan_in_progress_) {
+    this->run_debug_initial_scan_step_();
+  }
+  if (this->debug_enabled_ && !this->debug_initial_scan_in_progress_ && this->command_queue_.empty() &&
+      this->rx_message_.empty() && millis() - this->last_debug_poll_timestamp_ >= this->debug_poll_interval_ms_) {
+    this->poll_discovered_debug_sensors_();
+    this->last_debug_poll_timestamp_ = millis();
+  }
   this->process_command_queue_();
 }
 
 void ToshibaClimateUart::parseResponse(std::vector<uint8_t> rawData) {
+  auto clear_active_request = [this]() {
+    this->active_request_is_data_ = false;
+    this->active_request_is_debug_ = false;
+  };
+  if (this->active_request_is_debug_) {
+    this->handle_debug_response_(rawData);
+  }
+
   uint8_t length = rawData.size();
   ToshibaCommandType sensor;
   uint8_t value;
@@ -216,6 +260,7 @@ void ToshibaClimateUart::parseResponse(std::vector<uint8_t> rawData) {
       break;
     case 16:  // probably ACK for issued command
       ESP_LOGD(TAG, "Received message with length: %d and value %s", length, format_hex_pretty(rawData).c_str());
+      clear_active_request();
       return;
     case 17:  // response to requestData with the actual value of sensor/setting
       sensor = static_cast<ToshibaCommandType>(rawData[14]);
@@ -224,6 +269,7 @@ void ToshibaClimateUart::parseResponse(std::vector<uint8_t> rawData) {
     default:
       ESP_LOGW(TAG, "Received unknown message with length: %d and value %s", length,
                format_hex_pretty(rawData).c_str());
+      clear_active_request();
       return;
   }
   switch (sensor) {
@@ -323,10 +369,18 @@ void ToshibaClimateUart::parseResponse(std::vector<uint8_t> rawData) {
       }
       break;
     }
+    case ToshibaCommandType::WIFI_LED:
+      if (wifi_led_switch_ != nullptr) {
+        const bool wifi_led_enabled = value != WIFI_LED_DISABLED_VALUE;
+        ESP_LOGI(TAG, "Received wifi led state: %s (raw: %d)", wifi_led_enabled ? "ON" : "OFF", value);
+        wifi_led_switch_->publish_state(wifi_led_enabled);
+      }
+      break;
     default:
       ESP_LOGW(TAG, "Unknown sensor: %d with value %d", sensor, value);
       break;
   }
+  clear_active_request();
   this->rx_message_.clear();  // message processed, clear buffer
   this->publish_state();      // publish current values to MQTT
 }
@@ -339,6 +393,9 @@ void ToshibaClimateUart::dump_config() {
   }
   if (pwr_select_ != nullptr) {
     LOG_SELECT("", "Power selector", this->pwr_select_);
+  }
+  if (wifi_led_switch_ != nullptr) {
+    LOG_SWITCH("", "Wifi LED", this->wifi_led_switch_);
   }
   if (!supported_presets_.empty()) {
     ESP_LOGCONFIG(TAG, "Supported presets:");
@@ -552,6 +609,189 @@ void ToshibaClimateUart::on_set_pwr_level(const std::string &value) {
 }
 
 void ToshibaPwrModeSelect::control(const std::string &value) { parent_->on_set_pwr_level(value); }
+
+void ToshibaClimateUart::on_set_wifi_led(bool enabled) {
+  ESP_LOGD(TAG, "Setting wifi led to %s", enabled ? "ON" : "OFF");
+  this->sendCmd(ToshibaCommandType::WIFI_LED, enabled ? WIFI_LED_ENABLED_VALUE : WIFI_LED_DISABLED_VALUE);
+  if (wifi_led_switch_ != nullptr) {
+    wifi_led_switch_->publish_state(enabled);
+  }
+}
+
+void ToshibaClimateUart::on_set_debug(bool enabled) {
+  this->debug_enabled_ = enabled;
+  if (debug_switch_ != nullptr) {
+    debug_switch_->publish_state(enabled);
+  }
+  if (enabled) {
+    ESP_LOGI(TAG, "Debug enabled: scanning IDs %u..%u", this->debug_initial_from_, this->debug_initial_to_);
+    this->start_debug_scan_();
+    this->last_debug_poll_timestamp_ = millis();
+  } else {
+    ESP_LOGI(TAG, "Debug disabled: stopping debug polling");
+    this->clear_queued_debug_requests_();
+  }
+}
+
+void ToshibaClimateUart::start_debug_scan_() {
+  this->debug_initial_scan_in_progress_ = true;
+  this->debug_initial_next_id_ = this->debug_initial_from_;
+  this->debug_poll_cursor_ = 0;
+}
+
+void ToshibaClimateUart::run_debug_initial_scan_step_() {
+  uint16_t sent = 0;
+  while (sent < this->debug_batch_size_ && this->debug_initial_scan_in_progress_) {
+    if (this->debug_initial_next_id_ > this->debug_initial_to_) {
+      this->debug_initial_scan_in_progress_ = false;
+      ESP_LOGI(TAG, "Debug initial scan finished.");
+      break;
+    }
+    this->requestData(static_cast<ToshibaCommandType>(this->debug_initial_next_id_), true);
+    this->debug_initial_next_id_++;
+    sent++;
+  }
+}
+
+void ToshibaClimateUart::poll_discovered_debug_sensors_() {
+  if (!this->debug_enabled_) {
+    return;
+  }
+  if (this->debug_discovered_ids_.empty()) {
+    return;
+  }
+
+  uint16_t sent = 0;
+  while (sent < this->debug_batch_size_ && !this->debug_discovered_ids_.empty()) {
+    if (this->debug_poll_cursor_ >= this->debug_discovered_ids_.size()) {
+      this->debug_poll_cursor_ = 0;
+    }
+    uint8_t id = this->debug_discovered_ids_[this->debug_poll_cursor_];
+    this->requestData(static_cast<ToshibaCommandType>(id), true);
+    this->debug_poll_cursor_++;
+    sent++;
+  }
+}
+
+void ToshibaClimateUart::clear_queued_debug_requests_() {
+  this->command_queue_.erase(
+      std::remove_if(this->command_queue_.begin(), this->command_queue_.end(),
+                     [](const ToshibaCommand &cmd) { return cmd.is_debug_request; }),
+      this->command_queue_.end());
+  this->active_request_is_debug_ = false;
+  this->debug_initial_scan_in_progress_ = false;
+}
+
+void ToshibaClimateUart::handle_debug_response_(const std::vector<uint8_t> &raw_data) {
+  uint8_t sensor_id = this->active_request_id_;
+  uint8_t response_id = 0;
+  if (this->extract_response_id_(raw_data, response_id)) {
+    if (response_id != this->active_request_id_) {
+      ESP_LOGW(TAG, "Debug response ID mismatch: requested 0x%02X but got 0x%02X. Using response ID.",
+               this->active_request_id_, response_id);
+    }
+    sensor_id = response_id;
+  } else {
+    ESP_LOGW(TAG, "Debug response ID could not be extracted. Mapping payload to requested ID 0x%02X.",
+             this->active_request_id_);
+  }
+
+  std::string payload_hex = this->payload_to_hex_(raw_data);
+  if (payload_hex.empty()) {
+    return;
+  }
+  if (!this->debug_id_discovered_[sensor_id]) {
+    this->debug_id_discovered_[sensor_id] = true;
+    this->debug_discovered_ids_.push_back(sensor_id);
+    ESP_LOGI(TAG, "Debug discovered responding ID: 0x%02X", sensor_id);
+  }
+  auto *sensor = this->get_or_create_debug_payload_sensor_(sensor_id);
+  if (sensor != nullptr) {
+    sensor->publish_state(payload_hex);
+  }
+}
+
+bool ToshibaClimateUart::extract_response_id_(const std::vector<uint8_t> &raw_data, uint8_t &response_id) const {
+  if (raw_data.size() == 15) {
+    response_id = raw_data[12];
+    return true;
+  }
+  if (raw_data.size() == 17) {
+    response_id = raw_data[14];
+    return true;
+  }
+  return false;
+}
+
+text_sensor::TextSensor *ToshibaClimateUart::get_or_create_debug_payload_sensor_(uint8_t id) {
+  if (this->debug_payload_sensors_[id] != nullptr) {
+    return this->debug_payload_sensors_[id];
+  }
+
+  auto *sensor = new text_sensor::TextSensor();
+  char suffix[16];
+  snprintf(suffix, sizeof(suffix), "debug_0x%02x", id);
+  std::string object_id = this->debug_object_id_prefix_ + "_" + suffix;
+  char name[16];
+  snprintf(name, sizeof(name), "Debug 0x%02X", id);
+  sensor->set_name(name);
+  sensor->set_object_id(object_id.c_str());
+  sensor->set_entity_category(ENTITY_CATEGORY_DIAGNOSTIC);
+  App.register_text_sensor(sensor);
+  this->debug_payload_sensors_[id] = sensor;
+  return sensor;
+}
+
+std::string ToshibaClimateUart::payload_to_hex_(const std::vector<uint8_t> &raw_data) const {
+  if (raw_data.size() < 8 || raw_data[2] != 0x03) {
+    return "";
+  }
+
+  const uint8_t payload_len = raw_data[6];
+  const size_t payload_start = 7;
+  const size_t payload_end = payload_start + payload_len;
+  if (raw_data.size() < payload_end + 1) {
+    return "";
+  }
+
+  std::string out;
+  out.reserve(static_cast<size_t>(payload_len) * 2);
+  static const char *hex = "0123456789ABCDEF";
+  for (size_t i = payload_start; i < payload_end; i++) {
+    uint8_t v = raw_data[i];
+    out.push_back(hex[(v >> 4) & 0x0F]);
+    out.push_back(hex[v & 0x0F]);
+  }
+  return out;
+}
+
+void ToshibaWifiLedSwitch::setup() {
+  auto restored_state = this->get_initial_state_with_restore_mode();
+  if (restored_state.has_value()) {
+    if (restored_state.value()) {
+      this->turn_on();
+    } else {
+      this->turn_off();
+    }
+  }
+}
+
+void ToshibaWifiLedSwitch::write_state(bool state) { parent_->on_set_wifi_led(state); }
+
+void ToshibaDebugSwitch::setup() {
+  auto restored_state = this->get_initial_state_with_restore_mode();
+  if (restored_state.has_value()) {
+    if (restored_state.value()) {
+      this->turn_on();
+    } else {
+      this->turn_off();
+    }
+  } else {
+    this->turn_off();
+  }
+}
+
+void ToshibaDebugSwitch::write_state(bool state) { parent_->on_set_debug(state); }
 
 /**
  * Scan all statuses from 128 to 255 in order to find unknown features.

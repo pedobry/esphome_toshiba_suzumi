@@ -141,7 +141,18 @@ climate:
       #- "Sleep"
       #- "Floor"
       #- "Comfort"
-    #disable_wifi_led: true # Optional. Disable Wifi LED on internal unit.
+switch:
+  - platform: toshiba_suzumi
+    climate_id: living_room
+    name: "Wifi led" # Optional. Control LED on internal unit.
+  - platform: toshiba_suzumi
+    type: debug
+    climate_id: living_room
+    name: "Debug" # Optional diagnostic switch.
+    #poll_interval: 30s     # Optional. Re-poll interval for discovered IDs.
+    #batch_size: 1          # Optional. IDs queried per pass (can be 10 or 255).
+    #initial_from_id: 128   # Optional. Initial scan start ID (default matches scan button behavior).
+    #initial_to_id: 254     # Optional. Initial scan end ID.
 ...
 ```
 
@@ -194,6 +205,11 @@ and then watching ESPHome logs for data:
 
 ![ESPHome log](/images/scan_log.png)
     ```
+
+`type: debug` behavior:
+- `Debug=ON`: runs one initial scan (`initial_from_id..initial_to_id`), creates diagnostic text sensors for every responding ID, payload published as HEX without spaces.
+- While ON: every `poll_interval`, it polls discovered IDs in chunks of `batch_size`.
+- `Debug=OFF`: stops debug polling and keeps last values.
 
 ## Links
 
