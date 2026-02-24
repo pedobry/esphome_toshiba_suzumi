@@ -231,10 +231,13 @@ void ToshibaClimateUart::loop() {
       this->debug_initial_scan_in_progress_) {
     this->run_debug_initial_scan_step_();
   }
-  if (this->debug_enabled_ && !this->debug_initial_scan_in_progress_ && this->command_queue_.empty() &&
-      this->rx_message_.empty() && millis() - this->last_debug_poll_timestamp_ >= this->debug_poll_interval_ms_) {
-    this->poll_discovered_debug_sensors_();
-    this->last_debug_poll_timestamp_ = millis();
+  if (this->debug_enabled_ && !this->debug_initial_scan_in_progress_ && !this->debug_poll_run_in_progress_ &&
+      millis() - this->last_debug_poll_timestamp_ >= this->debug_poll_interval_ms_) {
+    this->start_debug_poll_run_();
+  }
+  if (this->debug_enabled_ && this->debug_poll_run_in_progress_ && this->command_queue_.empty() &&
+      this->rx_message_.empty()) {
+    this->run_debug_poll_step_();
   }
   this->process_command_queue_();
 }
@@ -636,6 +639,7 @@ void ToshibaClimateUart::start_debug_scan_() {
   this->debug_initial_scan_in_progress_ = true;
   this->debug_initial_next_id_ = this->debug_initial_from_;
   this->debug_poll_cursor_ = 0;
+  this->debug_poll_run_in_progress_ = false;
 }
 
 void ToshibaClimateUart::run_debug_initial_scan_step_() {
@@ -644,6 +648,12 @@ void ToshibaClimateUart::run_debug_initial_scan_step_() {
     if (this->debug_initial_next_id_ > this->debug_initial_to_) {
       this->debug_initial_scan_in_progress_ = false;
       ESP_LOGI(TAG, "Debug initial scan finished.");
+      std::string report = "initial_scan_found:" + std::to_string(this->debug_discovered_ids_.size());
+      ESP_LOGD(TAG, "Debug change %s", report.c_str());
+      ESP_LOGI(TAG, "Debug change %s", report.c_str());
+      if (this->debug_change_sensor_ != nullptr) {
+        this->debug_change_sensor_->publish_state(report);
+      }
       break;
     }
     this->requestData(static_cast<ToshibaCommandType>(this->debug_initial_next_id_), true);
@@ -652,23 +662,33 @@ void ToshibaClimateUart::run_debug_initial_scan_step_() {
   }
 }
 
-void ToshibaClimateUart::poll_discovered_debug_sensors_() {
+void ToshibaClimateUart::start_debug_poll_run_() {
+  this->debug_poll_cursor_ = 0;
+  this->debug_poll_run_in_progress_ = true;
+}
+
+void ToshibaClimateUart::run_debug_poll_step_() {
   if (!this->debug_enabled_) {
+    this->debug_poll_run_in_progress_ = false;
     return;
   }
   if (this->debug_discovered_ids_.empty()) {
+    this->debug_poll_run_in_progress_ = false;
+    this->last_debug_poll_timestamp_ = millis();
     return;
   }
 
   uint16_t sent = 0;
-  while (sent < this->debug_batch_size_ && !this->debug_discovered_ids_.empty()) {
-    if (this->debug_poll_cursor_ >= this->debug_discovered_ids_.size()) {
-      this->debug_poll_cursor_ = 0;
-    }
+  while (sent < this->debug_batch_size_ && this->debug_poll_cursor_ < this->debug_discovered_ids_.size()) {
     uint8_t id = this->debug_discovered_ids_[this->debug_poll_cursor_];
     this->requestData(static_cast<ToshibaCommandType>(id), true);
     this->debug_poll_cursor_++;
     sent++;
+  }
+
+  if (this->debug_poll_cursor_ >= this->debug_discovered_ids_.size()) {
+    this->debug_poll_run_in_progress_ = false;
+    this->last_debug_poll_timestamp_ = millis();
   }
 }
 
@@ -679,6 +699,7 @@ void ToshibaClimateUart::clear_queued_debug_requests_() {
       this->command_queue_.end());
   this->active_request_is_debug_ = false;
   this->debug_initial_scan_in_progress_ = false;
+  this->debug_poll_run_in_progress_ = false;
 }
 
 void ToshibaClimateUart::handle_debug_response_(const std::vector<uint8_t> &raw_data) {

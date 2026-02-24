@@ -50,7 +50,7 @@ climate:
 switch:
   - platform: toshiba_suzumi
     climate_id: living_room
-    name: "Wifi led"
+    name: "Wifi Led"
   - platform: toshiba_suzumi
     type: debug
     climate_id: living_room

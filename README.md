@@ -144,7 +144,7 @@ climate:
 switch:
   - platform: toshiba_suzumi
     climate_id: living_room
-    name: "Wifi led" # Optional. Control LED on internal unit.
+    name: "Wifi Led" # Optional. Control LED on internal unit.
   - platform: toshiba_suzumi
     type: debug
     climate_id: living_room
@@ -207,8 +207,9 @@ and then watching ESPHome logs for data:
     ```
 
 `type: debug` behavior:
-- `Debug=ON`: runs one initial scan (`initial_from_id..initial_to_id`), creates diagnostic text sensors for every responding ID, payload published as HEX without spaces.
-- While ON: every `poll_interval`, it polls discovered IDs in chunks of `batch_size`.
+- `Debug=ON`: runs one initial scan (`initial_from_id..initial_to_id`) and tracks payloads of responding IDs.
+- When a tracked payload changes, `Debug txt` publishes: `id:<id> old:<last_hex> new:<new_hex>`.
+- While ON: every `poll_interval`, it starts a full poll cycle over all discovered IDs, processed in loop chunks of `batch_size`.
 - `Debug=OFF`: stops debug polling and keeps last values.
 
 ## Links

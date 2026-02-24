@@ -97,6 +97,7 @@ class ToshibaClimateUart : public PollingComponent, public climate::Climate, pub
   uint8_t debug_initial_to_ = 254;
   bool debug_initial_scan_in_progress_ = false;
   uint16_t debug_initial_next_id_ = 128;
+  bool debug_poll_run_in_progress_ = false;
   size_t debug_poll_cursor_ = 0;
   bool active_request_is_data_ = false;
   bool active_request_is_debug_ = false;
@@ -121,7 +122,8 @@ class ToshibaClimateUart : public PollingComponent, public climate::Climate, pub
   void on_set_debug(bool enabled);
   void start_debug_scan_();
   void run_debug_initial_scan_step_();
-  void poll_discovered_debug_sensors_();
+  void start_debug_poll_run_();
+  void run_debug_poll_step_();
   void clear_queued_debug_requests_();
   void handle_debug_response_(const std::vector<uint8_t> &raw_data);
   bool extract_response_id_(const std::vector<uint8_t> &raw_data, uint8_t &response_id) const;
