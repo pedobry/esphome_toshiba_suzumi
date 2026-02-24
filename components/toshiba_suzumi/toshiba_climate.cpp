@@ -14,6 +14,24 @@ static const int COMMAND_DELAY = 100;
 static const uint8_t WIFI_LED_DISABLED_VALUE = 128;
 static const uint8_t WIFI_LED_ENABLED_VALUE = 129;
 
+static bool is_known_sensor_id(uint8_t id) {
+  switch (static_cast<ToshibaCommandType>(id)) {
+    case ToshibaCommandType::TARGET_TEMP:
+    case ToshibaCommandType::FAN:
+    case ToshibaCommandType::SWING:
+    case ToshibaCommandType::MODE:
+    case ToshibaCommandType::ROOM_TEMP:
+    case ToshibaCommandType::OUTDOOR_TEMP:
+    case ToshibaCommandType::POWER_SEL:
+    case ToshibaCommandType::POWER_STATE:
+    case ToshibaCommandType::SPECIAL_MODE:
+    case ToshibaCommandType::WIFI_LED:
+      return true;
+    default:
+      return false;
+  }
+}
+
 /**
  * Checksum is calculated from all bytes excluding start byte.
  * It's (256 - (sum % 256)).
@@ -250,6 +268,9 @@ void ToshibaClimateUart::parseResponse(std::vector<uint8_t> rawData) {
   };
   if (is_debug_response) {
     this->handle_debug_response_(rawData);
+    clear_active_request();
+    this->rx_message_.clear();  // message processed, clear buffer
+    return;
   }
 
   uint8_t length = rawData.size();
@@ -270,13 +291,8 @@ void ToshibaClimateUart::parseResponse(std::vector<uint8_t> rawData) {
       value = rawData[15];
       break;
     default:
-      if (is_debug_response) {
-        ESP_LOGD(TAG, "Received unknown debug message with length: %d and value %s", length,
-                 format_hex_pretty(rawData).c_str());
-      } else {
-        ESP_LOGW(TAG, "Received unknown message with length: %d and value %s", length,
-                 format_hex_pretty(rawData).c_str());
-      }
+      ESP_LOGW(TAG, "Received unknown message with length: %d and value %s", length,
+               format_hex_pretty(rawData).c_str());
       clear_active_request();
       return;
   }
@@ -385,18 +401,12 @@ void ToshibaClimateUart::parseResponse(std::vector<uint8_t> rawData) {
       }
       break;
     default:
-      if (is_debug_response) {
-        ESP_LOGD(TAG, "Unknown debug sensor: %d with value %d", sensor, value);
-      } else {
-        ESP_LOGW(TAG, "Unknown sensor: %d with value %d", sensor, value);
-      }
+      ESP_LOGW(TAG, "Unknown sensor: %d with value %d", sensor, value);
       break;
   }
   clear_active_request();
   this->rx_message_.clear();  // message processed, clear buffer
-  if (!is_debug_response) {
-    this->publish_state();      // publish current values to MQTT
-  }
+  this->publish_state();      // publish current values to MQTT
 }
 
 void ToshibaClimateUart::dump_config() {
@@ -662,7 +672,6 @@ void ToshibaClimateUart::run_debug_initial_scan_step_() {
       ESP_LOGI(TAG, "Debug initial scan finished.");
       std::string report = "initial_scan_found:" + std::to_string(this->debug_discovered_ids_.size());
       ESP_LOGD(TAG, "Debug change %s", report.c_str());
-      ESP_LOGI(TAG, "Debug change %s", report.c_str());
       if (this->debug_change_sensor_ != nullptr) {
         this->debug_change_sensor_->publish_state(report);
       }
@@ -719,18 +728,23 @@ void ToshibaClimateUart::handle_debug_response_(const std::vector<uint8_t> &raw_
   uint8_t response_id = 0;
   if (this->extract_response_id_(raw_data, response_id)) {
     if (response_id != this->active_request_id_) {
-      ESP_LOGW(TAG, "Debug response ID mismatch: requested 0x%02X but got 0x%02X. Using response ID.",
+      ESP_LOGD(TAG, "Debug response ID mismatch: requested 0x%02X but got 0x%02X. Using response ID.",
                this->active_request_id_, response_id);
     }
     sensor_id = response_id;
   } else {
-    ESP_LOGW(TAG, "Debug response ID could not be extracted. Mapping payload to requested ID 0x%02X.",
+    ESP_LOGD(TAG, "Debug response ID could not be extracted. Mapping payload to requested ID 0x%02X.",
              this->active_request_id_);
   }
 
   std::string payload_hex = this->payload_to_hex_(raw_data);
   if (payload_hex.empty()) {
     return;
+  }
+  if (!is_known_sensor_id(sensor_id)) {
+    ESP_LOGD(TAG, "Unknown debug sensor: %u with value %s", sensor_id, payload_hex.c_str());
+  } else {
+    ESP_LOGD(TAG, "Debug payload id:0x%02X payload:%s", sensor_id, payload_hex.c_str());
   }
   if (!this->debug_id_discovered_[sensor_id]) {
     this->debug_id_discovered_[sensor_id] = true;
@@ -750,7 +764,6 @@ void ToshibaClimateUart::handle_debug_response_(const std::vector<uint8_t> &raw_
       report += "...";
     }
     ESP_LOGD(TAG, "Debug change %s", report.c_str());
-    ESP_LOGI(TAG, "Debug change %s", report.c_str());
     if (this->debug_change_sensor_ != nullptr) {
       this->debug_change_sensor_->publish_state(report);
     }
