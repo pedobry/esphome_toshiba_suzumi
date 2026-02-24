@@ -243,11 +243,12 @@ void ToshibaClimateUart::loop() {
 }
 
 void ToshibaClimateUart::parseResponse(std::vector<uint8_t> rawData) {
+  const bool is_debug_response = this->active_request_is_debug_;
   auto clear_active_request = [this]() {
     this->active_request_is_data_ = false;
     this->active_request_is_debug_ = false;
   };
-  if (this->active_request_is_debug_) {
+  if (is_debug_response) {
     this->handle_debug_response_(rawData);
   }
 
@@ -269,8 +270,13 @@ void ToshibaClimateUart::parseResponse(std::vector<uint8_t> rawData) {
       value = rawData[15];
       break;
     default:
-      ESP_LOGW(TAG, "Received unknown message with length: %d and value %s", length,
-               format_hex_pretty(rawData).c_str());
+      if (is_debug_response) {
+        ESP_LOGD(TAG, "Received unknown debug message with length: %d and value %s", length,
+                 format_hex_pretty(rawData).c_str());
+      } else {
+        ESP_LOGW(TAG, "Received unknown message with length: %d and value %s", length,
+                 format_hex_pretty(rawData).c_str());
+      }
       clear_active_request();
       return;
   }
@@ -379,12 +385,18 @@ void ToshibaClimateUart::parseResponse(std::vector<uint8_t> rawData) {
       }
       break;
     default:
-      ESP_LOGW(TAG, "Unknown sensor: %d with value %d", sensor, value);
+      if (is_debug_response) {
+        ESP_LOGD(TAG, "Unknown debug sensor: %d with value %d", sensor, value);
+      } else {
+        ESP_LOGW(TAG, "Unknown sensor: %d with value %d", sensor, value);
+      }
       break;
   }
   clear_active_request();
   this->rx_message_.clear();  // message processed, clear buffer
-  this->publish_state();      // publish current values to MQTT
+  if (!is_debug_response) {
+    this->publish_state();      // publish current values to MQTT
+  }
 }
 
 void ToshibaClimateUart::dump_config() {
@@ -751,7 +763,7 @@ bool ToshibaClimateUart::extract_response_id_(const std::vector<uint8_t> &raw_da
     response_id = raw_data[12];
     return true;
   }
-  if (raw_data.size() == 17) {
+  if (raw_data.size() == 17 || raw_data.size() == 18 || raw_data.size() == 20) {
     response_id = raw_data[14];
     return true;
   }
