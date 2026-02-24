@@ -22,7 +22,6 @@ WIFI_LED_SCHEMA = switch.switch_schema(
 ).extend(
     {
         cv.Required(CONF_CLIMATE_ID): cv.use_id(ToshibaClimateUart),
-        cv.Optional(CONF_TYPE, default=SWITCH_TYPE_WIFI_LED): cv.one_of(SWITCH_TYPE_WIFI_LED, SWITCH_TYPE_DEBUG, lower=True),
     }
 ).extend(cv.COMPONENT_SCHEMA)
 
@@ -33,7 +32,6 @@ DEBUG_SCHEMA = switch.switch_schema(
 ).extend(
     {
         cv.Required(CONF_CLIMATE_ID): cv.use_id(ToshibaClimateUart),
-        cv.Optional(CONF_TYPE, default=SWITCH_TYPE_DEBUG): cv.one_of(SWITCH_TYPE_WIFI_LED, SWITCH_TYPE_DEBUG, lower=True),
         cv.Optional(CONF_POLL_INTERVAL, default="30s"): cv.positive_time_period_seconds,
         cv.Optional(CONF_BATCH_SIZE, default=1): cv.int_range(min=1, max=255),
         cv.Optional(CONF_INITIAL_FROM_ID, default=128): cv.int_range(min=0, max=255),
@@ -41,21 +39,19 @@ DEBUG_SCHEMA = switch.switch_schema(
     }
 ).extend(cv.COMPONENT_SCHEMA)
 
-def _validate_wifi_schema(config):
-    if config[CONF_TYPE] != SWITCH_TYPE_WIFI_LED:
-        raise cv.Invalid(f"Use type: {SWITCH_TYPE_DEBUG} for debug switch settings")
-    return config
-
 def _validate_debug_schema(config):
     if config[CONF_TYPE] != SWITCH_TYPE_DEBUG:
-        raise cv.Invalid(f"Use type: {SWITCH_TYPE_WIFI_LED} for wifi LED switch")
+        raise cv.Invalid(f"type must be {SWITCH_TYPE_DEBUG} for this schema")
     if config[CONF_INITIAL_FROM_ID] > config[CONF_INITIAL_TO_ID]:
         raise cv.Invalid(f"{CONF_INITIAL_FROM_ID} must be <= {CONF_INITIAL_TO_ID}")
     return config
 
-CONFIG_SCHEMA = cv.Any(
-    cv.All(WIFI_LED_SCHEMA, _validate_wifi_schema),
-    cv.All(DEBUG_SCHEMA, _validate_debug_schema),
+CONFIG_SCHEMA = cv.typed_schema(
+    {
+        SWITCH_TYPE_WIFI_LED: WIFI_LED_SCHEMA,
+        SWITCH_TYPE_DEBUG: cv.All(DEBUG_SCHEMA, _validate_debug_schema),
+    },
+    default_type=SWITCH_TYPE_WIFI_LED,
 )
 
 
