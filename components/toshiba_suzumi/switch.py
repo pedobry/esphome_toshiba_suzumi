@@ -3,8 +3,6 @@ import esphome.config_validation as cv
 from esphome.components import climate, switch, uart
 from esphome.const import CONF_ID, CONF_TYPE, ENTITY_CATEGORY_DIAGNOSTIC
 
-DEPENDENCIES = ["toshiba_suzumi"]
-
 CONF_CLIMATE_ID = "climate_id"
 CONF_POLL_INTERVAL = "poll_interval"
 CONF_BATCH_SIZE = "batch_size"
