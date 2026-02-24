@@ -40,8 +40,6 @@ DEBUG_SCHEMA = switch.switch_schema(
 ).extend(cv.COMPONENT_SCHEMA)
 
 def _validate_debug_schema(config):
-    if config[CONF_TYPE] != SWITCH_TYPE_DEBUG:
-        raise cv.Invalid(f"type must be {SWITCH_TYPE_DEBUG} for this schema")
     if config[CONF_INITIAL_FROM_ID] > config[CONF_INITIAL_TO_ID]:
         raise cv.Invalid(f"{CONF_INITIAL_FROM_ID} must be <= {CONF_INITIAL_TO_ID}")
     return config
