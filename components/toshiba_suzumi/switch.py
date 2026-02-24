@@ -1,13 +1,14 @@
 import esphome.codegen as cg
 import esphome.config_validation as cv
-from esphome.components import climate, switch, uart
-from esphome.const import CONF_ID, CONF_TYPE, ENTITY_CATEGORY_DIAGNOSTIC
+from esphome.components import climate, switch, uart, text_sensor
+from esphome.const import CONF_ID, CONF_TYPE, ENTITY_CATEGORY_DIAGNOSTIC, CONF_NAME
 
 CONF_CLIMATE_ID = "climate_id"
 CONF_POLL_INTERVAL = "poll_interval"
 CONF_BATCH_SIZE = "batch_size"
 CONF_INITIAL_FROM_ID = "initial_from_id"
 CONF_INITIAL_TO_ID = "initial_to_id"
+CONF_DEBUG_MESSAGE = "debug_message"
 SWITCH_TYPE_WIFI_LED = "wifi_led"
 SWITCH_TYPE_DEBUG = "debug"
 
@@ -36,6 +37,13 @@ DEBUG_SCHEMA = switch.switch_schema(
         cv.Optional(CONF_BATCH_SIZE, default=1): cv.int_range(min=1, max=255),
         cv.Optional(CONF_INITIAL_FROM_ID, default=128): cv.int_range(min=0, max=255),
         cv.Optional(CONF_INITIAL_TO_ID, default=254): cv.int_range(min=0, max=255),
+        cv.Optional(CONF_DEBUG_MESSAGE, default={}): text_sensor.text_sensor_schema(
+            entity_category=ENTITY_CATEGORY_DIAGNOSTIC
+        ).extend(
+            {
+                cv.Optional(CONF_NAME, default="Debug message"): cv.string,
+            }
+        ),
     }
 ).extend(cv.COMPONENT_SCHEMA)
 
@@ -65,5 +73,7 @@ async def to_code(config):
         cg.add(parent.set_debug_poll_interval_ms(config[CONF_POLL_INTERVAL].total_milliseconds))
         cg.add(parent.set_debug_batch_size(config[CONF_BATCH_SIZE]))
         cg.add(parent.set_debug_initial_range(config[CONF_INITIAL_FROM_ID], config[CONF_INITIAL_TO_ID]))
+        debug_message = await text_sensor.new_text_sensor(config[CONF_DEBUG_MESSAGE])
+        cg.add(parent.set_debug_change_sensor(debug_message))
     else:
         cg.add(parent.set_wifi_led_switch(var))

@@ -58,7 +58,7 @@ class ToshibaClimateUart : public PollingComponent, public climate::Climate, pub
   void set_horizontal_swing(bool enabled) { horizontal_swing_ = enabled; }
   void set_wifi_led_switch(switch_::Switch *wifi_led_switch) { wifi_led_switch_ = wifi_led_switch; }
   void set_debug_switch(switch_::Switch *debug_switch) { debug_switch_ = debug_switch; }
-  void set_debug_object_id_prefix(const std::string &prefix) { debug_object_id_prefix_ = prefix; }
+  void set_debug_change_sensor(text_sensor::TextSensor *sensor) { debug_change_sensor_ = sensor; }
   void set_debug_poll_interval_ms(uint32_t interval_ms) { debug_poll_interval_ms_ = interval_ms; }
   void set_debug_batch_size(uint16_t batch_size) { debug_batch_size_ = batch_size; }
   void set_debug_initial_range(uint8_t from_id, uint8_t to_id) {
@@ -98,7 +98,6 @@ class ToshibaClimateUart : public PollingComponent, public climate::Climate, pub
   bool debug_initial_scan_in_progress_ = false;
   uint16_t debug_initial_next_id_ = 128;
   size_t debug_poll_cursor_ = 0;
-  std::string debug_object_id_prefix_ = "toshiba";
   bool active_request_is_data_ = false;
   bool active_request_is_debug_ = false;
   uint8_t active_request_id_ = 0;
@@ -126,7 +125,6 @@ class ToshibaClimateUart : public PollingComponent, public climate::Climate, pub
   void clear_queued_debug_requests_();
   void handle_debug_response_(const std::vector<uint8_t> &raw_data);
   bool extract_response_id_(const std::vector<uint8_t> &raw_data, uint8_t &response_id) const;
-  text_sensor::TextSensor *get_or_create_debug_change_sensor_();
   std::string payload_to_hex_(const std::vector<uint8_t> &raw_data) const;
 
   friend class ToshibaPwrModeSelect;

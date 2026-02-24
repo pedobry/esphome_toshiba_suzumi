@@ -60,7 +60,6 @@ async def to_code(config):
     await cg.register_component(var, config)
     await climate.register_climate(var, config)
     await uart.register_uart_device(var, config)
-    cg.add(var.set_debug_object_id_prefix(config[CONF_ID].id))
 
     if CONF_OUTDOOR_TEMP in config:
         conf = config[CONF_OUTDOOR_TEMP]

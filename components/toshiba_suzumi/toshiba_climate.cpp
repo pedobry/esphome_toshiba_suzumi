@@ -1,6 +1,5 @@
 #include "toshiba_climate.h"
 #include "toshiba_climate_mode.h"
-#include "esphome/core/application.h"
 #include "esphome/core/log.h"
 #include <algorithm>
 #include <cstdio>
@@ -712,7 +711,6 @@ void ToshibaClimateUart::handle_debug_response_(const std::vector<uint8_t> &raw_
     return;
   }
   if (last_payload != payload_hex) {
-    auto *sensor = this->get_or_create_debug_change_sensor_();
     std::string report = "id:" + std::to_string(sensor_id) + " old:" + last_payload + " new:" + payload_hex;
     if (report.size() > 250) {
       report.resize(247);
@@ -720,8 +718,8 @@ void ToshibaClimateUart::handle_debug_response_(const std::vector<uint8_t> &raw_
     }
     ESP_LOGD(TAG, "Debug change %s", report.c_str());
     ESP_LOGI(TAG, "Debug change %s", report.c_str());
-    if (sensor != nullptr) {
-      sensor->publish_state(report);
+    if (this->debug_change_sensor_ != nullptr) {
+      this->debug_change_sensor_->publish_state(report);
     }
     last_payload = payload_hex;
   }
@@ -737,21 +735,6 @@ bool ToshibaClimateUart::extract_response_id_(const std::vector<uint8_t> &raw_da
     return true;
   }
   return false;
-}
-
-text_sensor::TextSensor *ToshibaClimateUart::get_or_create_debug_change_sensor_() {
-  if (this->debug_change_sensor_ != nullptr) {
-    return this->debug_change_sensor_;
-  }
-
-  auto *sensor = new text_sensor::TextSensor();
-  std::string object_id = this->debug_object_id_prefix_ + "_debug_txt";
-  sensor->set_name("Debug txt");
-  sensor->set_object_id(object_id.c_str());
-  sensor->set_entity_category(ENTITY_CATEGORY_DIAGNOSTIC);
-  App.register_text_sensor(sensor);
-  this->debug_change_sensor_ = sensor;
-  return this->debug_change_sensor_;
 }
 
 std::string ToshibaClimateUart::payload_to_hex_(const std::vector<uint8_t> &raw_data) const {
