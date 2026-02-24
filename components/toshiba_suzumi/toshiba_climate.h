@@ -104,7 +104,8 @@ class ToshibaClimateUart : public PollingComponent, public climate::Climate, pub
   uint8_t active_request_id_ = 0;
   std::vector<uint8_t> debug_discovered_ids_;
   std::array<bool, 256> debug_id_discovered_{};
-  std::array<text_sensor::TextSensor *, 256> debug_payload_sensors_{};
+  std::array<std::string, 256> debug_last_payloads_{};
+  text_sensor::TextSensor *debug_change_sensor_ = nullptr;
 
   void enqueue_command_(const ToshibaCommand &command);
   void send_to_uart(const ToshibaCommand command);
@@ -125,7 +126,7 @@ class ToshibaClimateUart : public PollingComponent, public climate::Climate, pub
   void clear_queued_debug_requests_();
   void handle_debug_response_(const std::vector<uint8_t> &raw_data);
   bool extract_response_id_(const std::vector<uint8_t> &raw_data, uint8_t &response_id) const;
-  text_sensor::TextSensor *get_or_create_debug_payload_sensor_(uint8_t id);
+  text_sensor::TextSensor *get_or_create_debug_change_sensor_();
   std::string payload_to_hex_(const std::vector<uint8_t> &raw_data) const;
 
   friend class ToshibaPwrModeSelect;

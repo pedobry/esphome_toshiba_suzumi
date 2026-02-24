@@ -705,9 +705,25 @@ void ToshibaClimateUart::handle_debug_response_(const std::vector<uint8_t> &raw_
     this->debug_discovered_ids_.push_back(sensor_id);
     ESP_LOGI(TAG, "Debug discovered responding ID: 0x%02X", sensor_id);
   }
-  auto *sensor = this->get_or_create_debug_payload_sensor_(sensor_id);
-  if (sensor != nullptr) {
-    sensor->publish_state(payload_hex);
+
+  std::string &last_payload = this->debug_last_payloads_[sensor_id];
+  if (last_payload.empty()) {
+    last_payload = payload_hex;
+    return;
+  }
+  if (last_payload != payload_hex) {
+    auto *sensor = this->get_or_create_debug_change_sensor_();
+    std::string report = "id:" + std::to_string(sensor_id) + " old:" + last_payload + " new:" + payload_hex;
+    if (report.size() > 250) {
+      report.resize(247);
+      report += "...";
+    }
+    ESP_LOGD(TAG, "Debug change %s", report.c_str());
+    ESP_LOGI(TAG, "Debug change %s", report.c_str());
+    if (sensor != nullptr) {
+      sensor->publish_state(report);
+    }
+    last_payload = payload_hex;
   }
 }
 
@@ -723,23 +739,19 @@ bool ToshibaClimateUart::extract_response_id_(const std::vector<uint8_t> &raw_da
   return false;
 }
 
-text_sensor::TextSensor *ToshibaClimateUart::get_or_create_debug_payload_sensor_(uint8_t id) {
-  if (this->debug_payload_sensors_[id] != nullptr) {
-    return this->debug_payload_sensors_[id];
+text_sensor::TextSensor *ToshibaClimateUart::get_or_create_debug_change_sensor_() {
+  if (this->debug_change_sensor_ != nullptr) {
+    return this->debug_change_sensor_;
   }
 
   auto *sensor = new text_sensor::TextSensor();
-  char suffix[16];
-  snprintf(suffix, sizeof(suffix), "debug_0x%02x", id);
-  std::string object_id = this->debug_object_id_prefix_ + "_" + suffix;
-  char name[16];
-  snprintf(name, sizeof(name), "Debug 0x%02X", id);
-  sensor->set_name(name);
+  std::string object_id = this->debug_object_id_prefix_ + "_debug_txt";
+  sensor->set_name("Debug txt");
   sensor->set_object_id(object_id.c_str());
   sensor->set_entity_category(ENTITY_CATEGORY_DIAGNOSTIC);
   App.register_text_sensor(sensor);
-  this->debug_payload_sensors_[id] = sensor;
-  return sensor;
+  this->debug_change_sensor_ = sensor;
+  return this->debug_change_sensor_;
 }
 
 std::string ToshibaClimateUart::payload_to_hex_(const std::vector<uint8_t> &raw_data) const {
