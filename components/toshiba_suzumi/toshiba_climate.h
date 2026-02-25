@@ -105,6 +105,7 @@ class ToshibaClimateUart : public PollingComponent, public climate::Climate, pub
   std::vector<uint8_t> debug_discovered_ids_;
   std::array<bool, 256> debug_id_discovered_{};
   std::array<std::string, 256> debug_last_payloads_{};
+  std::array<uint16_t, 256> debug_pending_requests_{};
   text_sensor::TextSensor *debug_change_sensor_ = nullptr;
 
   void enqueue_command_(const ToshibaCommand &command);
@@ -125,7 +126,8 @@ class ToshibaClimateUart : public PollingComponent, public climate::Climate, pub
   void start_debug_poll_run_();
   void run_debug_poll_step_();
   void clear_queued_debug_requests_();
-  void handle_debug_response_(const std::vector<uint8_t> &raw_data);
+  void handle_debug_response_(const std::vector<uint8_t> &raw_data, uint8_t sensor_id_override = 0,
+                              bool has_sensor_id_override = false);
   bool extract_response_id_(const std::vector<uint8_t> &raw_data, uint8_t &response_id) const;
   std::string payload_to_hex_(const std::vector<uint8_t> &raw_data) const;
 

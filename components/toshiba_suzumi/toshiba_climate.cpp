@@ -9,7 +9,7 @@ namespace toshiba_suzumi {
 
 using namespace esphome::climate;
 
-static const int RECEIVE_TIMEOUT = 200;
+static const int RECEIVE_TIMEOUT = 300;
 static const int COMMAND_DELAY = 100;
 static const uint8_t WIFI_LED_DISABLED_VALUE = 128;
 static const uint8_t WIFI_LED_ENABLED_VALUE = 129;
@@ -146,6 +146,7 @@ void ToshibaClimateUart::requestData(ToshibaCommandType cmd, bool is_debug_reque
   payload.push_back(checksum(payload, payload.size()));
   if (is_debug_request) {
     ESP_LOGD(TAG, "Debug request sensor %d, checksum: %d", payload[12], payload[13]);
+    this->debug_pending_requests_[static_cast<uint8_t>(cmd)]++;
   } else {
     ESP_LOGI(TAG, "Requesting data from sensor %d, checksum: %d", payload[12], payload[13]);
   }
@@ -262,12 +263,18 @@ void ToshibaClimateUart::loop() {
 
 void ToshibaClimateUart::parseResponse(std::vector<uint8_t> rawData) {
   const bool is_debug_response = this->active_request_is_debug_;
+  uint8_t response_id = 0;
+  const bool has_response_id = this->extract_response_id_(rawData, response_id);
+  const bool is_pending_debug_response = has_response_id && this->debug_pending_requests_[response_id] > 0;
   auto clear_active_request = [this]() {
     this->active_request_is_data_ = false;
     this->active_request_is_debug_ = false;
   };
-  if (is_debug_response) {
-    this->handle_debug_response_(rawData);
+  if (is_debug_response || is_pending_debug_response) {
+    if (has_response_id && this->debug_pending_requests_[response_id] > 0) {
+      this->debug_pending_requests_[response_id]--;
+    }
+    this->handle_debug_response_(rawData, response_id, has_response_id);
     clear_active_request();
     this->rx_message_.clear();  // message processed, clear buffer
     return;
@@ -436,6 +443,9 @@ void ToshibaClimateUart::dump_config() {
  * some people reported that without communication, the unit might stop responding.
  */
 void ToshibaClimateUart::update() {
+  if (this->debug_enabled_ && this->debug_initial_scan_in_progress_) {
+    return;
+  }
   this->requestData(ToshibaCommandType::ROOM_TEMP);
   if (outdoor_temp_sensor_ != nullptr) {
     this->requestData(ToshibaCommandType::OUTDOOR_TEMP);
@@ -721,12 +731,16 @@ void ToshibaClimateUart::clear_queued_debug_requests_() {
   this->active_request_is_debug_ = false;
   this->debug_initial_scan_in_progress_ = false;
   this->debug_poll_run_in_progress_ = false;
+  this->debug_pending_requests_.fill(0);
 }
 
-void ToshibaClimateUart::handle_debug_response_(const std::vector<uint8_t> &raw_data) {
-  uint8_t sensor_id = this->active_request_id_;
+void ToshibaClimateUart::handle_debug_response_(const std::vector<uint8_t> &raw_data, uint8_t sensor_id_override,
+                                                bool has_sensor_id_override) {
+  uint8_t sensor_id = has_sensor_id_override ? sensor_id_override : this->active_request_id_;
   uint8_t response_id = 0;
-  if (this->extract_response_id_(raw_data, response_id)) {
+  if (has_sensor_id_override) {
+    // Sensor id already resolved by parser via pending-request correlation.
+  } else if (this->extract_response_id_(raw_data, response_id)) {
     if (response_id != this->active_request_id_) {
       ESP_LOGD(TAG, "Debug response ID mismatch: requested %u but got %u. Using response ID.",
                this->active_request_id_, response_id);
