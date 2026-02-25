@@ -208,9 +208,9 @@ and then watching ESPHome logs for data:
 
 `type: debug` behavior:
 - `Debug=ON`: runs one initial scan (`initial_from_id..initial_to_id`) and tracks payloads of responding IDs.
-- When a tracked payload changes, `Debug message` publishes JSON:
-  `{"id":<id>,"old":"<last_hex>","new":"<new_hex>"}`.
-- After initial scan it publishes JSON: `{"initial_scan_found":<count>}`.
+- When a tracked payload changes, `Debug message` publishes:
+  `id:<id> old:<last_hex> new:<new_hex>`.
+- After initial scan it publishes: `initial_scan_found:<count>`.
 - While ON: every `poll_interval`, it starts a full poll cycle over all discovered IDs, processed in loop chunks of `batch_size`.
 - `Debug=OFF`: stops debug polling and keeps last values.
 
