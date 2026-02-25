@@ -683,7 +683,7 @@ void ToshibaClimateUart::run_debug_initial_scan_step_() {
     if (this->debug_initial_next_id_ > this->debug_initial_to_) {
       this->debug_initial_scan_in_progress_ = false;
       ESP_LOGI(TAG, "Debug initial scan finished.");
-      std::string report = "{\"initial_scan_found\":" + std::to_string(this->debug_discovered_ids_.size()) + "}";
+      std::string report = "initial_scan_found:" + std::to_string(this->debug_discovered_ids_.size());
       ESP_LOGD(TAG, "Debug change %s", report.c_str());
       if (this->debug_change_sensor_ != nullptr) {
         this->debug_change_sensor_->publish_state(report);
@@ -771,8 +771,7 @@ void ToshibaClimateUart::handle_debug_response_(const std::vector<uint8_t> &raw_
     return;
   }
   if (last_payload != payload_hex) {
-    std::string report =
-        "{\"id\":" + std::to_string(sensor_id) + ",\"old\":\"" + last_payload + "\",\"new\":\"" + payload_hex + "\"}";
+    std::string report = "id:" + std::to_string(sensor_id) + " old:" + last_payload + " new:" + payload_hex;
     if (report.size() > 250) {
       report.resize(247);
       report += "...";
