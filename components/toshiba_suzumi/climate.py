@@ -14,7 +14,7 @@ import logging
 _LOGGER = logging.getLogger(__name__)
 
 DEPENDENCIES = ["uart"]
-AUTO_LOAD = ["sensor", "select"]
+AUTO_LOAD = ["sensor", "select", "text_sensor"]
 
 CONF_ROOM_TEMP = "room_temp"
 CONF_OUTDOOR_TEMP = "outdoor_temp"
@@ -25,7 +25,6 @@ CONF_SUPPORTED_PRESETS = "supported_presets"
 
 FEATURE_HORIZONTAL_SWING = "horizontal_swing"
 MIN_TEMP = "min_temp"
-DISABLE_WIFI_LED = "disable_wifi_led"
 
 toshiba_ns = cg.esphome_ns.namespace("toshiba_suzumi")
 ToshibaClimateUart = toshiba_ns.class_("ToshibaClimateUart", cg.PollingComponent, climate.Climate, uart.UARTDevice)
@@ -45,7 +44,6 @@ CONFIG_SCHEMA = climate.climate_schema(ToshibaClimateUart).extend(
             cv.GenerateID(): cv.declare_id(ToshibaPwrModeSelect),
         }),
         cv.Optional(FEATURE_HORIZONTAL_SWING): cv.boolean,
-        cv.Optional(DISABLE_WIFI_LED): cv.boolean,
         # CONF_SPECIAL_MODE is deprecated - replaced by CONF_SUPPORTED_PRESETS
         # Keep it for backward compatibility
         cv.Optional(CONF_SPECIAL_MODE): select.select_schema(ToshibaSpecialModeSelect).extend({
@@ -78,9 +76,6 @@ async def to_code(config):
 
     if MIN_TEMP in config:
         cg.add(var.set_min_temp(config[MIN_TEMP]))
-
-    if DISABLE_WIFI_LED in config:
-        cg.add(var.disable_wifi_led(True))
 
     if CONF_SUPPORTED_PRESETS in config:
         presets = config[CONF_SUPPORTED_PRESETS]

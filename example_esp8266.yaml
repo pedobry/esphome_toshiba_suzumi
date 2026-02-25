@@ -44,7 +44,18 @@ climate:
       #- "Sleep"
       #- "Floor"
       #- "Comfort"
-    #disable_wifi_led: true # Optional. Disable Wifi LED on internal unit.
+switch:
+  - platform: toshiba_suzumi
+    climate_id: living_room
+    name: "Wifi Led"
+  - platform: toshiba_suzumi
+    type: debug
+    climate_id: living_room
+    name: "Debug"
+    #poll_interval: 30s     # Optional. How often discovered IDs are repolled.
+    #batch_size: 1          # Optional. IDs queried per pass (set e.g. 10 or 255).
+    #initial_from_id: 128   # Optional. Initial scan start ID.
+    #initial_to_id: 254     # Optional. Initial scan end ID.
 
 # Enable button to scan for unknown values in AC unit. This is optional.
 button:
