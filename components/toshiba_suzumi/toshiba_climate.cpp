@@ -11,6 +11,8 @@ using namespace esphome::climate;
 
 static const int RECEIVE_TIMEOUT = 300;
 static const int COMMAND_DELAY = 100;
+static const uint32_t PUBLISH_SOFT_DEBOUNCE_MS = 120;
+static const uint32_t PUBLISH_HARD_TIMEOUT_MS = 500;
 static const uint8_t WIFI_LED_DISABLED_VALUE = 128;
 static const uint8_t WIFI_LED_ENABLED_VALUE = 129;
 
@@ -259,6 +261,7 @@ void ToshibaClimateUart::loop() {
     this->run_debug_poll_step_();
   }
   this->process_command_queue_();
+  this->flush_pending_publish_if_ready_();
 }
 
 void ToshibaClimateUart::parseResponse(std::vector<uint8_t> rawData) {
@@ -413,7 +416,7 @@ void ToshibaClimateUart::parseResponse(std::vector<uint8_t> rawData) {
   }
   clear_active_request();
   this->rx_message_.clear();  // message processed, clear buffer
-  this->publish_state();      // publish current values to MQTT
+  this->schedule_publish_();
 }
 
 void ToshibaClimateUart::dump_config() {
@@ -680,7 +683,7 @@ void ToshibaClimateUart::run_debug_initial_scan_step_() {
     if (this->debug_initial_next_id_ > this->debug_initial_to_) {
       this->debug_initial_scan_in_progress_ = false;
       ESP_LOGI(TAG, "Debug initial scan finished.");
-      std::string report = "initial_scan_found:" + std::to_string(this->debug_discovered_ids_.size());
+      std::string report = "{\"initial_scan_found\":" + std::to_string(this->debug_discovered_ids_.size()) + "}";
       ESP_LOGD(TAG, "Debug change %s", report.c_str());
       if (this->debug_change_sensor_ != nullptr) {
         this->debug_change_sensor_->publish_state(report);
@@ -755,11 +758,7 @@ void ToshibaClimateUart::handle_debug_response_(const std::vector<uint8_t> &raw_
   if (payload_hex.empty()) {
     return;
   }
-  if (!is_known_sensor_id(sensor_id)) {
-    ESP_LOGD(TAG, "Unknown debug sensor: %u with value %s", sensor_id, payload_hex.c_str());
-  } else {
-    ESP_LOGD(TAG, "Debug payload id:%u payload:%s", sensor_id, payload_hex.c_str());
-  }
+  ESP_LOGD(TAG, "Debug payload id:%u payload:%s", sensor_id, payload_hex.c_str());
   if (!this->debug_id_discovered_[sensor_id]) {
     this->debug_id_discovered_[sensor_id] = true;
     this->debug_discovered_ids_.push_back(sensor_id);
@@ -772,7 +771,8 @@ void ToshibaClimateUart::handle_debug_response_(const std::vector<uint8_t> &raw_
     return;
   }
   if (last_payload != payload_hex) {
-    std::string report = "id:" + std::to_string(sensor_id) + " old:" + last_payload + " new:" + payload_hex;
+    std::string report =
+        "{\"id\":" + std::to_string(sensor_id) + ",\"old\":\"" + last_payload + "\",\"new\":\"" + payload_hex + "\"}";
     if (report.size() > 250) {
       report.resize(247);
       report += "...";
@@ -818,6 +818,42 @@ std::string ToshibaClimateUart::payload_to_hex_(const std::vector<uint8_t> &raw_
     out.push_back(hex[v & 0x0F]);
   }
   return out;
+}
+
+void ToshibaClimateUart::schedule_publish_() {
+  uint32_t now = millis();
+  this->publish_pending_ = true;
+  this->publish_soft_deadline_ms_ = now + PUBLISH_SOFT_DEBOUNCE_MS;
+  if (this->publish_hard_deadline_ms_ == 0 || now > this->publish_hard_deadline_ms_) {
+    this->publish_hard_deadline_ms_ = now + PUBLISH_HARD_TIMEOUT_MS;
+  }
+}
+
+bool ToshibaClimateUart::has_pending_non_debug_data_requests_() const {
+  if (this->active_request_is_data_ && !this->active_request_is_debug_) {
+    return true;
+  }
+  return std::any_of(this->command_queue_.begin(), this->command_queue_.end(), [](const ToshibaCommand &cmd) {
+    return cmd.is_data_request && !cmd.is_debug_request;
+  });
+}
+
+void ToshibaClimateUart::flush_pending_publish_if_ready_() {
+  if (!this->publish_pending_) {
+    return;
+  }
+  uint32_t now = millis();
+  const bool hard_timeout = this->publish_hard_deadline_ms_ != 0 && now >= this->publish_hard_deadline_ms_;
+  const bool soft_ready = now >= this->publish_soft_deadline_ms_ &&
+                          !this->has_pending_non_debug_data_requests_() && this->rx_message_.empty();
+  if (!hard_timeout && !soft_ready) {
+    return;
+  }
+
+  this->publish_state();
+  this->publish_pending_ = false;
+  this->publish_soft_deadline_ms_ = 0;
+  this->publish_hard_deadline_ms_ = 0;
 }
 
 void ToshibaWifiLedSwitch::setup() {
