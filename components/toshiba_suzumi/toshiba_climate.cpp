@@ -14,7 +14,7 @@ static const int COMMAND_DELAY = 100;
 static const uint32_t PUBLISH_SOFT_DEBOUNCE_MS = 120;
 static const uint32_t PUBLISH_HARD_TIMEOUT_MS = 500;
 static const uint8_t WIFI_LED_DISABLED_VALUE = 128;
-static const uint8_t WIFI_LED_ENABLED_VALUE = 129;
+static const uint8_t WIFI_LED_ENABLED_VALUE = 0;
 
 static bool is_known_sensor_id(uint8_t id) {
   switch (static_cast<ToshibaCommandType>(id)) {
