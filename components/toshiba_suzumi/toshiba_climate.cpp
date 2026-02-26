@@ -177,7 +177,7 @@ void ToshibaClimateUart::process_command_queue_() {
     if (newCommand.cmd == ToshibaCommandType::DELAY) {
       this->command_queue_.erase(this->command_queue_.begin());
       return;
-    }    
+    }
     this->send_to_uart(this->command_queue_.front());
     this->command_queue_.erase(this->command_queue_.begin());
   }
@@ -502,11 +502,33 @@ void ToshibaClimateUart::control(const climate::ClimateCall &call) {
 
 ClimateTraits ToshibaClimateUart::traits() {
   auto traits = climate::ClimateTraits();
-  traits.set_supported_modes({climate::CLIMATE_MODE_OFF, climate::CLIMATE_MODE_HEAT_COOL, climate::CLIMATE_MODE_COOL,
-                              climate::CLIMATE_MODE_HEAT, climate::CLIMATE_MODE_DRY, climate::CLIMATE_MODE_FAN_ONLY});
-  if (this->horizontal_swing_) {
-    traits.set_supported_swing_modes({climate::CLIMATE_SWING_OFF, climate::CLIMATE_SWING_VERTICAL,
-                                      climate::CLIMATE_SWING_HORIZONTAL, climate::CLIMATE_SWING_BOTH});
+
+  if (this -> heat_mode_disabled_) {
+    traits.set_supported_modes({
+      climate::CLIMATE_MODE_OFF,
+      climate::CLIMATE_MODE_HEAT_COOL,
+      climate::CLIMATE_MODE_COOL,
+      climate::CLIMATE_MODE_DRY,
+      climate::CLIMATE_MODE_FAN_ONLY
+    });
+  } else {
+    traits.set_supported_modes({
+      climate::CLIMATE_MODE_OFF,
+      climate::CLIMATE_MODE_HEAT_COOL,
+      climate::CLIMATE_MODE_COOL,
+      climate::CLIMATE_MODE_HEAT,
+      climate::CLIMATE_MODE_DRY,
+      climate::CLIMATE_MODE_FAN_ONLY
+    });
+  }
+
+  if (this -> horizontal_swing_) {
+    traits.set_supported_swing_modes({
+      climate::CLIMATE_SWING_OFF,
+      climate::CLIMATE_SWING_VERTICAL,
+      climate::CLIMATE_SWING_HORIZONTAL,
+      climate::CLIMATE_SWING_BOTH
+    });
   } else {
     traits.set_supported_swing_modes({climate::CLIMATE_SWING_OFF, climate::CLIMATE_SWING_VERTICAL});
   }
