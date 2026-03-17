@@ -47,6 +47,14 @@ class ToshibaClimateUart : public PollingComponent, public climate::Climate, pub
   float get_setup_priority() const override { return setup_priority::LATE; }
 
   void set_outdoor_temp_sensor(sensor::Sensor *outdoor_temp_sensor) { outdoor_temp_sensor_ = outdoor_temp_sensor; }
+  void set_cdu_td_temp_sensor(sensor::Sensor *sensor) { cdu_td_temp_sensor_ = sensor; }
+  void set_cdu_ts_temp_sensor(sensor::Sensor *sensor) { cdu_ts_temp_sensor_ = sensor; }
+  void set_cdu_te_temp_sensor(sensor::Sensor *sensor) { cdu_te_temp_sensor_ = sensor; }
+  void set_cdu_load_sensor(sensor::Sensor *sensor) { cdu_load_sensor_ = sensor; }
+  void set_cdu_iac_sensor(sensor::Sensor *sensor) { cdu_iac_sensor_ = sensor; }
+  void set_fcu_tc_temp_sensor(sensor::Sensor *sensor) { fcu_tc_temp_sensor_ = sensor; }
+  void set_fcu_tcj_temp_sensor(sensor::Sensor *sensor) { fcu_tcj_temp_sensor_ = sensor; }
+  void set_fcu_fan_rpm_sensor(sensor::Sensor *sensor) { fcu_fan_rpm_sensor_ = sensor; }
   void set_pwr_select(select::Select *pws_select) { pwr_select_ = pws_select; }
   void set_horizontal_swing(bool enabled) { horizontal_swing_ = enabled; }
   void disable_heat_mode(bool disabled) { heat_mode_disabled_ = disabled; }
@@ -70,6 +78,14 @@ class ToshibaClimateUart : public PollingComponent, public climate::Climate, pub
   optional<SPECIAL_MODE> special_mode_ = SPECIAL_MODE::STANDARD;
   select::Select *pwr_select_ = nullptr;
   sensor::Sensor *outdoor_temp_sensor_ = nullptr;
+  sensor::Sensor *cdu_td_temp_sensor_ = nullptr;
+  sensor::Sensor *cdu_ts_temp_sensor_ = nullptr;
+  sensor::Sensor *cdu_te_temp_sensor_ = nullptr;
+  sensor::Sensor *cdu_load_sensor_ = nullptr;
+  sensor::Sensor *cdu_iac_sensor_ = nullptr;
+  sensor::Sensor *fcu_tc_temp_sensor_ = nullptr;
+  sensor::Sensor *fcu_tcj_temp_sensor_ = nullptr;
+  sensor::Sensor *fcu_fan_rpm_sensor_ = nullptr;
   bool horizontal_swing_ = false;
   uint8_t min_temp_ = 17; // default min temp for units without 8° heating mode
   bool heat_mode_disabled_ = false;

@@ -142,6 +142,22 @@ climate:
       #- "Floor"
       #- "Comfort"
     #disable_wifi_led: true # Optional. Disable Wifi LED on internal unit.
+    #cdu_load:                    # Optional. Compressor load (%) - useful for estimating power consumption
+    #  name: "Compressor Load"
+    #cdu_iac:                     # Optional. Compressor current
+    #  name: "Compressor Current"
+    #cdu_td_temp:                 # Optional. CDU discharge pipe temperature
+    #  name: "CDU Discharge Temp"
+    #cdu_ts_temp:                 # Optional. CDU suction pipe temperature
+    #  name: "CDU Suction Temp"
+    #cdu_te_temp:                 # Optional. CDU evaporator temperature
+    #  name: "CDU Evaporator Temp"
+    #fcu_tc_temp:                 # Optional. FCU heat exchanger temperature
+    #  name: "FCU Heat Exchanger Temp"
+    #fcu_tcj_temp:                # Optional. FCU heat exchanger junction temperature
+    #  name: "FCU Junction Temp"
+    #fcu_fan_rpm:                 # Optional. FCU fan speed (RPM)
+    #  name: "FCU Fan RPM"
 ...
 ```
 
@@ -172,9 +188,44 @@ You can filter unwanted values by adding a filter to Outside temp sensor:
         - filter_out: 127 
 ```
 
+## Outdoor/Indoor unit diagnostics (ODU/IDU sensors)
+
+Some Toshiba AC units periodically send extended status messages from the outdoor unit (ODU) and indoor unit (IDU). These messages contain diagnostic data such as compressor load, refrigerant temperatures, and fan speed. The component can parse these and expose them as optional sensors.
+
+**Available sensors:**
+
+| Sensor | Description | Unit |
+|--------|-------------|------|
+| `cdu_load` | Compressor load (frequency) | % |
+| `cdu_iac` | Compressor current / EEV actuation | A |
+| `cdu_td_temp` | CDU discharge pipe temperature | °C |
+| `cdu_ts_temp` | CDU suction pipe temperature | °C |
+| `cdu_te_temp` | CDU evaporator temperature | °C |
+| `fcu_tc_temp` | FCU heat exchanger temperature | °C |
+| `fcu_tcj_temp` | FCU heat exchanger junction temperature | °C |
+| `fcu_fan_rpm` | FCU fan speed | RPM |
+
+These sensors are all optional — only add the ones you need to your YAML configuration. The data arrives automatically from the unit (no polling required).
+
+### Estimating power consumption
+
+The AC protocol does not report actual power consumption in watts. However, `cdu_load` reports the compressor load as a percentage, which correlates with power usage. You can combine it with your unit's rated power input to estimate consumption in Home Assistant using a template sensor:
+
+```yaml
+sensor:
+  - platform: template
+    sensors:
+      ac_estimated_power:
+        friendly_name: "AC Estimated Power"
+        unit_of_measurement: "W"
+        value_template: "{{ (states('sensor.compressor_load') | float(0)) / 100 * 880 }}"
+```
+
+Replace `880` with your unit's rated power input in watts (check the datasheet). You can then use the [HA Riemann sum integral integration](https://www.home-assistant.io/integrations/integration/) to track energy consumption over time.
+
 ## Scan for unknown sensors
 
-The code here was developed on certain Toshiba AC unit which provides only certain set of features. Newer or different units might offer more features (ie. reporting of power usage, horizontal swing etc.). While these are not implemented, you can add a button which scans for all sensors and prints the answers from AC unit. This might help developers to identify these new features.
+The code here was developed on certain Toshiba AC unit which provides only certain set of features. Newer or different units might offer more features (ie. horizontal swing etc.). While these are not implemented, you can add a button which scans for all sensors and prints the answers from AC unit. This might help developers to identify these new features.
 
 You can enable this by adding a new button:
 

@@ -221,6 +221,14 @@ void ToshibaClimateUart::parseResponse(std::vector<uint8_t> rawData) {
       sensor = static_cast<ToshibaCommandType>(rawData[14]);
       value = rawData[15];
       break;
+    case 22:  // extended status message (e.g., ODU_STATUS / IDU_STATUS)
+      sensor = static_cast<ToshibaCommandType>(rawData[12]);
+      value = 0;
+      break;
+    case 24:  // extended status message (e.g., ODU_STATUS / IDU_STATUS)
+      sensor = static_cast<ToshibaCommandType>(rawData[14]);
+      value = 0;
+      break;
     default:
       ESP_LOGW(TAG, "Received unknown message with length: %d and value %s", length,
                format_hex_pretty(rawData).c_str());
@@ -323,6 +331,42 @@ void ToshibaClimateUart::parseResponse(std::vector<uint8_t> rawData) {
       }
       break;
     }
+    case ToshibaCommandType::ODU_STATUS: {
+      // Outdoor unit status - data offset depends on message length
+      uint8_t odu_offset = (length == 22) ? 13 : 15;
+      ESP_LOGI(TAG, "Received ODU status");
+      if (cdu_td_temp_sensor_ != nullptr) {
+        cdu_td_temp_sensor_->publish_state(static_cast<int8_t>(rawData[odu_offset + 0]));
+      }
+      if (cdu_ts_temp_sensor_ != nullptr) {
+        cdu_ts_temp_sensor_->publish_state(static_cast<int8_t>(rawData[odu_offset + 1]));
+      }
+      if (cdu_te_temp_sensor_ != nullptr) {
+        cdu_te_temp_sensor_->publish_state(static_cast<int8_t>(rawData[odu_offset + 2]));
+      }
+      if (cdu_load_sensor_ != nullptr) {
+        cdu_load_sensor_->publish_state(rawData[odu_offset + 3] / 1.7f);
+      }
+      if (cdu_iac_sensor_ != nullptr) {
+        cdu_iac_sensor_->publish_state(rawData[odu_offset + 6]);
+      }
+      return;
+    }
+    case ToshibaCommandType::IDU_STATUS: {
+      // Indoor unit status - data offset depends on message length
+      uint8_t idu_offset = (length == 22) ? 13 : 15;
+      ESP_LOGI(TAG, "Received IDU status");
+      if (fcu_tc_temp_sensor_ != nullptr) {
+        fcu_tc_temp_sensor_->publish_state(static_cast<int8_t>(rawData[idu_offset + 0]));
+      }
+      if (fcu_tcj_temp_sensor_ != nullptr) {
+        fcu_tcj_temp_sensor_->publish_state(static_cast<int8_t>(rawData[idu_offset + 1]));
+      }
+      if (fcu_fan_rpm_sensor_ != nullptr) {
+        fcu_fan_rpm_sensor_->publish_state(rawData[idu_offset + 2]);
+      }
+      return;
+    }
     default:
       ESP_LOGW(TAG, "Unknown sensor: %d with value %d", sensor, value);
       break;
@@ -336,6 +380,30 @@ void ToshibaClimateUart::dump_config() {
   LOG_CLIMATE("", "Thermostat", this);
   if (outdoor_temp_sensor_ != nullptr) {
     LOG_SENSOR("", "Outdoor Temp", this->outdoor_temp_sensor_);
+  }
+  if (cdu_td_temp_sensor_ != nullptr) {
+    LOG_SENSOR("", "CDU Td Temp", this->cdu_td_temp_sensor_);
+  }
+  if (cdu_ts_temp_sensor_ != nullptr) {
+    LOG_SENSOR("", "CDU Ts Temp", this->cdu_ts_temp_sensor_);
+  }
+  if (cdu_te_temp_sensor_ != nullptr) {
+    LOG_SENSOR("", "CDU Te Temp", this->cdu_te_temp_sensor_);
+  }
+  if (cdu_load_sensor_ != nullptr) {
+    LOG_SENSOR("", "CDU Load", this->cdu_load_sensor_);
+  }
+  if (cdu_iac_sensor_ != nullptr) {
+    LOG_SENSOR("", "CDU IAC", this->cdu_iac_sensor_);
+  }
+  if (fcu_tc_temp_sensor_ != nullptr) {
+    LOG_SENSOR("", "FCU Tc Temp", this->fcu_tc_temp_sensor_);
+  }
+  if (fcu_tcj_temp_sensor_ != nullptr) {
+    LOG_SENSOR("", "FCU Tcj Temp", this->fcu_tcj_temp_sensor_);
+  }
+  if (fcu_fan_rpm_sensor_ != nullptr) {
+    LOG_SENSOR("", "FCU Fan RPM", this->fcu_fan_rpm_sensor_);
   }
   if (pwr_select_ != nullptr) {
     LOG_SELECT("", "Power selector", this->pwr_select_);

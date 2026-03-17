@@ -5,7 +5,10 @@ from esphome.const import (
     CONF_ID,
     STATE_CLASS_MEASUREMENT,
     UNIT_CELSIUS,
+    UNIT_PERCENT,
+    UNIT_AMPERE,
     DEVICE_CLASS_TEMPERATURE,
+    DEVICE_CLASS_CURRENT,
     __version__ as ESPHOME_VERSION
 )
 from packaging import version
@@ -18,6 +21,14 @@ AUTO_LOAD = ["sensor", "select"]
 
 CONF_ROOM_TEMP = "room_temp"
 CONF_OUTDOOR_TEMP = "outdoor_temp"
+CONF_CDU_TD_TEMP = "cdu_td_temp"
+CONF_CDU_TS_TEMP = "cdu_ts_temp"
+CONF_CDU_TE_TEMP = "cdu_te_temp"
+CONF_CDU_LOAD = "cdu_load"
+CONF_CDU_IAC = "cdu_iac"
+CONF_FCU_TC_TEMP = "fcu_tc_temp"
+CONF_FCU_TCJ_TEMP = "fcu_tcj_temp"
+CONF_FCU_FAN_RPM = "fcu_fan_rpm"
 CONF_PWR_SELECT = "power_select"
 CONF_SPECIAL_MODE = "special_mode" # deprecated - replaced by CONF_SUPPORTED_PRESETS
 CONF_SPECIAL_MODE_MODES = "modes" # deprecated - replaced by CONF_SUPPORTED_PRESETS
@@ -40,6 +51,52 @@ CONFIG_SCHEMA = climate.climate_schema(ToshibaClimateUart).extend(
                 unit_of_measurement=UNIT_CELSIUS,
                 accuracy_decimals=0,
                 device_class=DEVICE_CLASS_TEMPERATURE,
+                state_class=STATE_CLASS_MEASUREMENT,
+            ),
+        cv.Optional(CONF_CDU_TD_TEMP): sensor.sensor_schema(
+                unit_of_measurement=UNIT_CELSIUS,
+                accuracy_decimals=0,
+                device_class=DEVICE_CLASS_TEMPERATURE,
+                state_class=STATE_CLASS_MEASUREMENT,
+            ),
+        cv.Optional(CONF_CDU_TS_TEMP): sensor.sensor_schema(
+                unit_of_measurement=UNIT_CELSIUS,
+                accuracy_decimals=0,
+                device_class=DEVICE_CLASS_TEMPERATURE,
+                state_class=STATE_CLASS_MEASUREMENT,
+            ),
+        cv.Optional(CONF_CDU_TE_TEMP): sensor.sensor_schema(
+                unit_of_measurement=UNIT_CELSIUS,
+                accuracy_decimals=0,
+                device_class=DEVICE_CLASS_TEMPERATURE,
+                state_class=STATE_CLASS_MEASUREMENT,
+            ),
+        cv.Optional(CONF_CDU_LOAD): sensor.sensor_schema(
+                unit_of_measurement=UNIT_PERCENT,
+                accuracy_decimals=1,
+                state_class=STATE_CLASS_MEASUREMENT,
+            ),
+        cv.Optional(CONF_CDU_IAC): sensor.sensor_schema(
+                unit_of_measurement=UNIT_AMPERE,
+                accuracy_decimals=0,
+                device_class=DEVICE_CLASS_CURRENT,
+                state_class=STATE_CLASS_MEASUREMENT,
+            ),
+        cv.Optional(CONF_FCU_TC_TEMP): sensor.sensor_schema(
+                unit_of_measurement=UNIT_CELSIUS,
+                accuracy_decimals=0,
+                device_class=DEVICE_CLASS_TEMPERATURE,
+                state_class=STATE_CLASS_MEASUREMENT,
+            ),
+        cv.Optional(CONF_FCU_TCJ_TEMP): sensor.sensor_schema(
+                unit_of_measurement=UNIT_CELSIUS,
+                accuracy_decimals=0,
+                device_class=DEVICE_CLASS_TEMPERATURE,
+                state_class=STATE_CLASS_MEASUREMENT,
+            ),
+        cv.Optional(CONF_FCU_FAN_RPM): sensor.sensor_schema(
+                unit_of_measurement="RPM",
+                accuracy_decimals=0,
                 state_class=STATE_CLASS_MEASUREMENT,
             ),
         cv.Optional(CONF_PWR_SELECT): select.select_schema(ToshibaPwrModeSelect).extend({
@@ -69,6 +126,38 @@ async def to_code(config):
         conf = config[CONF_OUTDOOR_TEMP]
         sens = await sensor.new_sensor(conf)
         cg.add(var.set_outdoor_temp_sensor(sens))
+
+    if CONF_CDU_TD_TEMP in config:
+        sens = await sensor.new_sensor(config[CONF_CDU_TD_TEMP])
+        cg.add(var.set_cdu_td_temp_sensor(sens))
+
+    if CONF_CDU_TS_TEMP in config:
+        sens = await sensor.new_sensor(config[CONF_CDU_TS_TEMP])
+        cg.add(var.set_cdu_ts_temp_sensor(sens))
+
+    if CONF_CDU_TE_TEMP in config:
+        sens = await sensor.new_sensor(config[CONF_CDU_TE_TEMP])
+        cg.add(var.set_cdu_te_temp_sensor(sens))
+
+    if CONF_CDU_LOAD in config:
+        sens = await sensor.new_sensor(config[CONF_CDU_LOAD])
+        cg.add(var.set_cdu_load_sensor(sens))
+
+    if CONF_CDU_IAC in config:
+        sens = await sensor.new_sensor(config[CONF_CDU_IAC])
+        cg.add(var.set_cdu_iac_sensor(sens))
+
+    if CONF_FCU_TC_TEMP in config:
+        sens = await sensor.new_sensor(config[CONF_FCU_TC_TEMP])
+        cg.add(var.set_fcu_tc_temp_sensor(sens))
+
+    if CONF_FCU_TCJ_TEMP in config:
+        sens = await sensor.new_sensor(config[CONF_FCU_TCJ_TEMP])
+        cg.add(var.set_fcu_tcj_temp_sensor(sens))
+
+    if CONF_FCU_FAN_RPM in config:
+        sens = await sensor.new_sensor(config[CONF_FCU_FAN_RPM])
+        cg.add(var.set_fcu_fan_rpm_sensor(sens))
 
     if CONF_PWR_SELECT in config:
         sel = await select.new_select(config[CONF_PWR_SELECT], options=['50 %', '75 %', '100 %'])
