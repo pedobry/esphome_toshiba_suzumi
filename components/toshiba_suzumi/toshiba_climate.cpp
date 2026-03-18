@@ -144,11 +144,8 @@ void ToshibaClimateUart::setup() {
   this->start_handshake();
   // load initial sensor data from the unit
   this->getInitData();
-
-  if (this->wifi_led_disabled_) {
-    // Disable Wifi LED
-    this->sendCmd(ToshibaCommandType::WIFI_LED, 128);
-  }
+  // Set Wi-Fi LED initial state
+  this->set_wifi_led(!this->wifi_led_disabled_);
 }
 
 /**
@@ -650,6 +647,21 @@ void ToshibaClimateUart::scan() {
   ESP_LOGI(TAG, "Scan started.");
   for (uint8_t i = 128; i < 255; i++) {
     this->requestData(static_cast<ToshibaCommandType>(i));
+  }
+}
+
+/**
+ * Expose Wi-Fi LED control
+ */
+void ToshibaClimateUart::set_wifi_led(bool enabled) {
+  if (enabled) {
+    ESP_LOGI(TAG, "Turning ON Wi-Fi LED");
+    this->sendCmd(ToshibaCommandType::WIFI_LED_1, 0x05);
+    this->sendCmd(ToshibaCommandType::WIFI_LED_2, 0x00);
+  } else {
+    ESP_LOGI(TAG, "Turning OFF Wi-Fi LED");
+    this->sendCmd(ToshibaCommandType::WIFI_LED_1, 0x00);
+    this->sendCmd(ToshibaCommandType::WIFI_LED_2, 0x80);
   }
 }
 
