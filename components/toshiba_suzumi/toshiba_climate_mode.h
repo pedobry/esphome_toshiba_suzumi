@@ -71,6 +71,8 @@ enum class ToshibaCommandType : uint8_t {
   OUTDOOR_TEMP = 190,
   WIFI_LED = 223,
   SPECIAL_MODE = 247,
+  IDU_STATUS = 0xE4,   // 228 - Indoor unit status (unsolicited)
+  ODU_STATUS = 0xE5,   // 229 - Outdoor unit status (unsolicited)
 };
 
 const MODE ClimateModeToInt(climate::ClimateMode mode);
