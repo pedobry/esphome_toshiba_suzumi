@@ -347,7 +347,7 @@ void ToshibaClimateUart::parseResponse(std::vector<uint8_t> rawData) {
       if (cdu_iac_sensor_ != nullptr) {
         cdu_iac_sensor_->publish_state(rawData[odu_offset + 6]);
       }
-      return;
+      break;
     }
     case ToshibaCommandType::IDU_STATUS: {
       // Indoor unit status - data offset depends on message length
@@ -362,7 +362,7 @@ void ToshibaClimateUart::parseResponse(std::vector<uint8_t> rawData) {
       if (fcu_fan_rpm_sensor_ != nullptr) {
         fcu_fan_rpm_sensor_->publish_state(rawData[idu_offset + 2]);
       }
-      return;
+      break;
     }
     default:
       ESP_LOGW(TAG, "Unknown sensor: %d with value %d", sensor, value);
