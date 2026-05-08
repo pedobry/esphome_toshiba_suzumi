@@ -126,6 +126,10 @@ climate:
     id: living_room
     uart_id: uart_bus
     time_id: sntp_time
+    energy:
+      name: "Daily Energy"
+    power:
+      name: "Realtime Power"
     outdoor_temp:        # Optional. Outdoor temperature sensor
       name: Outdoor Temp
       filters:
@@ -209,12 +213,35 @@ Some Toshiba AC units periodically send extended status messages from the outdoo
 | `fcu_tc_temp` | FCU heat exchanger temperature | °C |
 | `fcu_tcj_temp` | FCU heat exchanger junction temperature | °C |
 | `fcu_fan_rpm` | FCU fan speed | RPM |
+| `energy` | Total daily energy consumption | Wh |
+| `power` | Estimated real-time power usage | W |
 
 These sensors are all optional — only add the ones you need to your YAML configuration. The data arrives automatically from the unit (no polling required).
 
-### Estimating power consumption
+### Native Energy and Power monitoring
 
-The AC protocol does not report actual power consumption in watts. However, `cdu_load` reports the compressor load as a percentage, which correlates with power usage. You can combine it with your unit's rated power input to estimate consumption in Home Assistant using a template sensor:
+If your AC unit supports it, you can now get native energy consumption data. This requires adding a `time` component to your configuration so the component can sync the current time with the AC unit.
+
+```yaml
+time:
+  - platform: sntp
+    id: sntp_time
+
+climate:
+  - platform: toshiba_suzumi
+    # ...
+    time_id: sntp_time
+    energy:
+      name: "Daily Energy"
+    power:
+      name: "Realtime Power"
+```
+
+The `power` sensor provides a real-time estimate in Watts, calculated from the rate of change in the AC's internal energy counters.
+
+### Estimating power consumption (Fallback)
+
+For older units that do not support the native energy registers, you can still estimate power using `cdu_load`. `cdu_load` reports the compressor load as a percentage, which correlates with power usage. You can combine it with your unit's rated power input to estimate consumption in Home Assistant using a template sensor:
 
 ```yaml
 sensor:
