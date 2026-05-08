@@ -5,6 +5,7 @@
 #include "esphome/components/uart/uart.h"
 #include "esphome/components/sensor/sensor.h"
 #include "esphome/components/select/select.h"
+#include "esphome/components/time/real_time_clock.h"
 #include "toshiba_climate_mode.h"
 
 namespace esphome {
@@ -39,6 +40,7 @@ struct ToshibaCommand {
 
 class ToshibaClimateUart : public PollingComponent, public climate::Climate, public uart::UARTDevice {
  public:
+  ToshibaClimateUart();
   void setup() override;
   void loop() override;
   void dump_config() override;
@@ -57,6 +59,9 @@ class ToshibaClimateUart : public PollingComponent, public climate::Climate, pub
   void set_fcu_tc_temp_sensor(sensor::Sensor *sensor) { fcu_tc_temp_sensor_ = sensor; }
   void set_fcu_tcj_temp_sensor(sensor::Sensor *sensor) { fcu_tcj_temp_sensor_ = sensor; }
   void set_fcu_fan_rpm_sensor(sensor::Sensor *sensor) { fcu_fan_rpm_sensor_ = sensor; }
+  void set_energy_sensor(sensor::Sensor *sensor) { energy_sensor_ = sensor; }
+  void set_power_sensor(sensor::Sensor *sensor) { power_sensor_ = sensor; }
+  void set_time(time::RealTimeClock *time) { time_ = time; }
   void set_pwr_select(select::Select *pws_select) { pwr_select_ = pws_select; }
   void set_horizontal_swing(bool enabled) { horizontal_swing_ = enabled; }
   void disable_heat_mode(bool disabled) { heat_mode_disabled_ = disabled; }
@@ -89,11 +94,20 @@ class ToshibaClimateUart : public PollingComponent, public climate::Climate, pub
   sensor::Sensor *fcu_tc_temp_sensor_ = nullptr;
   sensor::Sensor *fcu_tcj_temp_sensor_ = nullptr;
   sensor::Sensor *fcu_fan_rpm_sensor_ = nullptr;
+  sensor::Sensor *energy_sensor_ = nullptr;
+  sensor::Sensor *power_sensor_ = nullptr;
+  time::RealTimeClock *time_ = nullptr;
   bool horizontal_swing_ = false;
   uint8_t min_temp_ = 17; // default min temp for units without 8° heating mode
   bool heat_mode_disabled_ = false;
   bool wifi_led_disabled_ = false;
   std::vector<const char*> supported_presets_;
+  uint16_t daily_energy_usage_[24] = {0};
+  uint32_t last_energy_sync_ = 0;
+  uint32_t last_time_sync_ = 0;
+  uint32_t last_total_daily_energy_ = 0;
+  uint32_t last_energy_update_ms_ = 0;
+  bool time_synced_ = false;
 
   void enqueue_command_(const ToshibaCommand &command);
   void send_to_uart(const ToshibaCommand command);
@@ -106,6 +120,9 @@ class ToshibaClimateUart : public PollingComponent, public climate::Climate, pub
   void handle_rx_byte_(uint8_t c);
   bool validate_message_();
   void on_set_pwr_level(const std::string &value);
+  void sync_time_();
+  void sync_energy_();
+  void estimate_wattage_(uint32_t current_energy);
 
   friend class ToshibaPwrModeSelect;
 };
