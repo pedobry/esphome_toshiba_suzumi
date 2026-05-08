@@ -72,6 +72,7 @@ enum class ToshibaCommandType : uint8_t {
   WIFI_LED_1 = 222,
   WIFI_LED_2 = 223,
   SPECIAL_MODE = 247,
+  SET_DATE_TIME = 0xEA,
   IDU_STATUS = 0xE4,   // 228 - Indoor unit status (unsolicited)
   ODU_STATUS = 0xE5,   // 229 - Outdoor unit status (unsolicited)
 };

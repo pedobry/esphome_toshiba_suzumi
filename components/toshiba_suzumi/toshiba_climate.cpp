@@ -22,6 +22,10 @@ uint8_t checksum(std::vector<uint8_t> data, uint8_t length) {
   return 256 - sum;
 }
 
+ToshibaClimateUart::ToshibaClimateUart() {
+  this->last_time_sync_ = 0;
+}
+
 /**
  * Send the command to UART interface.
  */
@@ -163,8 +167,8 @@ void ToshibaClimateUart::process_command_queue_() {
     this->rx_message_.clear();
   }
 
-  // when there is no RX message and there is a command to send
-  if (cmdDelay > COMMAND_DELAY && !this->command_queue_.empty() && this->rx_message_.empty()) {
+  // when there is no RX message (or we are in a gap) and there is a command to send
+  if (cmdDelay > COMMAND_DELAY && !this->command_queue_.empty()) {
     auto newCommand = this->command_queue_.front();
     if (newCommand.cmd == ToshibaCommandType::DELAY && cmdDelay < newCommand.delay) {
       // delay command did not finished yet
@@ -212,6 +216,11 @@ void ToshibaClimateUart::parseResponse(std::vector<uint8_t> rawData) {
       value = rawData[13];
       break;
     case 16:  // probably ACK for issued command
+      // Check if this is a SET_DATE_TIME ACK (ends in 0x99 0x99)
+      if (rawData[14] == 0x99) {
+          ESP_LOGD(TAG, "AC unit acknowledged time synchronization.");
+          this->time_synced_ = true;
+      }
       ESP_LOGD(TAG, "Received message with length: %d and value %s", length, format_hex_pretty(rawData).c_str());
       return;
     case 17:  // response to requestData with the actual value of sensor/setting
@@ -426,6 +435,15 @@ void ToshibaClimateUart::update() {
   this->requestData(ToshibaCommandType::ROOM_TEMP);
   if (outdoor_temp_sensor_ != nullptr) {
     this->requestData(ToshibaCommandType::OUTDOOR_TEMP);
+  }
+  uint32_t now = millis();
+    // Sync time every hour, or every 5 minutes if it hasn't succeeded yet
+    if (!this->time_synced_ || (now - this->last_time_sync_ > 3600000)) {
+      if (this->time_synced_ || (this->last_time_sync_ == 0 || now - this->last_time_sync_ > 300000)) {
+          ESP_LOGI(TAG, "Triggering scheduled time synchronization...");
+          this->sync_time_();
+      }
+    }
   }
 }
 
@@ -666,6 +684,39 @@ void ToshibaClimateUart::set_wifi_led(bool enabled) {
     this->sendCmd(ToshibaCommandType::WIFI_LED_1, 0x00);
     this->sendCmd(ToshibaCommandType::WIFI_LED_2, 0x80);
   }
+}
+
+void ToshibaClimateUart::sync_time_() {
+  if (this->time_ == nullptr) {
+    ESP_LOGW(TAG, "Time sync requested but no time_id is configured in YAML!");
+    return;
+  }
+  if (!this->time_->now().is_valid()) {
+    ESP_LOGI(TAG, "Time sync requested but time source is not yet valid/synchronized.");
+    return;
+  }
+  auto now = this->time_->now();
+
+  ESP_LOGI(TAG, "Syncing time to AC unit: %04d-%02d-%02d %02d:%02d:%02d", now.year, now.month, now.day_of_month, now.hour,
+           now.minute, now.second);
+
+  std::vector<uint8_t> payload = {2, 0, 3, 16, 0, 0, 0xef, 1, 48, 1, 0, 0xea, 0x99};
+  payload.push_back((now.year - 2000) + 100);
+  payload.push_back(now.month - 1);
+  payload.push_back(now.day_of_month);
+  payload.push_back(now.hour);
+  payload.push_back(now.minute);
+  payload.push_back(now.second);
+  payload.push_back(now.day_of_week - 1); // Sunday=0
+  payload.push_back(0x00);
+  payload.push_back(0x00);
+  for (int i = 0; i < 224; i++) {
+    payload.push_back(0xFF);
+  }
+  payload.push_back(checksum(payload, payload.size()));
+  this->enqueue_command_(ToshibaCommand{.cmd = ToshibaCommandType::SET_DATE_TIME, .payload = payload});
+  this->enqueue_command_(ToshibaCommand{.cmd = ToshibaCommandType::DELAY, .delay = 5000});
+  this->last_time_sync_ = millis();
 }
 
 }  // namespace toshiba_suzumi

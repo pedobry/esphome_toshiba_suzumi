@@ -9,6 +9,7 @@ from esphome.const import (
     UNIT_AMPERE,
     DEVICE_CLASS_TEMPERATURE,
     DEVICE_CLASS_CURRENT,
+    CONF_TIME_ID,
     __version__ as ESPHOME_VERSION
 )
 from packaging import version
@@ -120,6 +121,7 @@ CONFIG_SCHEMA = climate.climate_schema(ToshibaClimateUart).extend(
         }),
         cv.Optional(CONF_SUPPORTED_PRESETS): cv.ensure_list(cv.one_of("Standard","Hi POWER","ECO","Fireplace 1","Fireplace 2","8 degrees","Silent#1","Silent#2","Sleep","Floor","Comfort")),
         cv.Optional(MIN_TEMP): cv.int_,
+        cv.Optional(CONF_TIME_ID): cv.use_id(cg.esphome_ns.namespace("time").class_("RealTimeClock")),
     }
 ).extend(uart.UART_DEVICE_SCHEMA).extend(cv.polling_component_schema("120s"))
 
@@ -203,3 +205,7 @@ async def to_code(config):
         if "8 degrees" in presets:
             # if "8 degrees" feature is in the list, set the min visual temperature to 5
             cg.add(var.set_min_temp(5))
+
+    if CONF_TIME_ID in config:
+        time_ = await cg.get_variable(config[CONF_TIME_ID])
+        cg.add(var.set_time(time_))

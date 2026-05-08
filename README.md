@@ -116,11 +116,16 @@ uart:
   parity: EVEN
   baud_rate: 9600
 
+time:
+  - platform: sntp
+    id: sntp_time
+
 climate:
   - platform: toshiba_suzumi
     name: living-room
     id: living_room
     uart_id: uart_bus
+    time_id: sntp_time
     outdoor_temp:        # Optional. Outdoor temperature sensor
       name: Outdoor Temp
       filters:
