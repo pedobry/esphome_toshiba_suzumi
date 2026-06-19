@@ -58,6 +58,9 @@ class ToshibaClimateUart : public PollingComponent, public climate::Climate, pub
   void set_fcu_tcj_temp_sensor(sensor::Sensor *sensor) { fcu_tcj_temp_sensor_ = sensor; }
   void set_fcu_fan_rpm_sensor(sensor::Sensor *sensor) { fcu_fan_rpm_sensor_ = sensor; }
   void set_pwr_select(select::Select *pws_select) { pwr_select_ = pws_select; }
+  void set_vertical_air_direction_select(select::Select *vertical_air_direction_select) {
+    vertical_air_direction_select_ = vertical_air_direction_select;
+  }
   void set_horizontal_swing(bool enabled) { horizontal_swing_ = enabled; }
   void disable_heat_mode(bool disabled) { heat_mode_disabled_ = disabled; }
   void disable_wifi_led(bool disabled) { wifi_led_disabled_ = disabled; }
@@ -79,6 +82,7 @@ class ToshibaClimateUart : public PollingComponent, public climate::Climate, pub
   STATE power_state_ = STATE::OFF;
   optional<SPECIAL_MODE> special_mode_ = SPECIAL_MODE::STANDARD;
   select::Select *pwr_select_ = nullptr;
+  select::Select *vertical_air_direction_select_ = nullptr;
   sensor::Sensor *indoor_temp_sensor_ = nullptr;
   sensor::Sensor *outdoor_temp_sensor_ = nullptr;
   sensor::Sensor *cdu_td_temp_sensor_ = nullptr;
@@ -106,11 +110,19 @@ class ToshibaClimateUart : public PollingComponent, public climate::Climate, pub
   void handle_rx_byte_(uint8_t c);
   bool validate_message_();
   void on_set_pwr_level(const std::string &value);
+  void on_set_vertical_air_direction(const std::string &value);
+  void publish_vertical_air_direction_(SWING swing_mode);
 
   friend class ToshibaPwrModeSelect;
+  friend class ToshibaVerticalAirDirectionSelect;
 };
 
 class ToshibaPwrModeSelect : public select::Select, public esphome::Parented<ToshibaClimateUart> {
+ protected:
+  virtual void control(const std::string &value) override;
+};
+
+class ToshibaVerticalAirDirectionSelect : public select::Select, public esphome::Parented<ToshibaClimateUart> {
  protected:
   virtual void control(const std::string &value) override;
 };

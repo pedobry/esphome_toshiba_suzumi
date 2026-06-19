@@ -31,6 +31,7 @@ CONF_FCU_TC_TEMP = "fcu_tc_temp"
 CONF_FCU_TCJ_TEMP = "fcu_tcj_temp"
 CONF_FCU_FAN_RPM = "fcu_fan_rpm"
 CONF_PWR_SELECT = "power_select"
+CONF_VERTICAL_AIR_DIRECTION = "vertical_air_direction"
 CONF_SPECIAL_MODE = "special_mode" # deprecated - replaced by CONF_SUPPORTED_PRESETS
 CONF_SPECIAL_MODE_MODES = "modes" # deprecated - replaced by CONF_SUPPORTED_PRESETS
 CONF_SUPPORTED_PRESETS = "supported_presets"
@@ -44,6 +45,7 @@ toshiba_ns = cg.esphome_ns.namespace("toshiba_suzumi")
 ToshibaClimateUart = toshiba_ns.class_("ToshibaClimateUart", cg.PollingComponent, climate.Climate, uart.UARTDevice)
 ToshibaPwrModeSelect = toshiba_ns.class_('ToshibaPwrModeSelect', select.Select)
 ToshibaSpecialModeSelect = toshiba_ns.class_('ToshibaSpecialModeSelect', select.Select)
+ToshibaVerticalAirDirectionSelect = toshiba_ns.class_('ToshibaVerticalAirDirectionSelect', select.Select)
 
 CONFIG_SCHEMA = climate.climate_schema(ToshibaClimateUart).extend(
     {
@@ -108,6 +110,9 @@ CONFIG_SCHEMA = climate.climate_schema(ToshibaClimateUart).extend(
             ),
         cv.Optional(CONF_PWR_SELECT): select.select_schema(ToshibaPwrModeSelect).extend({
             cv.GenerateID(): cv.declare_id(ToshibaPwrModeSelect),
+        }),
+        cv.Optional(CONF_VERTICAL_AIR_DIRECTION): select.select_schema(ToshibaVerticalAirDirectionSelect).extend({
+            cv.GenerateID(): cv.declare_id(ToshibaVerticalAirDirectionSelect),
         }),
         cv.Optional(FEATURE_HORIZONTAL_SWING): cv.boolean,
         cv.Optional(DISABLE_WIFI_LED): cv.boolean,
@@ -175,6 +180,11 @@ async def to_code(config):
         sel = await select.new_select(config[CONF_PWR_SELECT], options=['50 %', '75 %', '100 %'])
         await cg.register_parented(sel, config[CONF_ID])
         cg.add(var.set_pwr_select(sel))
+
+    if CONF_VERTICAL_AIR_DIRECTION in config:
+        sel = await select.new_select(config[CONF_VERTICAL_AIR_DIRECTION], options=['Off', 'Swing', 'Top', 'Middle Top', 'Middle', 'Middle Bottom', 'Bottom'])
+        await cg.register_parented(sel, config[CONF_ID])
+        cg.add(var.set_vertical_air_direction_select(sel))
 
     if FEATURE_HORIZONTAL_SWING in config:
         cg.add(var.set_horizontal_swing(True))
