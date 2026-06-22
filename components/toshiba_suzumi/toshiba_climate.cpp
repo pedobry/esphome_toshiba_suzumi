@@ -266,9 +266,20 @@ void ToshibaClimateUart::parseResponse(std::vector<uint8_t> rawData) {
       break;
     }
     case ToshibaCommandType::SWING: {
-      auto swingMode = IntToClimateSwingMode(static_cast<SWING>(value));
-      ESP_LOGI(TAG, "Received swing mode: %s", climate_swing_mode_to_string(swingMode));
-      this->swing_mode = swingMode;
+      auto swing = static_cast<SWING>(value);
+      auto air_direction = SwingToVerticalAirDirection(swing);
+      if (air_direction != nullptr) {
+        ESP_LOGI(TAG, "Received vertical air direction: %s", air_direction);
+        this->publish_vertical_air_direction_(swing);
+      }
+
+      if (IsFixedVerticalAirDirection(swing)) {
+        this->swing_mode = climate::CLIMATE_SWING_OFF;
+      } else {
+        auto swingMode = IntToClimateSwingMode(swing);
+        ESP_LOGI(TAG, "Received swing mode: %s", climate_swing_mode_to_string(swingMode));
+        this->swing_mode = swingMode;
+      }
       break;
     }
     case ToshibaCommandType::MODE: {
@@ -408,6 +419,9 @@ void ToshibaClimateUart::dump_config() {
   if (pwr_select_ != nullptr) {
     LOG_SELECT("", "Power selector", this->pwr_select_);
   }
+  if (vertical_air_direction_select_ != nullptr) {
+    LOG_SELECT("", "Vertical air direction", this->vertical_air_direction_select_);
+  }
   if (!supported_presets_.empty()) {
     ESP_LOGCONFIG(TAG, "Supported presets:");
     for (const char* &preset : supported_presets_) {
@@ -506,6 +520,7 @@ void ToshibaClimateUart::control(const climate::ClimateCall &call) {
     ESP_LOGD(TAG, "Setting swing mode to %s", climate_swing_mode_to_string(swing_mode));
     this->swing_mode = swing_mode;
     this->sendCmd(ToshibaCommandType::SWING, static_cast<uint8_t>(function_value));
+    this->publish_vertical_air_direction_(function_value);
   }
 
   if (call.get_preset().has_value()) {
@@ -642,6 +657,36 @@ void ToshibaClimateUart::on_set_pwr_level(const std::string &value) {
 }
 
 void ToshibaPwrModeSelect::control(const std::string &value) { parent_->on_set_pwr_level(value); }
+
+void ToshibaClimateUart::on_set_vertical_air_direction(const std::string &value) {
+  auto position = StringToVerticalAirDirection(value);
+  if (!position.has_value()) {
+    ESP_LOGW(TAG, "Unknown vertical air direction: %s", value.c_str());
+    return;
+  }
+
+  ESP_LOGD(TAG, "Setting vertical air direction to %s", value.c_str());
+  this->sendCmd(ToshibaCommandType::SWING, static_cast<uint8_t>(position.value()));
+  this->publish_vertical_air_direction_(position.value());
+  if (position.value() == SWING::VERTICAL || position.value() == SWING::BOTH) {
+    this->swing_mode = climate::CLIMATE_SWING_VERTICAL;
+  } else {
+    this->swing_mode = climate::CLIMATE_SWING_OFF;
+  }
+  this->publish_state();
+}
+
+void ToshibaClimateUart::publish_vertical_air_direction_(SWING swing_mode) {
+  if (vertical_air_direction_select_ == nullptr) {
+    return;
+  }
+  auto position = SwingToVerticalAirDirection(swing_mode);
+  if (position != nullptr) {
+    vertical_air_direction_select_->publish_state(position);
+  }
+}
+
+void ToshibaVerticalAirDirectionSelect::control(const std::string &value) { parent_->on_set_vertical_air_direction(value); }
 
 /**
  * Scan all statuses from 128 to 255 in order to find unknown features.

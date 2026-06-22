@@ -98,6 +98,53 @@ const std::string IntToPowerLevel(PWR_LEVEL mode) {
   }
 }
 
+struct VerticalAirDirection {
+  SWING swing;
+  const char *name;
+};
+
+// Toshiba service manuals call the physical up/down flap a horizontal louver;
+// expose the user-facing effect as vertical air direction.
+static const VerticalAirDirection VERTICAL_AIR_DIRECTIONS[] = {
+    {SWING::OFF, "Off"},
+    {SWING::VERTICAL, "Swing"},
+    {SWING::VERTICAL_FIX_POSITION_1, "Top"},
+    {SWING::VERTICAL_FIX_POSITION_2, "Middle Top"},
+    {SWING::VERTICAL_FIX_POSITION_3, "Middle"},
+    {SWING::VERTICAL_FIX_POSITION_4, "Middle Bottom"},
+    {SWING::VERTICAL_FIX_POSITION_5, "Bottom"},
+};
+
+const optional<SWING> StringToVerticalAirDirection(const std::string &position) {
+  for (auto const &direction : VERTICAL_AIR_DIRECTIONS) {
+    if (str_equals_case_insensitive(position, direction.name)) {
+      return direction.swing;
+    }
+  }
+  return nullopt;
+}
+
+const char* SwingToVerticalAirDirection(SWING mode) {
+  if (mode == SWING::HORIZONTAL) {
+    mode = SWING::OFF;
+  }
+  if (mode == SWING::BOTH) {
+    mode = SWING::VERTICAL;
+  }
+  for (auto const &direction : VERTICAL_AIR_DIRECTIONS) {
+    if (mode == direction.swing) {
+      return direction.name;
+    }
+  }
+  return nullptr;
+}
+
+bool IsFixedVerticalAirDirection(SWING mode) {
+  auto value = static_cast<uint8_t>(mode);
+  return value >= static_cast<uint8_t>(SWING::VERTICAL_FIX_POSITION_1) &&
+         value <= static_cast<uint8_t>(SWING::VERTICAL_FIX_POSITION_5);
+}
+
 const SWING ClimateSwingModeToInt(climate::ClimateSwingMode mode) {
   switch (mode) {
     case climate::CLIMATE_SWING_OFF:

@@ -39,7 +39,17 @@ enum class FAN {
   FAN_HIGH = 54,
   FAN_AUTO = 65
 };
-enum class SWING { OFF = 49, BOTH =  67, VERTICAL = 65, HORIZONTAL = 66 };
+enum class SWING {
+  OFF = 49,
+  BOTH = 67,
+  VERTICAL = 65,
+  HORIZONTAL = 66,
+  VERTICAL_FIX_POSITION_1 = 80,
+  VERTICAL_FIX_POSITION_2 = 81,
+  VERTICAL_FIX_POSITION_3 = 82,
+  VERTICAL_FIX_POSITION_4 = 83,
+  VERTICAL_FIX_POSITION_5 = 84
+};
 enum class STATE { ON = 48, OFF = 49 };
 enum class PWR_LEVEL { PCT_50 = 50, PCT_75 = 75, PCT_100 = 100 };
 
@@ -91,6 +101,10 @@ const char* IntToCustomFanMode(FAN mode);
 
 const optional<PWR_LEVEL> StringToPwrLevel(const std::string &mode);
 const std::string IntToPowerLevel(PWR_LEVEL mode);
+
+const optional<SWING> StringToVerticalAirDirection(const std::string &position);
+const char* SwingToVerticalAirDirection(SWING mode);
+bool IsFixedVerticalAirDirection(SWING mode);
 
 const optional<SPECIAL_MODE> PresetToSpecialMode(const char* preset);
 const char* SpecialModeToPreset(SPECIAL_MODE mode);

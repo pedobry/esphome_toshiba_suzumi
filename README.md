@@ -128,6 +128,9 @@ climate:
         - filter_out: 127 
     power_select:
       name: "Power level"
+    #vertical_air_direction: # Optional. Fixed vertical air direction.
+      # Controls the Toshiba horizontal louver, which directs air up/down.
+      #name: "Vertical air direction"
     #horizontal_swing: true # Optional. Uncomment if your HVAC supports also horizontal swing
     #supported_presets:          # Optional. Enable only the features your HVAC
       #- "Standard"
@@ -187,6 +190,19 @@ You can filter unwanted values by adding a filter to Outside temp sensor:
       filters:
         - filter_out: 127 
 ```
+
+### Vertical air directions
+
+Some units support fixed vertical air directions in addition to vertical swing. ESPHome's native climate swing modes are limited to `off`, `vertical`, `horizontal`, and `both`, so fixed positions are exposed as a Home Assistant select entity:
+
+```yaml
+    vertical_air_direction:
+      name: "Vertical air direction"
+```
+
+In Toshiba service documentation this corresponds to the horizontal louver, which controls vertical air direction.
+
+The select provides `Off`, `Swing`, `Top`, `Middle Top`, `Middle`, `Middle Bottom`, and `Bottom`.
 
 ## Outdoor/Indoor unit diagnostics (ODU/IDU sensors)
 
