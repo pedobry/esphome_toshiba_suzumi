@@ -52,6 +52,8 @@ enum class SWING {
 };
 enum class STATE { ON = 48, OFF = 49 };
 enum class PWR_LEVEL { PCT_50 = 50, PCT_75 = 75, PCT_100 = 100 };
+// Values documented by maxmacstn/ToshibaCarrierController.
+enum class SELF_CLEAN_STATE : uint8_t { RUNNING = 0x18, OFF = 0x10 };
 
 enum SPECIAL_MODE {
   STANDARD = 0,
@@ -81,6 +83,7 @@ enum class ToshibaCommandType : uint8_t {
   OUTDOOR_TEMP = 190,
   WIFI_LED_1 = 222,
   WIFI_LED_2 = 223,
+  SELF_CLEAN = 0xCB,
   SPECIAL_MODE = 247,
   IDU_STATUS = 0xE4,   // 228 - Indoor unit status (unsolicited)
   ODU_STATUS = 0xE5,   // 229 - Outdoor unit status (unsolicited)

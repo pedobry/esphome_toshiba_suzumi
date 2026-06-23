@@ -1,6 +1,6 @@
 import esphome.codegen as cg
 import esphome.config_validation as cv
-from esphome.components import sensor, climate, uart, select
+from esphome.components import binary_sensor, sensor, climate, uart, select
 from esphome.const import (
     CONF_ID,
     STATE_CLASS_MEASUREMENT,
@@ -9,6 +9,7 @@ from esphome.const import (
     UNIT_AMPERE,
     DEVICE_CLASS_TEMPERATURE,
     DEVICE_CLASS_CURRENT,
+    DEVICE_CLASS_RUNNING,
     __version__ as ESPHOME_VERSION
 )
 from packaging import version
@@ -17,7 +18,7 @@ import logging
 _LOGGER = logging.getLogger(__name__)
 
 DEPENDENCIES = ["uart"]
-AUTO_LOAD = ["sensor", "select"]
+AUTO_LOAD = ["binary_sensor", "sensor", "select"]
 
 CONF_ROOM_TEMP = "room_temp"
 CONF_INDOOR_TEMP = "indoor_temp"
@@ -35,6 +36,7 @@ CONF_VERTICAL_AIR_DIRECTION = "vertical_air_direction"
 CONF_SPECIAL_MODE = "special_mode" # deprecated - replaced by CONF_SUPPORTED_PRESETS
 CONF_SPECIAL_MODE_MODES = "modes" # deprecated - replaced by CONF_SUPPORTED_PRESETS
 CONF_SUPPORTED_PRESETS = "supported_presets"
+CONF_SELF_CLEAN = "self_clean"
 
 FEATURE_HORIZONTAL_SWING = "horizontal_swing"
 MIN_TEMP = "min_temp"
@@ -114,6 +116,9 @@ CONFIG_SCHEMA = climate.climate_schema(ToshibaClimateUart).extend(
         cv.Optional(CONF_VERTICAL_AIR_DIRECTION): select.select_schema(ToshibaVerticalAirDirectionSelect).extend({
             cv.GenerateID(): cv.declare_id(ToshibaVerticalAirDirectionSelect),
         }),
+        cv.Optional(CONF_SELF_CLEAN): binary_sensor.binary_sensor_schema(
+            device_class=DEVICE_CLASS_RUNNING
+        ),
         cv.Optional(FEATURE_HORIZONTAL_SWING): cv.boolean,
         cv.Optional(DISABLE_WIFI_LED): cv.boolean,
         cv.Optional(DISABLE_HEAT_MODE): cv.boolean,
@@ -185,6 +190,9 @@ async def to_code(config):
         sel = await select.new_select(config[CONF_VERTICAL_AIR_DIRECTION], options=['Off', 'Swing', 'Top', 'Middle Top', 'Middle', 'Middle Bottom', 'Bottom'])
         await cg.register_parented(sel, config[CONF_ID])
         cg.add(var.set_vertical_air_direction_select(sel))
+    if CONF_SELF_CLEAN in config:
+        sens = await binary_sensor.new_binary_sensor(config[CONF_SELF_CLEAN])
+        cg.add(var.set_self_clean_sensor(sens))
 
     if FEATURE_HORIZONTAL_SWING in config:
         cg.add(var.set_horizontal_swing(True))

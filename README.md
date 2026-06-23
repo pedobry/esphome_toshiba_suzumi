@@ -131,6 +131,8 @@ climate:
     #vertical_air_direction: # Optional. Fixed vertical air direction.
       # Controls the Toshiba horizontal louver, which directs air up/down.
       #name: "Vertical air direction"
+    #self_clean:              # Optional. Enables self-clean detection and reports its status.
+      #name: "Self Clean"
     #horizontal_swing: true # Optional. Uncomment if your HVAC supports also horizontal swing
     #supported_presets:          # Optional. Enable only the features your HVAC
       #- "Standard"
@@ -203,6 +205,23 @@ Some units support fixed vertical air directions in addition to vertical swing. 
 In Toshiba service documentation this corresponds to the horizontal louver, which controls vertical air direction.
 
 The select provides `Off`, `Swing`, `Top`, `Middle Top`, `Middle`, `Middle Bottom`, and `Bottom`.
+
+### Self-cleaning status
+
+Some Toshiba units run a post-shutdown self-cleaning cycle. During this cycle the indoor fan can continue running even though the climate entity is off. Configure the optional `self_clean` binary sensor to enable self-clean detection and expose the cycle in Home Assistant:
+
+```yaml
+    self_clean:
+      name: "Self Clean"
+```
+
+The climate entity remains OFF while self-cleaning is active. ESPHome climate entities do not have a self-cleaning mode or action, so the binary sensor reports this separate operating state. Without `self_clean`, the component does not query self-clean status and retains its existing climate behavior.
+
+How the cycle behaves (per the Toshiba service manual):
+
+- It runs only after cooling or dry operation, and only if that ran for at least 10 minutes; it then runs for a fixed ~30 minutes. It does not run after heating, fan-only, or a short (<10 min) cooling/dry run.
+- During the cycle the indoor fan runs at low speed to dry the unit; the compressor stays off. The unit reports itself as not operating, which is why the climate entity is OFF.
+- The service manual documents enabling/disabling the self-clean cycle as a unit-side procedure (the indoor unit's `RESET` button together with a remote-control diagnosis code). This component reports the cycle but does not control it.
 
 ## Outdoor/Indoor unit diagnostics (ODU/IDU sensors)
 
