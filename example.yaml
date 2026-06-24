@@ -37,6 +37,8 @@ climate:
     #vertical_air_direction: # Optional. Fixed vertical air direction.
       # Controls the Toshiba horizontal louver, which directs air up/down.
       #name: "Vertical air direction"
+    #self_clean:              # Optional. Reports the post-shutdown self-cleaning cycle.
+      #name: "Self Clean"
     #horizontal_swing: true # Optional. Uncomment if your HVAC supports also horizontal swing
     #supported_presets:          # Optional. Enable only the features your HVAC
       #- "Standard"

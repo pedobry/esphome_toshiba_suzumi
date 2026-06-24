@@ -129,6 +129,9 @@ void ToshibaClimateUart::requestData(ToshibaCommandType cmd) {
 void ToshibaClimateUart::getInitData() {
   ESP_LOGD(TAG, "Requesting initial data from AC unit");
   this->requestData(ToshibaCommandType::POWER_STATE);
+  if (this->self_clean_sensor_ != nullptr) {
+    this->requestData(ToshibaCommandType::SELF_CLEAN);
+  }
   this->requestData(ToshibaCommandType::MODE);
   this->requestData(ToshibaCommandType::TARGET_TEMP);
   this->requestData(ToshibaCommandType::FAN);
@@ -137,6 +140,13 @@ void ToshibaClimateUart::getInitData() {
   this->requestData(ToshibaCommandType::ROOM_TEMP);
   this->requestData(ToshibaCommandType::OUTDOOR_TEMP);
   this->requestData(ToshibaCommandType::SPECIAL_MODE);
+}
+
+void ToshibaClimateUart::set_self_clean_running_(bool running) {
+  this->self_clean_running_ = running;
+  if (this->self_clean_sensor_ != nullptr) {
+    this->self_clean_sensor_->publish_state(running);
+  }
 }
 
 void ToshibaClimateUart::setup() {
@@ -285,7 +295,7 @@ void ToshibaClimateUart::parseResponse(std::vector<uint8_t> rawData) {
     case ToshibaCommandType::MODE: {
       auto mode = IntToClimateMode(static_cast<MODE>(value));
       ESP_LOGI(TAG, "Received AC mode: %s", climate_mode_to_string(mode));
-      if (this->power_state_ == STATE::ON) {
+      if (this->power_state_ == STATE::ON && !this->self_clean_running_) {
         this->mode = mode;
       }
       break;
@@ -317,11 +327,49 @@ void ToshibaClimateUart::parseResponse(std::vector<uint8_t> rawData) {
       if (climateState == STATE::OFF) {
         // AC unit was just powered off, set mode to OFF
         this->mode = climate::CLIMATE_MODE_OFF;
+        this->set_self_clean_running_(false);
+      } else if (this->self_clean_running_) {
+        if (this->self_clean_sensor_ != nullptr) {
+          ESP_LOGD(TAG, "Refreshing self-clean status after receiving AC ON state");
+          this->requestData(ToshibaCommandType::SELF_CLEAN);
+        }
       } else if (this->mode == climate::CLIMATE_MODE_OFF && climateState == STATE::ON) {
-        // AC unit was just powered on, query unit for it's MODE
+        // Unit reports ON while we believe it is off, e.g. powered on via IR
+        // remote, or the start of a post-shutdown self-clean cycle. When
+        // self-clean reporting is configured, query it first: the SELF_CLEAN
+        // response is processed before the MODE response below, so a running
+        // cycle keeps the entity OFF (the MODE response is ignored while
+        // self-clean is running).
+        if (this->self_clean_sensor_ != nullptr) {
+          this->requestData(ToshibaCommandType::SELF_CLEAN);
+        }
         this->requestData(ToshibaCommandType::MODE);
       }
       this->power_state_ = climateState;
+      break;
+    }
+    case ToshibaCommandType::SELF_CLEAN: {
+      auto self_clean_state = static_cast<SELF_CLEAN_STATE>(value);
+      bool was_running = this->self_clean_running_;
+      if (self_clean_state == SELF_CLEAN_STATE::RUNNING) {
+        ESP_LOGI(TAG, "Self-clean is running");
+        this->set_self_clean_running_(true);
+        this->mode = climate::CLIMATE_MODE_OFF;
+      } else if (self_clean_state == SELF_CLEAN_STATE::OFF) {
+        ESP_LOGI(TAG, "Self-clean is stopped");
+        this->set_self_clean_running_(false);
+        if (was_running) {
+          // The cycle ended: either it finished (unit now off) or it was
+          // interrupted by switching the unit back on. The self-clean register
+          // doesn't distinguish these, and the unit only reports power state on
+          // change/query (not continuously), so the cached value may be stale.
+          // Query the power state to resync; the POWER_STATE handler refreshes
+          // the mode when the unit turns out to be on.
+          this->requestData(ToshibaCommandType::POWER_STATE);
+        }
+      } else {
+        ESP_LOGW(TAG, "Received unknown self-clean state: %d", value);
+      }
       break;
     }
     case ToshibaCommandType::SPECIAL_MODE: {
@@ -422,6 +470,9 @@ void ToshibaClimateUart::dump_config() {
   if (vertical_air_direction_select_ != nullptr) {
     LOG_SELECT("", "Vertical air direction", this->vertical_air_direction_select_);
   }
+  if (self_clean_sensor_ != nullptr) {
+    LOG_BINARY_SENSOR("", "Self Clean", this->self_clean_sensor_);
+  }
   if (!supported_presets_.empty()) {
     ESP_LOGCONFIG(TAG, "Supported presets:");
     for (const char* &preset : supported_presets_) {
@@ -441,12 +492,18 @@ void ToshibaClimateUart::update() {
   if (outdoor_temp_sensor_ != nullptr) {
     this->requestData(ToshibaCommandType::OUTDOOR_TEMP);
   }
+  if (this->self_clean_running_) {
+    this->requestData(ToshibaCommandType::SELF_CLEAN);
+  }
 }
 
 void ToshibaClimateUart::control(const climate::ClimateCall &call) {
   if (call.get_mode().has_value()) {
     ClimateMode mode = *call.get_mode();
     ESP_LOGD(TAG, "Setting mode to %s", climate_mode_to_string(mode));
+    if (mode != CLIMATE_MODE_OFF) {
+      this->set_self_clean_running_(false);
+    }
     if (this->mode == CLIMATE_MODE_OFF && mode != CLIMATE_MODE_OFF) {
       ESP_LOGD(TAG, "Setting AC unit power state to ON.");
       this->sendCmd(ToshibaCommandType::POWER_STATE, static_cast<uint8_t>(STATE::ON));
