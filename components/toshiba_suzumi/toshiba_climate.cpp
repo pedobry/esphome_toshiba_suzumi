@@ -166,6 +166,12 @@ void ToshibaClimateUart::setup() {
  */
 void ToshibaClimateUart::process_command_queue_() {
   uint32_t now = millis();
+
+  // Suspend command queue execution during the 5-second post-time-sync window
+  if (this->last_time_sync_ != 0 && now - this->last_time_sync_ < 5000) {
+    return;
+  }
+
   uint32_t cmdDelay = now - this->last_command_timestamp_;
 
   // when we have not processed message and timeout since last received byte has expired,
@@ -176,8 +182,8 @@ void ToshibaClimateUart::process_command_queue_() {
     this->rx_message_.clear();
   }
 
-  // when there is no RX message (or we are in a gap) and there is a command to send
-  if (cmdDelay > COMMAND_DELAY && !this->command_queue_.empty()) {
+  // when there is no RX message and there is a command to send
+  if (cmdDelay > COMMAND_DELAY && !this->command_queue_.empty() && this->rx_message_.empty()) {
     auto newCommand = this->command_queue_.front();
     if (newCommand.cmd == ToshibaCommandType::DELAY && cmdDelay < newCommand.delay) {
       // delay command did not finished yet
@@ -754,8 +760,17 @@ void ToshibaClimateUart::sync_time_() {
     payload.push_back(0xFF);
   }
   payload.push_back(checksum(payload, payload.size()));
-  this->enqueue_command_(ToshibaCommand{.cmd = ToshibaCommandType::SET_DATE_TIME, .payload = payload});
-  this->enqueue_command_(ToshibaCommand{.cmd = ToshibaCommandType::DELAY, .delay = 5000});
+
+  // Drain any pending RX bytes in the hardware buffer and clear parser RX state
+  while (this->available()) {
+    uint8_t dummy;
+    this->read_byte(&dummy);
+  }
+  this->rx_message_.clear();
+
+  // Send packet directly to bypass queue/chatty collision blockages
+  this->write_array(payload);
+  this->last_command_timestamp_ = millis();
   this->last_time_sync_ = millis();
 }
 
