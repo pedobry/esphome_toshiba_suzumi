@@ -112,7 +112,7 @@ bool IsFixedVerticalAirDirection(SWING mode);
 const optional<SPECIAL_MODE> PresetToSpecialMode(const char* preset);
 const char* SpecialModeToPreset(SPECIAL_MODE mode);
 
-const climate::ClimatePreset StringToClimatePreset(const char* preset);
+const optional<climate::ClimatePreset> StringToClimatePreset(const char *preset);
 const char* ClimatePresetToString(climate::ClimatePreset preset);
 const optional<SPECIAL_MODE> ClimatePresetToSpecialMode(climate::ClimatePreset preset);
 const optional<climate::ClimatePreset> SpecialModeToClimatePreset(SPECIAL_MODE mode);
