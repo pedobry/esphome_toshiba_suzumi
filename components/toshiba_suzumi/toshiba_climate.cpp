@@ -149,7 +149,33 @@ void ToshibaClimateUart::set_self_clean_running_(bool running) {
   }
 }
 
+/**
+ * Configure the supported custom modes and presets for the climate component.
+ * This is needed because the Toshiba AC has more FAN levels and presets than the standard climate component supports.
+ * see https://developers.esphome.io/blog/2026/04/09/climate-and-fan-custom-mode-vectors-moved-to-entity/
+ */
+void ToshibaClimateUart::configure_supported_custom_modes_() {
+  // Toshiba AC has more FAN levels than the standard climate component supports.
+  this->set_supported_custom_fan_modes({CUSTOM_FAN_LEVEL_2, CUSTOM_FAN_LEVEL_4});
+
+  // go over all defined presets and filter out the ones that are supported by the climate component
+  if (!this->supported_presets_.empty()) {
+    std::vector<const char *> custom_preset_names;
+    for (const char *preset_string : this->supported_presets_) {
+      if (!StringToClimatePreset(preset_string).has_value()) {
+        // preset is not supported by the climate component, add it to the custom presets
+        custom_preset_names.push_back(preset_string);
+      }
+    }
+    // if there are any custom presets, set them for the climate component
+    if (!custom_preset_names.empty()) {
+      this->set_supported_custom_presets(custom_preset_names);
+    }
+  }
+}
+
 void ToshibaClimateUart::setup() {
+  this->configure_supported_custom_modes_();
   // establish communication
   this->start_handshake();
   // load initial sensor data from the unit
@@ -680,27 +706,19 @@ ClimateTraits ToshibaClimateUart::traits() {
   traits.add_supported_fan_mode(CLIMATE_FAN_LOW);
   traits.add_supported_fan_mode(CLIMATE_FAN_MEDIUM);
   traits.add_supported_fan_mode(CLIMATE_FAN_HIGH);
-  traits.set_supported_custom_fan_modes({CUSTOM_FAN_LEVEL_2, CUSTOM_FAN_LEVEL_4});
 
   traits.set_visual_temperature_step(1);
   traits.set_visual_min_temperature(this->min_temp_);
   traits.set_visual_max_temperature(MAX_TEMP);
 
-  // Add supported presets based on configuration
-  if (!supported_presets_.empty()) {
-    std::vector<const char*> custom_preset_names;
-    // Presets are automatically enabled when adding supported presets
-    for (const char* &preset_string : supported_presets_) {
-      climate::ClimatePreset climate_preset = StringToClimatePreset(preset_string);
-      if (climate_preset != climate::CLIMATE_PRESET_NONE || preset_string == SPECIAL_MODE_STANDARD) {
-        // Use standard presets for mapped modes
-        traits.add_supported_preset(climate_preset);
-      } else {
-        custom_preset_names.push_back(preset_string);
+  // Add supported standard presets based on configuration (custom presets are set in setup())
+  if (!this->supported_presets_.empty()) {
+    for (const char *preset_string : this->supported_presets_) {
+      auto climate_preset = StringToClimatePreset(preset_string);
+      if (climate_preset.has_value()) {
+        // preset is supported by the climate component
+        traits.add_supported_preset(*climate_preset);
       }
-    }
-    if (!custom_preset_names.empty()) {
-      traits.set_supported_custom_presets(custom_preset_names);
     }
   }
   return traits;

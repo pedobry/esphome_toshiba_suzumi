@@ -267,7 +267,12 @@ const char* SpecialModeToPreset(SPECIAL_MODE mode) {
   }
 }
 
-const climate::ClimatePreset StringToClimatePreset(const char* preset) {
+/**
+ * Convert a preset string to a climate preset code.
+ * Return nullopt if the preset is not supported by the climate component
+ * and we need to use a custom preset.
+ */
+const optional<climate::ClimatePreset> StringToClimatePreset(const char *preset) {
   if (str_equals_case_insensitive(preset, SPECIAL_MODE_STANDARD)) {
     return climate::CLIMATE_PRESET_NONE;
   } else if (str_equals_case_insensitive(preset, SPECIAL_MODE_ECO)) {
@@ -278,10 +283,8 @@ const climate::ClimatePreset StringToClimatePreset(const char* preset) {
     return climate::CLIMATE_PRESET_SLEEP;
   } else if (str_equals_case_insensitive(preset, SPECIAL_MODE_COMFORT)) {
     return climate::CLIMATE_PRESET_COMFORT;
-  } else {
-    // For other modes, we'll need to use custom presets
-    return climate::CLIMATE_PRESET_NONE;
   }
+  return nullopt;
 }
 
 const char* ClimatePresetToString(climate::ClimatePreset preset) {
