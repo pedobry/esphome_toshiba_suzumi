@@ -126,6 +126,7 @@ climate:
     id: living_room
     uart_id: uart_bus
     time_id: sntp_time
+    #time_sync_interval: 24h     # Optional. Time sync interval. Default 24h. Set to 0 to sync only at startup.
     energy:
       name: "Daily Energy"
     power:

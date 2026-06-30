@@ -482,8 +482,8 @@ void ToshibaClimateUart::update() {
   }
   uint32_t now = millis();
   if ((this->energy_sensor_ != nullptr || this->power_sensor_ != nullptr) && (now - this->last_energy_sync_ > 60000)) {
-    // Sync time every hour, or every 5 minutes if it hasn't succeeded yet
-    if (!this->time_synced_ || (now - this->last_time_sync_ > 3600000)) {
+    // Sync time periodically based on configured interval, or every 5 minutes if it hasn't succeeded yet
+    if (!this->time_synced_ || (this->time_sync_interval_ != 0 && now - this->last_time_sync_ > this->time_sync_interval_)) {
       if (this->time_synced_ || (this->last_time_sync_ == 0 || now - this->last_time_sync_ > 300000)) {
           ESP_LOGI(TAG, "Triggering scheduled time synchronization...");
           this->sync_time_();

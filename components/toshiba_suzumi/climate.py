@@ -41,6 +41,7 @@ CONF_SPECIAL_MODE_MODES = "modes" # deprecated - replaced by CONF_SUPPORTED_PRES
 CONF_SUPPORTED_PRESETS = "supported_presets"
 CONF_ENERGY = "energy"
 CONF_POWER = "power"
+CONF_TIME_SYNC_INTERVAL = "time_sync_interval"
 
 FEATURE_HORIZONTAL_SWING = "horizontal_swing"
 MIN_TEMP = "min_temp"
@@ -140,6 +141,7 @@ CONFIG_SCHEMA = climate.climate_schema(ToshibaClimateUart).extend(
                 state_class=STATE_CLASS_MEASUREMENT,
             ),
         cv.Optional(CONF_TIME_ID): cv.use_id(cg.esphome_ns.namespace("time").class_("RealTimeClock")),
+        cv.Optional(CONF_TIME_SYNC_INTERVAL, default="24h"): cv.positive_time_period_milliseconds,
     }
 ).extend(uart.UART_DEVICE_SCHEMA).extend(cv.polling_component_schema("120s"))
 
@@ -235,3 +237,6 @@ async def to_code(config):
     if CONF_TIME_ID in config:
         time_ = await cg.get_variable(config[CONF_TIME_ID])
         cg.add(var.set_time(time_))
+
+    if CONF_TIME_SYNC_INTERVAL in config:
+        cg.add(var.set_time_sync_interval(config[CONF_TIME_SYNC_INTERVAL]))

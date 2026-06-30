@@ -68,6 +68,7 @@ class ToshibaClimateUart : public PollingComponent, public climate::Climate, pub
   void disable_wifi_led(bool disabled) { wifi_led_disabled_ = disabled; }
   void set_supported_presets(const std::vector<const char*> &presets) { supported_presets_ = presets; }
   void set_min_temp(uint8_t min_temp) { min_temp_ = min_temp; }
+  void set_time_sync_interval(uint32_t interval) { time_sync_interval_ = interval; }
 
  protected:
   /// Override control to change settings of the climate device.
@@ -108,6 +109,7 @@ class ToshibaClimateUart : public PollingComponent, public climate::Climate, pub
   uint32_t last_total_daily_energy_ = 0;
   uint32_t last_energy_update_ms_ = 0;
   bool time_synced_ = false;
+  uint32_t time_sync_interval_{86400000};
 
   void enqueue_command_(const ToshibaCommand &command);
   void send_to_uart(const ToshibaCommand command);
