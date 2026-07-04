@@ -16,6 +16,9 @@ static const char *const TAG = "ToshibaClimateUart";
 static const uint8_t MAX_TEMP = 30;
 // default min temp for units without 8° heating mode
 static const uint8_t MIN_TEMP_STANDARD = 17;
+// Default per-mode temperature limits
+static const uint8_t DEFAULT_MIN_TEMP_COOL = 17;
+static const uint8_t DEFAULT_MIN_TEMP_HEAT = 7;
 static const uint8_t SPECIAL_TEMP_OFFSET = 16;
 static const uint8_t SPECIAL_MODE_EIGHT_DEG_MIN_TEMP = 5;
 static const uint8_t SPECIAL_MODE_EIGHT_DEG_MAX_TEMP = 13;
@@ -68,6 +71,8 @@ class ToshibaClimateUart : public PollingComponent, public climate::Climate, pub
   void disable_wifi_led(bool disabled) { wifi_led_disabled_ = disabled; }
   void set_supported_presets(const std::vector<const char *> &presets) { supported_presets_ = presets; }
   void set_min_temp(uint8_t min_temp) { min_temp_ = min_temp; }
+  void set_min_temp_cool(uint8_t t) { min_temp_cool_ = t; }
+  void set_min_temp_heat(uint8_t t) { min_temp_heat_ = t; }
 
  protected:
   /// Override control to change settings of the climate device.
@@ -100,6 +105,8 @@ class ToshibaClimateUart : public PollingComponent, public climate::Climate, pub
   sensor::Sensor *fcu_fan_rpm_sensor_ = nullptr;
   bool horizontal_swing_ = false;
   uint8_t min_temp_ = 17; // default min temp for units without 8° heating mode
+  uint8_t min_temp_cool_ = DEFAULT_MIN_TEMP_COOL;
+  uint8_t min_temp_heat_ = DEFAULT_MIN_TEMP_HEAT;
   bool heat_mode_disabled_ = false;
   bool wifi_led_disabled_ = false;
   std::vector<const char*> supported_presets_;

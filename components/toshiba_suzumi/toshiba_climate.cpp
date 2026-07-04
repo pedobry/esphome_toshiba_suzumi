@@ -542,10 +542,36 @@ void ToshibaClimateUart::control(const climate::ClimateCall &call) {
       this->sendCmd(ToshibaCommandType::MODE, static_cast<uint8_t>(requestedMode));
     }
     this->mode = mode;
+
+    // === LIMITES PAR MODE (Cool vs Heat) ===
+    float effective_min = this->min_temp_;
+    if (this->mode == climate::CLIMATE_MODE_COOL || this->mode == climate::CLIMATE_MODE_DRY) {
+      effective_min = this->min_temp_cool_;
+    } else if (this->mode == climate::CLIMATE_MODE_HEAT || this->mode == climate::CLIMATE_MODE_HEAT_COOL) {
+      effective_min = this->min_temp_heat_;
+    }
+
+    // Clamp si la température actuelle est trop basse pour le nouveau mode
+    if (this->target_temperature < effective_min) {
+      this->target_temperature = effective_min;
+      this->publish_state();
+    }
+    this->publish_state();
+    // === FIN LIMITES PAR MODE ===
   }
 
   if (call.get_target_temperature().has_value()) {
     auto target_temp = *call.get_target_temperature();
+    // Clamp selon le mode actuel
+    float effective_min = this->min_temp_;
+    if (this->mode == climate::CLIMATE_MODE_COOL || this->mode == climate::CLIMATE_MODE_DRY) {
+      effective_min = this->min_temp_cool_;
+    } else if (this->mode == climate::CLIMATE_MODE_HEAT || this->mode == climate::CLIMATE_MODE_HEAT_COOL) {
+      effective_min = this->min_temp_heat_;
+    }
+    if (target_temp < effective_min) {
+      target_temp = effective_min;
+    }
     uint8_t newTargetTemp = (uint8_t) target_temp;
     bool special_mode_changed = false;
     if (newTargetTemp >= MIN_TEMP_STANDARD && this->special_mode_ == SPECIAL_MODE::EIGHT_DEG) {
@@ -707,8 +733,20 @@ ClimateTraits ToshibaClimateUart::traits() {
   traits.add_supported_fan_mode(CLIMATE_FAN_MEDIUM);
   traits.add_supported_fan_mode(CLIMATE_FAN_HIGH);
 
+  //traits.set_visual_temperature_step(1);
+  //traits.set_visual_min_temperature(this->min_temp_);
+  //traits.set_visual_max_temperature(MAX_TEMP);
+
   traits.set_visual_temperature_step(1);
-  traits.set_visual_min_temperature(this->min_temp_);
+
+// Mode-dependent visual min temperature for Home Assistant UI
+  float visual_min = this->min_temp_;
+  if (this->mode == climate::CLIMATE_MODE_COOL || this->mode == climate::CLIMATE_MODE_DRY) {
+    visual_min = this->min_temp_cool_;
+  } else if (this->mode == climate::CLIMATE_MODE_HEAT || this->mode == climate::CLIMATE_MODE_HEAT_COOL) {
+    visual_min = this->min_temp_heat_;
+  }
+  traits.set_visual_min_temperature(visual_min);
   traits.set_visual_max_temperature(MAX_TEMP);
 
   // Add supported standard presets based on configuration (custom presets are set in setup())

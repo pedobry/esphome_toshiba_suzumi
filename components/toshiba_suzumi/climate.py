@@ -40,6 +40,8 @@ CONF_SELF_CLEAN = "self_clean"
 
 FEATURE_HORIZONTAL_SWING = "horizontal_swing"
 MIN_TEMP = "min_temp"
+MIN_TEMP_COOL = "min_temp_cool"
+MIN_TEMP_HEAT = "min_temp_heat"
 DISABLE_HEAT_MODE = "disable_heat_mode"
 DISABLE_WIFI_LED = "disable_wifi_led"
 
@@ -130,6 +132,8 @@ CONFIG_SCHEMA = climate.climate_schema(ToshibaClimateUart).extend(
         }),
         cv.Optional(CONF_SUPPORTED_PRESETS): cv.ensure_list(cv.one_of("Standard","Hi POWER","ECO","Fireplace 1","Fireplace 2","8 degrees","Silent#1","Silent#2","Sleep","Floor","Comfort")),
         cv.Optional(MIN_TEMP): cv.int_,
+        cv.Optional(MIN_TEMP_COOL): cv.int_,
+        cv.Optional(MIN_TEMP_HEAT): cv.int_,
     }
 ).extend(uart.UART_DEVICE_SCHEMA).extend(cv.polling_component_schema("120s"))
 
@@ -199,6 +203,10 @@ async def to_code(config):
 
     if MIN_TEMP in config:
         cg.add(var.set_min_temp(config[MIN_TEMP]))
+    if MIN_TEMP_COOL in config:
+        cg.add(var.set_min_temp_cool(config[MIN_TEMP_COOL]))
+    if MIN_TEMP_HEAT in config:
+        cg.add(var.set_min_temp_heat(config[MIN_TEMP_HEAT]))
 
     if DISABLE_HEAT_MODE in config:
         cg.add(var.disable_heat_mode(True))
