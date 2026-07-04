@@ -556,6 +556,7 @@ void ToshibaClimateUart::control(const climate::ClimateCall &call) {
       this->target_temperature = effective_min;
       this->publish_state();
     }
+    this->publish_state();
     // === FIN LIMITES PAR MODE ===
   }
 
