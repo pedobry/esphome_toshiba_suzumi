@@ -128,6 +128,10 @@ climate:
     uart_id: uart_bus
     #time_id: hass_time  # Optional. Required only if the energy/power sensor feature is enabled.
     #time_sync_interval: 24h  # Optional. Time sync interval. Default 24h. Set to 0 to sync only at startup.
+    #energy:  # Optional. Daily energy consumption sensor (Wh).
+    #  name: "Daily Energy"
+    #power:  # Optional. Estimated real-time power sensor (W).
+    #  name: "Realtime Power"
     outdoor_temp:        # Optional. Outdoor temperature sensor
       name: Outdoor Temp
       filters:
@@ -249,9 +253,30 @@ Some Toshiba AC units periodically send extended status messages from the outdoo
 
 These sensors are all optional — only add the ones you need to your YAML configuration. The data arrives automatically from the unit (no polling required).
 
-### Estimating power consumption
+### Native Energy and Power monitoring
 
-The AC protocol does not report actual power consumption in watts. However, `cdu_load` reports the compressor load as a percentage, which correlates with power usage. You can combine it with your unit's rated power input to estimate consumption in Home Assistant using a template sensor:
+If your AC unit supports it, you can now get native energy consumption data. This requires adding a `time` component to your configuration so the component can sync the current time with the AC unit.
+
+```yaml
+time:
+  - platform: homeassistant
+    id: hass_time
+
+climate:
+  - platform: toshiba_suzumi
+    # ...
+    time_id: hass_time
+    energy:
+      name: "Daily Energy"
+    power:
+      name: "Realtime Power"
+```
+
+The `power` sensor provides a real-time estimate in Watts, calculated from the rate of change in the AC's internal energy counters.
+
+### Estimating power consumption (Fallback)
+
+For older units that do not support the native energy registers, you can still estimate power using `cdu_load`. `cdu_load` reports the compressor load as a percentage, which correlates with power usage. You can combine it with your unit's rated power input to estimate consumption in Home Assistant using a template sensor:
 
 ```yaml
 sensor:
