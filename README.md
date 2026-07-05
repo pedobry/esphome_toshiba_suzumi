@@ -116,11 +116,18 @@ uart:
   parity: EVEN
   baud_rate: 9600
 
+# Optional. Required only if the energy/power sensor feature is enabled.
+# time:
+#   - platform: homeassistant
+#     id: hass_time
+
 climate:
   - platform: toshiba_suzumi
     name: living-room
     id: living_room
     uart_id: uart_bus
+    #time_id: hass_time  # Optional. Required only if the energy/power sensor feature is enabled.
+    #time_sync_interval: 24h  # Optional. Time sync interval. Default 24h. Set to 0 to sync only at startup.
     outdoor_temp:        # Optional. Outdoor temperature sensor
       name: Outdoor Temp
       filters:

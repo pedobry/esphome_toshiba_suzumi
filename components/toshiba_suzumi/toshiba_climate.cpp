@@ -22,6 +22,10 @@ uint8_t checksum(std::vector<uint8_t> data, uint8_t length) {
   return 256 - sum;
 }
 
+ToshibaClimateUart::ToshibaClimateUart() {
+  this->last_time_sync_ = 0;
+}
+
 /**
  * Send the command to UART interface.
  */
@@ -189,6 +193,12 @@ void ToshibaClimateUart::setup() {
  */
 void ToshibaClimateUart::process_command_queue_() {
   uint32_t now = millis();
+
+  // Suspend command queue execution during the 5-second post-time-sync window
+  if (this->last_time_sync_ != 0 && now - this->last_time_sync_ < 5000) {
+    return;
+  }
+
   uint32_t cmdDelay = now - this->last_command_timestamp_;
 
   // when we have not processed message and timeout since last received byte has expired,
@@ -248,6 +258,11 @@ void ToshibaClimateUart::parseResponse(std::vector<uint8_t> rawData) {
       value = rawData[13];
       break;
     case 16:  // probably ACK for issued command
+      // Check if this is a SET_DATE_TIME ACK (ends in 0x99 0x99)
+      if (rawData[14] == 0x99) {
+          ESP_LOGD(TAG, "AC unit acknowledged time synchronization.");
+          this->time_synced_ = true;
+      }
       ESP_LOGD(TAG, "Received message with length: %d and value %s", length, format_hex_pretty(rawData).c_str());
       return;
     case 17:  // response to requestData with the actual value of sensor/setting
@@ -521,6 +536,17 @@ void ToshibaClimateUart::update() {
   if (this->self_clean_running_) {
     this->requestData(ToshibaCommandType::SELF_CLEAN);
   }
+
+  uint32_t now = millis();
+  // Sync time periodically based on configured interval, or every 5 minutes if it hasn't succeeded yet
+  if (this->time_ != nullptr) {
+    if (!this->time_synced_ || (this->time_sync_interval_ != 0 && now - this->last_time_sync_ > this->time_sync_interval_)) {
+      if (this->time_synced_ || (this->last_time_sync_ == 0 || now - this->last_time_sync_ > 300000)) {
+          ESP_LOGI(TAG, "Triggering scheduled time synchronization...");
+          this->sync_time_();
+      }
+    }
+  }
 }
 
 void ToshibaClimateUart::control(const climate::ClimateCall &call) {
@@ -786,6 +812,48 @@ void ToshibaClimateUart::set_wifi_led(bool enabled) {
     this->sendCmd(ToshibaCommandType::WIFI_LED_1, 0x00);
     this->sendCmd(ToshibaCommandType::WIFI_LED_2, 0x80);
   }
+}
+
+void ToshibaClimateUart::sync_time_() {
+  if (this->time_ == nullptr) {
+    ESP_LOGW(TAG, "Time sync requested but no time_id is configured in YAML!");
+    return;
+  }
+  if (!this->time_->now().is_valid()) {
+    ESP_LOGI(TAG, "Time sync requested but time source is not yet valid/synchronized.");
+    return;
+  }
+  auto now = this->time_->now();
+
+  ESP_LOGI(TAG, "Syncing time to AC unit: %04d-%02d-%02d %02d:%02d:%02d", now.year, now.month, now.day_of_month, now.hour,
+           now.minute, now.second);
+
+  std::vector<uint8_t> payload = {2, 0, 3, 16, 0, 0, 0xef, 1, 48, 1, 0, 0xea, 0x99};
+  payload.push_back((now.year - 2000) + 100);
+  payload.push_back(now.month - 1);
+  payload.push_back(now.day_of_month);
+  payload.push_back(now.hour);
+  payload.push_back(now.minute);
+  payload.push_back(now.second);
+  payload.push_back(now.day_of_week - 1); // Sunday=0
+  payload.push_back(0x00);
+  payload.push_back(0x00);
+  for (int i = 0; i < 224; i++) {
+    payload.push_back(0xFF);
+  }
+  payload.push_back(checksum(payload, payload.size()));
+
+  // Drain any pending RX bytes in the hardware buffer and clear parser RX state
+  while (this->available()) {
+    uint8_t dummy;
+    this->read_byte(&dummy);
+  }
+  this->rx_message_.clear();
+
+  // Send packet directly to bypass queue/chatty collision blockages
+  this->write_array(payload);
+  this->last_command_timestamp_ = millis();
+  this->last_time_sync_ = millis();
 }
 
 }  // namespace toshiba_suzumi
