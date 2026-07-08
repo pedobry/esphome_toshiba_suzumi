@@ -136,6 +136,7 @@ class ToshibaClimateUart : public PollingComponent, public climate::Climate, pub
   void on_set_vertical_air_direction(const std::string &value);
   void publish_vertical_air_direction_(SWING swing_mode);
   void configure_supported_custom_modes_();
+  void check_time_sync_(uint32_t now);
   void sync_time_();
   void sync_energy_();
   void estimate_wattage_(uint32_t current_energy);

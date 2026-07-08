@@ -571,14 +571,10 @@ void ToshibaClimateUart::update() {
   }
 
   uint32_t now = millis();
-  // Sync time periodically based on configured interval, or every 5 minutes if it hasn't succeeded yet
+
+  // Handle time synchronization
   if (this->time_ != nullptr) {
-    if (!this->time_synced_ || (this->time_sync_interval_ != 0 && now - this->last_time_sync_ > this->time_sync_interval_)) {
-      if (this->time_synced_ || (this->last_time_sync_ == 0 || now - this->last_time_sync_ > 300000)) {
-          ESP_LOGI(TAG, "Triggering scheduled time synchronization...");
-          this->sync_time_();
-      }
-    }
+    this->check_time_sync_(now);
   }
 
   // Periodic Energy Sync (Runs every 60s if energy or power sensors are configured)
@@ -849,6 +845,25 @@ void ToshibaClimateUart::set_wifi_led(bool enabled) {
     ESP_LOGI(TAG, "Turning OFF Wi-Fi LED");
     this->sendCmd(ToshibaCommandType::WIFI_LED_1, 0x00);
     this->sendCmd(ToshibaCommandType::WIFI_LED_2, 0x80);
+  }
+}
+
+void ToshibaClimateUart::check_time_sync_(uint32_t now) {
+  if (!this->time_synced_) {
+    // Boot sync or retry every 5 minutes until synchronized
+    if (this->last_time_sync_ == 0) {
+      ESP_LOGI(TAG, "Triggering initial time synchronization...");
+      this->sync_time_();
+    } else if (now - this->last_time_sync_ > 300000) {
+      ESP_LOGI(TAG, "Retrying time synchronization...");
+      this->sync_time_();
+    }
+  } else if (this->time_sync_interval_ != 0) {
+    // Periodic synchronization after initial success
+    if (now - this->last_time_sync_ > this->time_sync_interval_) {
+      ESP_LOGI(TAG, "Triggering periodic time synchronization...");
+      this->sync_time_();
+    }
   }
 }
 
