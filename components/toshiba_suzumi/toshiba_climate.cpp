@@ -376,16 +376,20 @@ void ToshibaClimateUart::parseResponse(std::vector<uint8_t> rawData) {
       break;
     }
     case ToshibaCommandType::ROOM_TEMP:
-      ESP_LOGI(TAG, "Received room temp: %d °C", value);
-      this->current_temperature = value;
-      if (indoor_temp_sensor_ != nullptr && value != 127) {
-        indoor_temp_sensor_->publish_state((int8_t) value);
+      if (value != 127) {
+        ESP_LOGI(TAG, "Received room temp: %d °C", value);
+        this->current_temperature = value;
+        if (indoor_temp_sensor_ != nullptr) {
+          indoor_temp_sensor_->publish_state((int8_t) value);
+        }
       }
       break;
     case ToshibaCommandType::OUTDOOR_TEMP:
-      if (outdoor_temp_sensor_ != nullptr && value != 127) {
-        ESP_LOGI(TAG, "Received outdoor temp: %d °C", (int8_t) value);
-        outdoor_temp_sensor_->publish_state((int8_t) value);
+      if (value != 127) {
+        if (outdoor_temp_sensor_ != nullptr) {
+          ESP_LOGI(TAG, "Received outdoor temp: %d °C", (int8_t) value);
+          outdoor_temp_sensor_->publish_state((int8_t) value);
+        }
       }
       break;
     case ToshibaCommandType::POWER_SEL: {
@@ -470,19 +474,34 @@ void ToshibaClimateUart::parseResponse(std::vector<uint8_t> rawData) {
       uint8_t odu_offset = (length == 22) ? 13 : 15;
       ESP_LOGI(TAG, "Received ODU status");
       if (cdu_td_temp_sensor_ != nullptr) {
-        cdu_td_temp_sensor_->publish_state(static_cast<int8_t>(rawData[odu_offset + 0]));
+        int8_t val = static_cast<int8_t>(rawData[odu_offset + 0]);
+        if (val != 127) {
+          cdu_td_temp_sensor_->publish_state(val);
+        }
       }
       if (cdu_ts_temp_sensor_ != nullptr) {
-        cdu_ts_temp_sensor_->publish_state(static_cast<int8_t>(rawData[odu_offset + 1]));
+        int8_t val = static_cast<int8_t>(rawData[odu_offset + 1]);
+        if (val != 127) {
+          cdu_ts_temp_sensor_->publish_state(val);
+        }
       }
       if (cdu_te_temp_sensor_ != nullptr) {
-        cdu_te_temp_sensor_->publish_state(static_cast<int8_t>(rawData[odu_offset + 2]));
+        int8_t val = static_cast<int8_t>(rawData[odu_offset + 2]);
+        if (val != 127) {
+          cdu_te_temp_sensor_->publish_state(val);
+        }
       }
       if (cdu_load_sensor_ != nullptr) {
-        cdu_load_sensor_->publish_state(rawData[odu_offset + 3] / 1.7f);
+        uint8_t raw_val = rawData[odu_offset + 3];
+        if (raw_val < 254) {
+          cdu_load_sensor_->publish_state(raw_val / 1.7f);
+        }
       }
       if (cdu_iac_sensor_ != nullptr) {
-        cdu_iac_sensor_->publish_state(rawData[odu_offset + 6]);
+        uint8_t raw_val = rawData[odu_offset + 6];
+        if (raw_val < 254) {
+          cdu_iac_sensor_->publish_state(raw_val);
+        }
       }
       break;
     }
@@ -491,10 +510,16 @@ void ToshibaClimateUart::parseResponse(std::vector<uint8_t> rawData) {
       uint8_t idu_offset = (length == 22) ? 13 : 15;
       ESP_LOGI(TAG, "Received IDU status");
       if (fcu_tc_temp_sensor_ != nullptr) {
-        fcu_tc_temp_sensor_->publish_state(static_cast<int8_t>(rawData[idu_offset + 0]));
+        int8_t val = static_cast<int8_t>(rawData[idu_offset + 0]);
+        if (val != 127) {
+          fcu_tc_temp_sensor_->publish_state(val);
+        }
       }
       if (fcu_tcj_temp_sensor_ != nullptr) {
-        fcu_tcj_temp_sensor_->publish_state(static_cast<int8_t>(rawData[idu_offset + 1]));
+        int8_t val = static_cast<int8_t>(rawData[idu_offset + 1]);
+        if (val != 127) {
+          fcu_tcj_temp_sensor_->publish_state(val);
+        }
       }
       if (fcu_fan_rpm_sensor_ != nullptr) {
         fcu_fan_rpm_sensor_->publish_state(rawData[idu_offset + 2]);
