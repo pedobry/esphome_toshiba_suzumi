@@ -132,11 +132,10 @@ climate:
     #  name: "Daily Energy"
     #power:  # Optional. Estimated real-time power sensor (W).
     #  name: "Realtime Power"
+    #indoor_temp:        # Optional. Indoor temperature sensor
+    #  name: Indoor Temp
     outdoor_temp:        # Optional. Outdoor temperature sensor
       name: Outdoor Temp
-      filters:
-        # Filter out value 127 as that's what unit sends when it can's measure the outside temp.
-        - filter_out: 127 
     power_select:
       name: "Power level"
     #vertical_air_direction: # Optional. Fixed vertical air direction.
@@ -191,17 +190,19 @@ You can then create a Thermostat card on the dashboard.
 Homeassistant thermostat component is by default set with a range of 17-30°C.
 If your unit is equipped with "8 degress" aka FrostGuard, you can enable that in YAML configuration (Supported presets). The range is then automatically set to 5-30°C and when you set target temp above 17°C, it will switch to Standard mode, when you set target temp below 17°C, it will switch automatically to FrostGuard.
 
-## Filter some oustide temp value
+## Filtering incorrect values (127 / 254 / 255)
 
-It has been reported that some AC units send temp value 127 when the unit does not know the temp or using only Fan mode without external unit running. This mess up graphs in HomeAssistant.
+The component automatically filters out incorrect sensor readings at the code level:
+- Temperature readings of `127` (which the unit transmits when it cannot measure the temperature or when it is off) are ignored.
+- Compressor load and current values of `254` or `255` are also ignored.
 
-You can filter unwanted values by adding a filter to Outside temp sensor:
+Therefore, you do not need to add manual filters in your YAML configuration for these values. However, if you need to filter out other values, you can still add ESPHome filters like this:
 
 ```yaml
     outdoor_temp:
       name: Outdoor Temp
       filters:
-        - filter_out: 127 
+        - filter_out: 127
 ```
 
 ### Vertical air directions

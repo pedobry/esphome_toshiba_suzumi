@@ -27,11 +27,10 @@ climate:
     name: living-room
     id: living_room
     uart_id: uart_bus
+    #indoor_temp:        # Optional. Indoor temperature sensor
+    #  name: Indoor Temp
     outdoor_temp:        # Optional. Outdoor temperature sensor
       name: Outdoor Temp
-      filters:
-        # Filter out value 127 as that's what unit sends when it can's measure the outside temp.
-        - filter_out: 127 
     power_select:
       name: "Power level"
     #vertical_air_direction: # Optional. Fixed vertical air direction.
