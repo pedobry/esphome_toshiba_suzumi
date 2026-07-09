@@ -22,6 +22,16 @@ uint8_t checksum(std::vector<uint8_t> data, uint8_t length) {
   return 256 - sum;
 }
 
+ToshibaClimateUart::ToshibaClimateUart() {
+  this->last_time_sync_ = 0;
+  this->last_energy_sync_ = 0;
+  this->last_total_daily_energy_ = 0;
+  this->last_energy_update_ms_ = 0;
+  for (int i = 0; i < 24; i++) {
+    this->daily_energy_usage_[i] = 0;
+  }
+}
+
 /**
  * Send the command to UART interface.
  */
@@ -140,6 +150,9 @@ void ToshibaClimateUart::getInitData() {
   this->requestData(ToshibaCommandType::ROOM_TEMP);
   this->requestData(ToshibaCommandType::OUTDOOR_TEMP);
   this->requestData(ToshibaCommandType::SPECIAL_MODE);
+  if (this->energy_sensor_ != nullptr || this->power_sensor_ != nullptr) {
+    this->requestData(ToshibaCommandType::ENERGY_DAILY);
+  }
 }
 
 void ToshibaClimateUart::set_self_clean_running_(bool running) {
@@ -189,6 +202,7 @@ void ToshibaClimateUart::setup() {
  */
 void ToshibaClimateUart::process_command_queue_() {
   uint32_t now = millis();
+
   uint32_t cmdDelay = now - this->last_command_timestamp_;
 
   // when we have not processed message and timeout since last received byte has expired,
@@ -248,11 +262,21 @@ void ToshibaClimateUart::parseResponse(std::vector<uint8_t> rawData) {
       value = rawData[13];
       break;
     case 16:  // probably ACK for issued command
+      // Check if this is a SET_DATE_TIME ACK (ends in 0x99 0x99)
+      if (rawData[14] == 0x99) {
+          ESP_LOGD(TAG, "AC unit acknowledged time synchronization.");
+          this->time_synced_ = true;
+      }
       ESP_LOGD(TAG, "Received message with length: %d and value %s", length, format_hex_pretty(rawData).c_str());
       return;
     case 17:  // response to requestData with the actual value of sensor/setting
       sensor = static_cast<ToshibaCommandType>(rawData[14]);
       value = rawData[15];
+      break;
+    case 69:
+    case 70:  // energy daily response
+      sensor = static_cast<ToshibaCommandType>(rawData[14]);
+      value = 0;
       break;
     case 22:  // extended status message (e.g., ODU_STATUS / IDU_STATUS)
       sensor = static_cast<ToshibaCommandType>(rawData[12]);
@@ -268,6 +292,24 @@ void ToshibaClimateUart::parseResponse(std::vector<uint8_t> rawData) {
       return;
   }
   switch (sensor) {
+    case ToshibaCommandType::ENERGY_DAILY: {
+      ESP_LOGI(TAG, "Received daily energy update");
+      uint32_t total_energy = 0;
+      uint8_t current_hour = (this->time_ != nullptr) ? this->time_->now().hour : 25;
+      for (uint8_t i = 0; i < 24; i++) {
+        uint16_t hour_val = (rawData[21 + (i * 2) + 1] << 8) | rawData[21 + (i * 2)];
+        this->daily_energy_usage_[i] = hour_val;
+        total_energy += hour_val;
+        if (i == current_hour) {
+            ESP_LOGD(TAG, "  Current hour (%d) consumption: %u Wh", i, hour_val);
+        }
+      }
+      if (this->energy_sensor_ != nullptr) {
+        this->energy_sensor_->publish_state(total_energy);
+      }
+      this->estimate_wattage_(total_energy);
+      break;
+    }
     case ToshibaCommandType::TARGET_TEMP:
       ESP_LOGI(TAG, "Received target temp: %d", value);
       if (this->special_mode_ == SPECIAL_MODE::EIGHT_DEG) {
@@ -490,6 +532,12 @@ void ToshibaClimateUart::dump_config() {
   if (fcu_fan_rpm_sensor_ != nullptr) {
     LOG_SENSOR("", "FCU Fan RPM", this->fcu_fan_rpm_sensor_);
   }
+  if (energy_sensor_ != nullptr) {
+    LOG_SENSOR("", "Energy", this->energy_sensor_);
+  }
+  if (power_sensor_ != nullptr) {
+    LOG_SENSOR("", "Power", this->power_sensor_);
+  }
   if (pwr_select_ != nullptr) {
     LOG_SELECT("", "Power selector", this->pwr_select_);
   }
@@ -520,6 +568,18 @@ void ToshibaClimateUart::update() {
   }
   if (this->self_clean_running_) {
     this->requestData(ToshibaCommandType::SELF_CLEAN);
+  }
+
+  uint32_t now = millis();
+
+  // Handle time synchronization
+  if (this->time_ != nullptr) {
+    this->check_time_sync_(now);
+  }
+
+  // Periodic Energy Sync (Runs every 60s if energy or power sensors are configured)
+  if ((this->energy_sensor_ != nullptr || this->power_sensor_ != nullptr) && (now - this->last_energy_sync_ > 60000)) {
+    this->sync_energy_();
   }
 }
 
@@ -786,6 +846,92 @@ void ToshibaClimateUart::set_wifi_led(bool enabled) {
     this->sendCmd(ToshibaCommandType::WIFI_LED_1, 0x00);
     this->sendCmd(ToshibaCommandType::WIFI_LED_2, 0x80);
   }
+}
+
+void ToshibaClimateUart::check_time_sync_(uint32_t now) {
+  if (!this->time_synced_) {
+    // Boot sync or retry every 5 minutes until synchronized
+    if (this->last_time_sync_ == 0) {
+      ESP_LOGI(TAG, "Triggering initial time synchronization...");
+      this->sync_time_();
+    } else if (now - this->last_time_sync_ > 300000) {
+      ESP_LOGI(TAG, "Retrying time synchronization...");
+      this->sync_time_();
+    }
+  } else if (this->time_sync_interval_ != 0) {
+    // Periodic synchronization after initial success
+    if (now - this->last_time_sync_ > this->time_sync_interval_) {
+      ESP_LOGI(TAG, "Triggering periodic time synchronization...");
+      this->sync_time_();
+    }
+  }
+}
+
+void ToshibaClimateUart::sync_time_() {
+  if (this->time_ == nullptr) {
+    ESP_LOGW(TAG, "Time sync requested but no time_id is configured in YAML!");
+    return;
+  }
+  if (!this->time_->now().is_valid()) {
+    ESP_LOGI(TAG, "Time sync requested but time source is not yet valid/synchronized.");
+    return;
+  }
+  auto now = this->time_->now();
+
+  ESP_LOGI(TAG, "Syncing time to AC unit: %04d-%02d-%02d %02d:%02d:%02d", now.year, now.month, now.day_of_month, now.hour,
+           now.minute, now.second);
+
+  std::vector<uint8_t> payload = {2, 0, 3, 16, 0, 0, 0xef, 1, 48, 1, 0, 0xea, 0x99};
+  payload.push_back((now.year - 2000) + 100);
+  payload.push_back(now.month - 1);
+  payload.push_back(now.day_of_month);
+  payload.push_back(now.hour);
+  payload.push_back(now.minute);
+  payload.push_back(now.second);
+  payload.push_back(now.day_of_week - 1); // Sunday=0
+  payload.push_back(0x00);
+  payload.push_back(0x00);
+  for (int i = 0; i < 224; i++) {
+    payload.push_back(0xFF);
+  }
+  payload.push_back(checksum(payload, payload.size()));
+
+  // Enqueue the time sync packet and a 5-second delay to prevent collisions
+  this->enqueue_command_(ToshibaCommand{.cmd = ToshibaCommandType::SET_DATE_TIME, .payload = payload});
+  this->enqueue_command_(ToshibaCommand{.cmd = ToshibaCommandType::DELAY, .delay = 5000});
+  this->last_time_sync_ = millis();
+}
+
+void ToshibaClimateUart::sync_energy_() {
+  ESP_LOGV(TAG, "Syncing energy data");
+  this->requestData(ToshibaCommandType::ENERGY_DAILY);
+  this->last_energy_sync_ = millis();
+}
+
+void ToshibaClimateUart::estimate_wattage_(uint32_t current_energy) {
+  uint32_t now = millis();
+  if (this->last_energy_update_ms_ == 0 || current_energy < this->last_total_daily_energy_) {
+    this->last_total_daily_energy_ = current_energy;
+    this->last_energy_update_ms_ = now;
+    return;
+  }
+
+  uint32_t energy_diff = current_energy - this->last_total_daily_energy_;
+  uint32_t time_diff = now - this->last_energy_update_ms_;
+
+  if (time_diff > 0 && energy_diff > 0) {
+    float wattage = (energy_diff * 3600000.0f) / time_diff;
+    if (this->power_sensor_ != nullptr) {
+      this->power_sensor_->publish_state(wattage);
+    }
+  } else if (energy_diff == 0) {
+    if (this->power_sensor_ != nullptr) {
+      this->power_sensor_->publish_state(0);
+    }
+  }
+
+  this->last_total_daily_energy_ = current_energy;
+  this->last_energy_update_ms_ = now;
 }
 
 }  // namespace toshiba_suzumi
