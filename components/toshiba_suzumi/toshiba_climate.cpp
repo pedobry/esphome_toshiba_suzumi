@@ -1,6 +1,9 @@
 #include "toshiba_climate.h"
 #include "toshiba_climate_mode.h"
 #include "esphome/core/log.h"
+#ifdef USE_TIME
+#include "esphome/components/time/real_time_clock.h"
+#endif
 
 namespace esphome {
 namespace toshiba_suzumi {
@@ -295,7 +298,11 @@ void ToshibaClimateUart::parseResponse(std::vector<uint8_t> rawData) {
     case ToshibaCommandType::ENERGY_DAILY: {
       ESP_LOGI(TAG, "Received daily energy update");
       uint32_t total_energy = 0;
+#ifdef USE_TIME
       uint8_t current_hour = (this->time_ != nullptr) ? this->time_->now().hour : 25;
+#else
+      uint8_t current_hour = 25;
+#endif
       for (uint8_t i = 0; i < 24; i++) {
         uint16_t hour_val = (rawData[21 + (i * 2) + 1] << 8) | rawData[21 + (i * 2)];
         this->daily_energy_usage_[i] = hour_val;
@@ -572,10 +579,12 @@ void ToshibaClimateUart::update() {
 
   uint32_t now = millis();
 
+#ifdef USE_TIME
   // Handle time synchronization
   if (this->time_ != nullptr) {
     this->check_time_sync_(now);
   }
+#endif
 
   // Periodic Energy Sync (Runs every 60s if energy or power sensors are configured)
   if ((this->energy_sensor_ != nullptr || this->power_sensor_ != nullptr) && (now - this->last_energy_sync_ > 60000)) {
@@ -848,6 +857,7 @@ void ToshibaClimateUart::set_wifi_led(bool enabled) {
   }
 }
 
+#ifdef USE_TIME
 void ToshibaClimateUart::check_time_sync_(uint32_t now) {
   if (!this->time_synced_) {
     // Boot sync or retry every 5 minutes until synchronized
@@ -901,6 +911,7 @@ void ToshibaClimateUart::sync_time_() {
   this->enqueue_command_(ToshibaCommand{.cmd = ToshibaCommandType::DELAY, .delay = 5000});
   this->last_time_sync_ = millis();
 }
+#endif
 
 void ToshibaClimateUart::sync_energy_() {
   ESP_LOGV(TAG, "Syncing energy data");

@@ -6,10 +6,12 @@
 #include "esphome/components/uart/uart.h"
 #include "esphome/components/sensor/sensor.h"
 #include "esphome/components/select/select.h"
-#include "esphome/components/time/real_time_clock.h"
 #include "toshiba_climate_mode.h"
 
 namespace esphome {
+namespace time {
+class RealTimeClock;
+}  // namespace time
 namespace toshiba_suzumi {
 
 static const char *const TAG = "ToshibaClimateUart";
@@ -136,8 +138,10 @@ class ToshibaClimateUart : public PollingComponent, public climate::Climate, pub
   void on_set_vertical_air_direction(const std::string &value);
   void publish_vertical_air_direction_(SWING swing_mode);
   void configure_supported_custom_modes_();
+#ifdef USE_TIME
   void check_time_sync_(uint32_t now);
   void sync_time_();
+#endif
   void sync_energy_();
   void estimate_wattage_(uint32_t current_energy);
 
