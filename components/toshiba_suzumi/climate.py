@@ -15,10 +15,8 @@ from esphome.const import (
     DEVICE_CLASS_ENERGY,
     DEVICE_CLASS_POWER,
     CONF_TIME_ID,
-    STATE_CLASS_TOTAL_INCREASING,
-    __version__ as ESPHOME_VERSION
+    STATE_CLASS_TOTAL_INCREASING
 )
-from packaging import version
 import logging
 
 _LOGGER = logging.getLogger(__name__)
