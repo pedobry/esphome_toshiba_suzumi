@@ -266,9 +266,10 @@ void ToshibaClimateUart::parseResponse(std::vector<uint8_t> rawData) {
       break;
     case 16:  // probably ACK for issued command
       // Check if this is a SET_DATE_TIME ACK (ends in 0x99 0x99)
-      if (rawData[14] == 0x99) {
-          ESP_LOGD(TAG, "AC unit acknowledged time synchronization.");
+      if (rawData[14] == 0x99 || rawData[14] == 0x98) {
+          ESP_LOGD(TAG, "AC unit acknowledged time synchronization (0x%02X).", rawData[14]);
           this->time_synced_ = true;
+          this->time_sync_attempts_ = 0;
       }
       ESP_LOGD(TAG, "Received message with length: %d and value %s", length, format_hex_pretty(rawData).c_str());
       return;
@@ -889,9 +890,15 @@ void ToshibaClimateUart::check_time_sync_(uint32_t now) {
     if (this->last_time_sync_ == 0) {
       ESP_LOGI(TAG, "Triggering initial time synchronization...");
       this->sync_time_();
-    } else if (now - this->last_time_sync_ > 300000) {
-      ESP_LOGI(TAG, "Retrying time synchronization...");
-      this->sync_time_();
+    } else {
+      // First retries come quickly so the fallback format is tried right after boot
+      uint32_t retry = this->time_sync_attempts_ < 2 ? 15000 : 300000;
+      if (now - this->last_time_sync_ > retry) {
+        // Some units (e.g. Haori / Carrier 40WHP) ignore 0x99 and only accept 0x98 - alternate until ACK
+        this->short_time_sync_ = !this->short_time_sync_;
+        ESP_LOGI(TAG, "Retrying time synchronization (format 0x%02X)...", this->short_time_sync_ ? 0x98 : 0x99);
+        this->sync_time_();
+      }
     }
   } else if (this->time_sync_interval_ != 0) {
     // Periodic synchronization after initial success
@@ -916,7 +923,13 @@ void ToshibaClimateUart::sync_time_() {
   ESP_LOGI(TAG, "Syncing time to AC unit: %04d-%02d-%02d %02d:%02d:%02d", now.year, now.month, now.day_of_month, now.hour,
            now.minute, now.second);
 
-  std::vector<uint8_t> payload = {2, 0, 3, 16, 0, 0, 0xef, 1, 48, 1, 0, 0xea, 0x99};
+  std::vector<uint8_t> payload;
+  if (this->short_time_sync_) {
+    // Plain clock set: 7 data bytes, no padding (captured from original WRE-T00BJ10 adapter)
+    payload = {2, 0, 3, 16, 0, 0, 0x0d, 1, 48, 1, 0, 0x08, 0x98};
+  } else {
+    payload = {2, 0, 3, 16, 0, 0, 0xef, 1, 48, 1, 0, 0xea, 0x99};
+  }
   payload.push_back((now.year - 2000) + 100);
   payload.push_back(now.month - 1);
   payload.push_back(now.day_of_month);
@@ -924,10 +937,12 @@ void ToshibaClimateUart::sync_time_() {
   payload.push_back(now.minute);
   payload.push_back(now.second);
   payload.push_back(now.day_of_week - 1); // Sunday=0
-  payload.push_back(0x00);
-  payload.push_back(0x00);
-  for (int i = 0; i < 224; i++) {
-    payload.push_back(0xFF);
+  if (!this->short_time_sync_) {
+    payload.push_back(0x00);
+    payload.push_back(0x00);
+    for (int i = 0; i < 224; i++) {
+      payload.push_back(0xFF);
+    }
   }
   payload.push_back(checksum(payload, payload.size()));
 
@@ -935,6 +950,7 @@ void ToshibaClimateUart::sync_time_() {
   this->enqueue_command_(ToshibaCommand{.cmd = ToshibaCommandType::SET_DATE_TIME, .payload = payload});
   this->enqueue_command_(ToshibaCommand{.cmd = ToshibaCommandType::DELAY, .delay = 5000});
   this->last_time_sync_ = millis();
+  if (this->time_sync_attempts_ < 255) this->time_sync_attempts_++;
 }
 #endif
 

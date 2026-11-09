@@ -121,6 +121,8 @@ class ToshibaClimateUart : public PollingComponent, public climate::Climate, pub
   uint32_t last_energy_update_ms_ = 0;
   uint16_t daily_energy_usage_[24] = {0};
   bool time_synced_ = false;
+  bool short_time_sync_ = false;   // true: unit wants 0x98 (plain clock) instead of 0x99
+  uint8_t time_sync_attempts_ = 0;
   uint32_t time_sync_interval_{86400000};
 
   void enqueue_command_(const ToshibaCommand &command);
