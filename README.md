@@ -49,6 +49,10 @@ Any unit which have an option to purchase a WiFi adapter RB-N105S-G/RB-N106S-G:
 * Suzumi Plus RAS-B10, B13 and B16 PKVSG-E
 * Mirai RAS-13BKV-E (4-pin CN22, see [Pinout](#pinout))
 * Shorai Premium RAS-B10, B13 and B16 J2KVRG-E
+* SHORAI CURVE RAS-B13P2KVSG, RAS-B10P2KVSG
+
+#### 2026 units
+It seems that some 2026 units ship already with new built-in wifi module (SHORAI CURVE RAS-B13P2KVSG, RAS-B10P2KVSG). This adapter is model WRE-T00BJ10. Seems to have the same funtionality as RB-N105S-G/RB-N106S-G and can be replaced by custom ESP adapter.
 
 ## Hardware
 
