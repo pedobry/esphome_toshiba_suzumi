@@ -74,7 +74,8 @@ enum class ToshibaCommandType : uint8_t {
   DELAY = 1, // dummy command to issue a delay in communication
   POWER_STATE = 128,
   POWER_SEL = 135,
-  COMFORT_SLEEP = 148, // { ON = 65, OFF = 66 }
+  COMFORT_SLEEP = 148, // { ON = 65, OFF = 66 } - also set while the remote's OFF timer runs
+  OFF_TIMER_REMAINING = 150, // 0x96, 2-byte value: minutes until the OFF timer switches the unit off
   FAN = 160,
   SWING = 163,
   MODE = 176,
