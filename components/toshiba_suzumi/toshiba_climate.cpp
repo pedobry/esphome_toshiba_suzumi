@@ -286,8 +286,9 @@ void ToshibaClimateUart::parseResponse(std::vector<uint8_t> rawData) {
       break;
     case 18:  // response to requestData with a 2-byte value
       if (static_cast<ToshibaCommandType>(rawData[14]) == ToshibaCommandType::OFF_TIMER_REMAINING) {
-        uint16_t minutes = (rawData[15] << 8) | rawData[16];
-        ESP_LOGI(TAG, "Received OFF timer remaining: %u min", minutes);
+        // two bytes: hours, minutes (0x00 0x1E = 30 min, 0x02 0x00 = 2 h)
+        uint16_t minutes = rawData[15] * 60 + rawData[16];
+        ESP_LOGI(TAG, "Received OFF timer remaining: %uh %02umin", rawData[15], rawData[16]);
         if (this->off_timer_remaining_sensor_ != nullptr) {
           this->off_timer_remaining_sensor_->publish_state(this->off_timer_active_ ? minutes : 0);
         }

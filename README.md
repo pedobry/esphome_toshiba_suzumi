@@ -157,6 +157,10 @@ climate:
       #name: "Vertical air direction"
     #self_clean:              # Optional. Enables self-clean detection and reports its status.
       #name: "Self Clean"
+    #off_timer:              # Optional. ON while the OFF timer set on the remote is running.
+      #name: "Off timer"
+    #off_timer_remaining:    # Optional. Minutes until the OFF timer switches the unit off.
+      #name: "Off timer remaining"
     #horizontal_swing: true # Optional. Uncomment if your HVAC supports also horizontal swing
     #supported_presets:          # Optional. Enable only the features your HVAC
       #- "Standard"
@@ -248,6 +252,19 @@ How the cycle behaves (per the Toshiba service manual):
 - It runs only after cooling or dry operation, and only if that ran for at least 10 minutes; it then runs for a fixed ~30 minutes. It does not run after heating, fan-only, or a short (<10 min) cooling/dry run.
 - During the cycle the indoor fan runs at low speed to dry the unit; the compressor stays off. The unit reports itself as not operating, which is why the climate entity is OFF.
 - The service manual documents enabling/disabling the self-clean cycle as a unit-side procedure (the indoor unit's `RESET` button together with a remote-control diagnosis code). This component reports the cycle but does not control it.
+
+### OFF timer
+
+The OFF timer set on the IR remote can be shown in Home Assistant:
+
+```yaml
+    off_timer:
+      name: "Off timer"
+    off_timer_remaining:
+      name: "Off timer remaining"
+```
+
+`off_timer` follows register 0x94, which the unit pushes when the timer starts or ends. `off_timer_remaining` reads register 0x96 (two bytes: hours and minutes) and reports minutes. The unit doesn't push 0x96, so it is polled at the component's update interval while the timer runs, and reported as 0 when no timer is set. The unit updates 0x96 in coarse steps (a 30 min timer read 0:30, then 0:15). Setting the timer from Home Assistant isn't supported.
 
 ## Outdoor/Indoor unit diagnostics (ODU/IDU sensors)
 
