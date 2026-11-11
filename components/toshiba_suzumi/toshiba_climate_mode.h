@@ -75,7 +75,7 @@ enum class ToshibaCommandType : uint8_t {
   POWER_STATE = 128,
   POWER_SEL = 135,
   COMFORT_SLEEP = 148, // { ON = 65, OFF = 66 } - also set while the remote's OFF timer runs
-  OFF_TIMER_REMAINING = 150, // 0x96, 2-byte value: minutes until the OFF timer switches the unit off
+  OFF_TIMER_REMAINING = 150, // 0x96, 2 bytes (hours, minutes) until the OFF timer switches the unit off
   FAN = 160,
   SWING = 163,
   MODE = 176,
