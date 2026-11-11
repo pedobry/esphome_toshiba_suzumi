@@ -94,7 +94,10 @@ Some 2017/2018 units have only a 4-pin CN22 on the main board and no extension c
 
 Confirmed working on a Mirai RAS-13BKV-E with main board WP-026 (sticker B22N3KV2-E1, the same board family as Suzumi RAS-B10/B13/B16/B18/B22 N3KV2-E1):
 
-- GND and +5V are the two middle pins; +5V is the one nearer the board edge. Pin 4 (AC TX) is the outermost pin at the board edge, pin 1 (AC RX) the innermost. Check with a multimeter (continuity to the board's GND test point, unit unplugged) before connecting.
+<p align="center"><img src="images/wp026-overview.jpg" width="45%"> <img src="images/wp026-cn22-pinout.jpg" width="52%"></p>
+
+
+- GND and +5V are the two middle pins; +5V is the one nearer the board edge. The silkscreen marks pin 1 (next to J37) and pin 4. Pin 4 (AC TX) is the outermost pin at the board edge, pin 1 (AC RX) the innermost. Check with a multimeter (continuity to the board's GND test point, unit unplugged) before connecting.
 - Power, mode, fan, swing on/off and setpoint work in both directions; outdoor temperature, power level and self-clean are reported.
 - Not available on this unit: room temperature (0xBB reads 127), Hi POWER and ECO (0xF7 neither answered nor acted on), fixed louver positions (acknowledged but ignored), energy and ODU/IDU data.
 
