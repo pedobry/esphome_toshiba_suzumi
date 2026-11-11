@@ -47,6 +47,7 @@ Any unit which have an option to purchase a WiFi adapter RB-N105S-G/RB-N106S-G:
 * Shorai Edge RAS-B07, B10, B13, B16, B18, B22 and B24 J2KVSG-E
 * Seiya RAS-B10, B13, B16 and B18 J2KVG-E
 * Suzumi Plus RAS-B10, B13 and B16 PKVSG-E
+* Mirai RAS-13BKV-E (4-pin CN22, see [Pinout](#pinout))
 * Shorai Premium RAS-B10, B13 and B16 J2KVRG-E
 
 ## Hardware
@@ -86,6 +87,16 @@ AC unit has a wifi connector CN22 with an extension cable, usually with pink and
 </p>
 
 The matching connector is JST PA2.0 ([Aliexpress](https://www.aliexpress.com/item/1005007176563512.html))
+
+#### Units with a 4-pin CN22 (2017/2018 models)
+
+Some 2017/2018 units have only a 4-pin CN22 on the main board and no extension cable. Toshiba listed them as Wi-Fi ready with adapter RB-N102S-G plus cable 43T60480, which maps CN22 pins 1-4 straight to the adapter's pins 1-4 (pin 5 goes elsewhere). The pinout of pins 1-4 is the same as above: 1 = AC RX, 2 = GND, 3 = +5V, 4 = AC TX.
+
+Confirmed working on a Mirai RAS-13BKV-E with main board WP-026 (sticker B22N3KV2-E1, the same board family as Suzumi RAS-B10/B13/B16/B18/B22 N3KV2-E1):
+
+- GND and +5V are the two middle pins; +5V is the one nearer the board edge. Pin 4 (AC TX) is the outermost pin at the board edge, pin 1 (AC RX) the innermost. Check with a multimeter (continuity to the board's GND test point, unit unplugged) before connecting.
+- Power, mode, fan, swing on/off and setpoint work in both directions; outdoor temperature, power level and self-clean are reported.
+- Not available on this unit: room temperature (0xBB reads 127), Hi POWER and ECO (0xF7 neither answered nor acted on), fixed louver positions (acknowledged but ignored), energy and ODU/IDU data.
 
 ‼️‼️<br>
 **WARNING: Do NOT connect PIN 5 (the outermost pink wire) to anything. Double check that you have wired the ESP device correctly. Only connect and disconnect the ESP while the AC unit is disconnected from main power. Shorts or wrong wiring will damage AC unit board.**<br>
