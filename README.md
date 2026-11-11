@@ -52,7 +52,7 @@ Any unit which have an option to purchase a WiFi adapter RB-N105S-G/RB-N106S-G:
 * SHORAI CURVE RAS-B13P2KVSG, RAS-B10P2KVSG
 
 #### 2026 units
-It seems that some 2026 units ship already with new built-in wifi module (SHORAI CURVE RAS-B13P2KVSG, RAS-B10P2KVSG). This adapter is model WRE-T00BJ10. Seems to have the same funtionality as RB-N105S-G/RB-N106S-G and can be replaced by custom ESP adapter.
+It seems that some 2026 units ship already with new built-in wifi module (SHORAI CURVE RAS-B13P2KVSG, RAS-B10P2KVSG). This adapter is model WRE-T00BJ10 based on RTL8710C (ARM Thumb). Seems to have the same funtionality as RB-N105S-G/RB-N106S-G and can be replaced by custom ESP adapter.
 
 ## Hardware
 
