@@ -71,6 +71,8 @@ class ToshibaClimateUart : public PollingComponent, public climate::Climate, pub
     vertical_air_direction_select_ = vertical_air_direction_select;
   }
   void set_self_clean_sensor(binary_sensor::BinarySensor *self_clean_sensor) { self_clean_sensor_ = self_clean_sensor; }
+  void set_off_timer_sensor(binary_sensor::BinarySensor *sensor) { off_timer_sensor_ = sensor; }
+  void set_off_timer_remaining_sensor(sensor::Sensor *sensor) { off_timer_remaining_sensor_ = sensor; }
   void set_horizontal_swing(bool enabled) { horizontal_swing_ = enabled; }
   void disable_heat_mode(bool disabled) { heat_mode_disabled_ = disabled; }
   void disable_wifi_led(bool disabled) { wifi_led_disabled_ = disabled; }
@@ -97,6 +99,9 @@ class ToshibaClimateUart : public PollingComponent, public climate::Climate, pub
   select::Select *pwr_select_ = nullptr;
   select::Select *vertical_air_direction_select_ = nullptr;
   binary_sensor::BinarySensor *self_clean_sensor_ = nullptr;
+  binary_sensor::BinarySensor *off_timer_sensor_ = nullptr;
+  sensor::Sensor *off_timer_remaining_sensor_ = nullptr;
+  bool off_timer_active_ = false;
   sensor::Sensor *indoor_temp_sensor_ = nullptr;
   sensor::Sensor *outdoor_temp_sensor_ = nullptr;
   sensor::Sensor *cdu_td_temp_sensor_ = nullptr;
@@ -134,6 +139,7 @@ class ToshibaClimateUart : public PollingComponent, public climate::Climate, pub
   void handle_rx_byte_(uint8_t c);
   bool validate_message_();
   void set_self_clean_running_(bool running);
+  bool has_off_timer_sensors_() const { return off_timer_sensor_ != nullptr || off_timer_remaining_sensor_ != nullptr; }
   void on_set_pwr_level(const std::string &value);
   void on_set_vertical_air_direction(const std::string &value);
   void publish_vertical_air_direction_(SWING swing_mode);

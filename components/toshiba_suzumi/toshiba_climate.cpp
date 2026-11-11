@@ -156,6 +156,9 @@ void ToshibaClimateUart::getInitData() {
   if (this->energy_sensor_ != nullptr || this->power_sensor_ != nullptr) {
     this->requestData(ToshibaCommandType::ENERGY_DAILY);
   }
+  if (this->has_off_timer_sensors_()) {
+    this->requestData(ToshibaCommandType::COMFORT_SLEEP);
+  }
 }
 
 void ToshibaClimateUart::set_self_clean_running_(bool running) {
@@ -281,6 +284,17 @@ void ToshibaClimateUart::parseResponse(std::vector<uint8_t> rawData) {
       sensor = static_cast<ToshibaCommandType>(rawData[14]);
       value = 0;
       break;
+    case 18:  // response to requestData with a 2-byte value
+      if (static_cast<ToshibaCommandType>(rawData[14]) == ToshibaCommandType::OFF_TIMER_REMAINING) {
+        uint16_t minutes = (rawData[15] << 8) | rawData[16];
+        ESP_LOGI(TAG, "Received OFF timer remaining: %u min", minutes);
+        if (this->off_timer_remaining_sensor_ != nullptr) {
+          this->off_timer_remaining_sensor_->publish_state(this->off_timer_active_ ? minutes : 0);
+        }
+        return;
+      }
+      ESP_LOGD(TAG, "Received 2-byte value for sensor %d: %s", rawData[14], format_hex_pretty(rawData).c_str());
+      return;
     case 22:  // extended status message (e.g., ODU_STATUS / IDU_STATUS)
       sensor = static_cast<ToshibaCommandType>(rawData[12]);
       value = 0;
@@ -384,6 +398,25 @@ void ToshibaClimateUart::parseResponse(std::vector<uint8_t> rawData) {
         }
       }
       break;
+    case ToshibaCommandType::COMFORT_SLEEP: {
+      bool active = value == 65;
+      ESP_LOGI(TAG, "Received OFF timer state: %s", active ? "ON" : "OFF");
+      bool changed = active != this->off_timer_active_;
+      this->off_timer_active_ = active;
+      if (this->off_timer_sensor_ != nullptr) {
+        this->off_timer_sensor_->publish_state(active);
+      }
+      if (this->off_timer_remaining_sensor_ != nullptr) {
+        if (active) {
+          if (changed) {
+            this->requestData(ToshibaCommandType::OFF_TIMER_REMAINING);
+          }
+        } else {
+          this->off_timer_remaining_sensor_->publish_state(0);
+        }
+      }
+      break;
+    }
     case ToshibaCommandType::OUTDOOR_TEMP:
       if (value != 127) {
         if (outdoor_temp_sensor_ != nullptr) {
@@ -579,6 +612,12 @@ void ToshibaClimateUart::dump_config() {
   if (self_clean_sensor_ != nullptr) {
     LOG_BINARY_SENSOR("", "Self Clean", this->self_clean_sensor_);
   }
+  if (off_timer_sensor_ != nullptr) {
+    LOG_BINARY_SENSOR("", "OFF Timer", this->off_timer_sensor_);
+  }
+  if (off_timer_remaining_sensor_ != nullptr) {
+    LOG_SENSOR("", "OFF Timer Remaining", this->off_timer_remaining_sensor_);
+  }
   if (!supported_presets_.empty()) {
     ESP_LOGCONFIG(TAG, "Supported presets:");
     for (const char* &preset : supported_presets_) {
@@ -600,6 +639,13 @@ void ToshibaClimateUart::update() {
   }
   if (this->self_clean_running_) {
     this->requestData(ToshibaCommandType::SELF_CLEAN);
+  }
+  if (this->has_off_timer_sensors_()) {
+    // The unit doesn't push the remaining time, so poll it while a timer runs.
+    this->requestData(ToshibaCommandType::COMFORT_SLEEP);
+    if (this->off_timer_active_ && this->off_timer_remaining_sensor_ != nullptr) {
+      this->requestData(ToshibaCommandType::OFF_TIMER_REMAINING);
+    }
   }
 
   uint32_t now = millis();

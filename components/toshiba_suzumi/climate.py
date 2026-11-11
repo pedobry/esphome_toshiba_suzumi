@@ -9,6 +9,8 @@ from esphome.const import (
     UNIT_AMPERE,
     UNIT_WATT_HOURS,
     UNIT_WATT,
+    UNIT_MINUTE,
+    DEVICE_CLASS_DURATION,
     DEVICE_CLASS_TEMPERATURE,
     DEVICE_CLASS_CURRENT,
     DEVICE_CLASS_RUNNING,
@@ -41,6 +43,8 @@ CONF_SPECIAL_MODE = "special_mode" # deprecated - replaced by CONF_SUPPORTED_PRE
 CONF_SPECIAL_MODE_MODES = "modes" # deprecated - replaced by CONF_SUPPORTED_PRESETS
 CONF_SUPPORTED_PRESETS = "supported_presets"
 CONF_SELF_CLEAN = "self_clean"
+CONF_OFF_TIMER = "off_timer"
+CONF_OFF_TIMER_REMAINING = "off_timer_remaining"
 CONF_TIME_SYNC_INTERVAL = "time_sync_interval"
 CONF_ENERGY = "energy"
 CONF_POWER = "power"
@@ -125,6 +129,15 @@ CONFIG_SCHEMA = climate.climate_schema(ToshibaClimateUart).extend(
         }),
         cv.Optional(CONF_SELF_CLEAN): binary_sensor.binary_sensor_schema(
             device_class=DEVICE_CLASS_RUNNING
+        ),
+        cv.Optional(CONF_OFF_TIMER): binary_sensor.binary_sensor_schema(
+            icon="mdi:timer-off-outline"
+        ),
+        cv.Optional(CONF_OFF_TIMER_REMAINING): sensor.sensor_schema(
+            unit_of_measurement=UNIT_MINUTE,
+            accuracy_decimals=0,
+            device_class=DEVICE_CLASS_DURATION,
+            icon="mdi:timer-sand",
         ),
         cv.Optional(FEATURE_HORIZONTAL_SWING): cv.boolean,
         cv.Optional(DISABLE_WIFI_LED): cv.boolean,
@@ -214,6 +227,14 @@ async def to_code(config):
     if CONF_SELF_CLEAN in config:
         sens = await binary_sensor.new_binary_sensor(config[CONF_SELF_CLEAN])
         cg.add(var.set_self_clean_sensor(sens))
+
+    if CONF_OFF_TIMER in config:
+        sens = await binary_sensor.new_binary_sensor(config[CONF_OFF_TIMER])
+        cg.add(var.set_off_timer_sensor(sens))
+
+    if CONF_OFF_TIMER_REMAINING in config:
+        sens = await sensor.new_sensor(config[CONF_OFF_TIMER_REMAINING])
+        cg.add(var.set_off_timer_remaining_sensor(sens))
 
     if FEATURE_HORIZONTAL_SWING in config:
         cg.add(var.set_horizontal_swing(True))
