@@ -1,5 +1,11 @@
+# Change these to name the device and the AC. climate_id is used in lambdas.
+substitutions:
+  device_name: climate-living-room
+  climate_name: Living Room
+  climate_id: living_room
+
 esphome:
-  name: "climate-living-room"
+  name: ${device_name}
 
 esp32:
   board: nodemcu-32s
@@ -7,7 +13,7 @@ esp32:
     type: arduino
 
 external_components:
-  - source: 
+  - source:
       type: git
       url: https://github.com/pedobry/esphome_toshiba_suzumi
     components: [toshiba_suzumi]
@@ -24,8 +30,8 @@ uart:
 
 climate:
   - platform: toshiba_suzumi
-    name: living-room
-    id: living_room
+    name: ${climate_name}
+    id: ${climate_id}
     uart_id: uart_bus
     # Supported features, presets and entities are detected automatically
     # (the device restarts once after the first detection). Everything else is
@@ -37,17 +43,7 @@ climate:
     #  - "Sleep"
     #disable_wifi_led: true
 
-# Enable button to scan for unknown values in AC unit. This is optional.
 button:
-  - platform: template
-    name: "Scan for unknown sensors"
-    icon: "mdi:reload"
-    on_press:
-      then:
-         # id(living_room) is the id of the climate component above
-        - lambda: |-
-            auto* controller = static_cast<toshiba_suzumi::ToshibaClimateUart*>(id(living_room));
-            controller->scan();
   # Optional. Forget the detected unit features and detect them again (restarts the ESP).
   - platform: template
     name: "Detect AC features again"
@@ -55,8 +51,7 @@ button:
     entity_category: config
     on_press:
       then:
-        - lambda: |-
-            id(living_room).reset_capabilities();
+        - lambda: id(${climate_id}).reset_capabilities();
 
 # Enable Home Assistant API
 api:
@@ -64,7 +59,8 @@ api:
     key: !secret ha_enc_key
 
 ota:
-  password: !secret ota_password
+  - platform: esphome
+    password: !secret ota_password
 
 wifi:
   ssid: !secret wifi_ssid
@@ -72,5 +68,7 @@ wifi:
 
   # Enable fallback hotspot (captive portal) in case wifi connection fails
   ap:
-    ssid: "A Fallback Hotspot"
+    ssid: "${device_name} fallback"
     password: "xxxxxxxxxxx"
+
+captive_portal:

@@ -118,6 +118,10 @@ Confirmed working on a Mirai RAS-13BKV-E with main board WP-026 (sticker B22N3KV
 3. edit code configuration and setup UART and Climate modules. See [example.yaml](https://github.com/pedobry/esphome_toshiba_suzumi/blob/main/example.yaml) for configuration details.
 
 ```yaml
+substitutions:
+  climate_name: Living Room
+  climate_id: living_room   # used as id(${climate_id}) in lambdas
+
 ...
 external_components:
   - source: 
@@ -139,8 +143,8 @@ uart:
 
 climate:
   - platform: toshiba_suzumi
-    name: living-room
-    id: living_room
+    name: ${climate_name}
+    id: ${climate_id}
     uart_id: uart_bus
     #time_id: hass_time  # Optional. Enables energy / power on units that have them.
 ...
@@ -222,7 +226,7 @@ The component finds out what the unit supports from:
 
 Presets: units that report a feature mask get "Standard", "ECO" and "Hi POWER", plus "8 degrees", "Fireplace 1/2", "Silent#1/#2" and "Floor" when the mask has them. Units without the mask get no special modes. "Sleep" and "Comfort" are not in the mask and are offered only when you list them in `supported_presets`.
 
-Home Assistant reads entities and presets only when it connects, and ESPHome can hide entities only at startup. The result is therefore stored in flash and applied at the next start: **the first time (and whenever something new is found) the device restarts once**, about 30 seconds after connecting to the unit. You will see `Unit capabilities changed ... Restarting` in the log. For the same indoor unit features are only added, never removed. To detect again from scratch (e.g. after moving the ESP to another unit, which is also detected automatically by model and serial), call `id(living_room).reset_capabilities();` from a button lambda.
+Home Assistant reads entities and presets only when it connects, and ESPHome can hide entities only at startup. The result is therefore stored in flash and applied at the next start: **the first time (and whenever something new is found) the device restarts once**, about 30 seconds after connecting to the unit. You will see `Unit capabilities changed ... Restarting` in the log. For the same indoor unit features are only added, never removed. To detect again from scratch (e.g. after moving the ESP to another unit, which is also detected automatically by model and serial), call `id(${climate_id}).reset_capabilities();` from a button lambda (see the "Detect AC features again" button in [example.yaml](example.yaml)).
 
 On ESP8266 the stored result survives restarts but not a power cut unless `esp8266: restore_from_flash: true` is set; without it the device simply detects again after power is restored.
 

@@ -1816,16 +1816,6 @@ void ToshibaClimateUart::publish_vertical_air_direction_(SWING swing_mode) {
 void ToshibaVerticalAirDirectionSelect::control(const std::string &value) { parent_->on_set_vertical_air_direction(value); }
 
 /**
- * Scan all statuses from 128 to 255 in order to find unknown features.
- */
-void ToshibaClimateUart::scan() {
-  ESP_LOGI(TAG, "Scan started.");
-  for (uint8_t i = 128; i < 255; i++) {
-    this->requestData(static_cast<ToshibaCommandType>(i));
-  }
-}
-
-/**
  * Control the indoor-unit Wi-Fi LED.
  * ON:  DE=0x05, DF=0x00
  * OFF: DE=0x00, DF=0x80

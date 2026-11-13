@@ -41,6 +41,9 @@ Automatic feature detection and ionizer.
 
 * A Get that is already waiting in the queue is not queued again.
 
+* Removed scan() and the "Scan for unknown sensors" button: the properties
+  of the units are mapped now. Remove the button from your YAML if you have it.
+
 * Internal clean-up: handshake frames are constexpr arrays, received frames
   are parsed without copying, unused state removed.
 
