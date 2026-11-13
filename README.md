@@ -80,15 +80,19 @@ AC unit has a wifi connector CN22 with an extension cable, usually with pink and
 
 |pin number| color | ESP32 pin  |ESP8266 pin|
 |----------|-------|------------|-----------|
-|    1     |🟦 blue  | 33 (TX)    | 13 (TX)   |
+|    1     |🟦 blue  | 33 (TX)    | GPIO13 / D7 (TX) |
 |    2     |🟪 pink  | GND        | GND       |
-|    3     |⬛️ black | \+5V (Vin) | \+5V (Vin)|
-|    4     |⬜️ white | 32 (RX)    | 12 (RX)   |
+|    3     |⬛️ black | \+5V (Vin) | \+5V (5V pin) |
+|    4     |⬜️ white | 32 (RX)    | GPIO12 / D6 (RX) |
 |    5     |🟪 pink  | **do NOT use** | **do NOT use** |
 
 </p>
 
 The matching connector is JST PA2.0 ([Aliexpress](https://www.aliexpress.com/item/1005007176563512.html))
+
+**ESP8266: do not use the boot strapping pins** GPIO15 (D8), GPIO0 (D3) and GPIO2 (D4) for RX or TX. At reset GPIO15 must be low and GPIO0/GPIO2 high. The level shifter holds an idle UART line high, so with RX on GPIO15 the D1 mini fails to boot or flash, and GPIO0/GPIO2 can be pulled low when the unit transmits during a reset. GPIO13 (D7) and GPIO12 (D6) are safe ([#22](https://github.com/pedobry/esphome_toshiba_suzumi/issues/22)).
+
+A 3D-printable case for a D1 mini with a level shifter, made to fit inside the unit (tested in a Shorai Edge), was shared by jocelyngate38 in [#22](https://github.com/pedobry/esphome_toshiba_suzumi/issues/22) ([Onshape](https://cad.onshape.com/documents/5ec90b698b3d5ae268445e7c/w/77ac5ffb3ec384a32b4f8aa5/e/bcca1c92ac79022cd00207c1)).
 
 #### Units with a 4-pin CN22 (2017/2018 models)
 
