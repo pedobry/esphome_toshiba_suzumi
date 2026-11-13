@@ -1,4 +1,131 @@
 ***
+Nov 13th 2026
+
+Automatic feature detection and ionizer.
+
+* The component detects what the unit supports and creates the matching
+  entities and presets, so the YAML needs no feature list. Sources: the unit
+  identification bytes from the handshake, the unit's feature mask (EPC 0xEE:
+  special modes, cooling-only / heating-only, horizontal louver, fixed louver
+  positions, energy, ionizer), and which properties the unit answers and which
+  status messages it sends.
+
+* Entities not listed in YAML are created with default names and shown only
+  when the unit supports them. Entities listed in YAML are always shown;
+  supported_presets, min_temp, horizontal_swing and disable_heat_mode in YAML
+  replace the detected values. auto_detect: false restores the old behaviour.
+
+* The result is stored in flash and applied at startup. After the first
+  detection, or when something new is found, the device restarts once so Home
+  Assistant picks up the new entities. reset_capabilities() starts over.
+
+* Presets on units with a feature mask: Standard, ECO, Hi POWER, plus
+  8 degrees, Fireplace 1/2, Silent#1/#2 and Floor per the mask. Sleep and
+  Comfort are not in the mask and must be listed in supported_presets.
+
+* New ionizer switch (EPC 0xC7, ECHONET "air purifier function setting").
+
+* Entering 8 °C mode also switches the unit to Heat (the mode heats only).
+
+* Diagnostic sensors (cdu_* / fcu_*) now use the diagnostic entity category.
+
+* The climate entity is published only when a received frame changed it
+  (before: after every frame, including sensor and keepalive replies).
+
+* Quieter logs: routine requests and received values are logged at DEBUG,
+  raw frame dumps only at VERBOSE. INFO keeps handshake, profile, capability
+  and time sync messages.
+
+* Periodic polling skips properties that detection found unsupported; the
+  reads at connect still go out so a different unit is detected.
+
+* A Get that is already waiting in the queue is not queued again.
+
+* Internal clean-up: handshake frames are constexpr arrays, received frames
+  are parsed without copying, unused state removed.
+
+* PROTOCOL.md rewritten from public sources (ECHONET Lite, captures shared in
+  issues and pull requests, owner's manuals).
+
+***
+Nov 13th 2026
+
+Model-info notify (EPC 0xE0).
+
+* The 0xE0 frame the unit pushes on its own is decoded: indoor and outdoor
+  unit model, serial and firmware. New optional text sensors fcu_firmware,
+  cdu_model, cdu_serial and cdu_firmware. The FCU model / serial from 0xE0 are
+  used only when the handshake did not provide them.
+
+***
+Nov 13th 2026
+
+8 °C mode and preset fixes (issue #73).
+
+* Mode, setpoint, fan and special mode are sent together in one 0xF8 frame
+  (01 30 01 00 05 F8 <mode> <temp> <fan> <merit>) on units that report a
+  feature mask, once all four values have been read from the unit. Other
+  units, and units that reject 0xF8, get single 0xB0 / 0xA0 / 0xF7 / 0xB3 Sets.
+
+* Changing the preset now also sends the setpoint. Before, leaving "8 degrees"
+  only sent 0xF7, and the unit kept the raw 8 °C setpoint (e.g. 32 for 16 °C)
+  as a normal setpoint.
+
+* The raw setpoint (0xB3) is kept and converted again whenever 0xB3 or 0xF7
+  arrives, so the target temperature is right regardless of the order the unit
+  reports them in (boot, IR remote changes). 0xF7 is now read before 0xB3.
+
+* Automatic switching into and out of 8 °C mode now updates the preset shown
+  in Home Assistant, and custom presets received from the unit are no longer
+  cleared right after being set.
+
+***
+Nov 11th 2026
+
+UART protocol rework. The protocol description is in PROTOCOL.md.
+
+* Property frames carry an ECHONET Lite property of the home air conditioner
+  object 01 30 01. The two bytes after the object code are a 16-bit length
+  (EPC + data), not an opcode: Get = 01 30 01 00 01 <EPC>, one-byte Set =
+  01 30 01 00 02 <EPC> <VALUE>. Requests use frame number FN=0x00.
+
+* Received frames are parsed from FT/CN/DL and the property record inside the
+  payload instead of the total frame length. Replies (CN=0x90) are read as
+  01 30 01 <status> <len> <EPC> <data>; a non-zero status is treated as a
+  rejected request. Notifications from the unit (CN=0x11) are read as
+  01 30 01 <len> <EPC> <data>, so multi-byte ones such as 0xE4/0xE5 are no
+  longer dropped, and every notify is acknowledged with CN=0x91.
+
+* Link keepalive: a periodic Get; five missing replies restart the handshake.
+
+* The unit identification bytes from the handshake are logged as a unit
+  profile and level. Indoor/outdoor diagnostics 0xE4/0xE5 are polled only on
+  profile 3 units; others still apply the frames when the unit pushes them.
+
+* New optional text sensors: fcu_model and fcu_serial (from the handshake
+  identity reply) and error_code (ECHONET fault status 0x88, manufacturer's
+  fault code 0x86).
+
+* Clock sync, daily energy, OFF timer and value filtering from main are kept and
+  now use the shared frame builder and parser. The clock sync frame is
+  documented as the weekly-schedule EPC 0x99 (0xEA is the low byte of its
+  length).
+
+* Clock sync: units that ignore the weekly-schedule frame 0x99 (e.g. Carrier
+  40WHP / Toshiba Haori) now get the plain clock frame 0x98. The component
+  starts with 0x99 and alternates formats until one is ACKed (15 s ACK
+  timeout, four quick attempts, then every 5 minutes), keeps the working
+  format for periodic syncs and syncs again after a link restart. Retries no
+  longer depend on update_interval. Thanks to BickelLukas for the captures and
+  analysis in pull request #70.
+
+* The feature mask 0xEE is read once after connect and logged, to help
+  identify which units need which clock frame.
+
+* README: protocol summary rewritten and linked to PROTOCOL.md, error code
+  section added, notes on energy/clock and the outdoor unit sensors.
+
+***
 Sep 10th 2025
 
 * implement Special modes as Climate presets instead of HA selector. Due to backward compatibility, the list of special modes can be either as new "supported_presets" YAML option, or the old "supported_modes" option. I recommend to migrate to the new config schema as the old one will be removed in the future.

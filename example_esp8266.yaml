@@ -24,31 +24,15 @@ climate:
     name: living-room
     id: living_room
     uart_id: uart_bus
-    #indoor_temp:        # Optional. Indoor temperature sensor
-    #  name: Indoor Temp
-    outdoor_temp:        # Optional. Outdoor temperature sensor
-      name: Outdoor Temp
-    power_select:
-      name: "Power level"
-    #vertical_air_direction: # Optional. Fixed vertical air direction.
-      # Controls the Toshiba horizontal louver, which directs air up/down.
-      #name: "Vertical air direction"
-    #self_clean:              # Optional. Reports the post-shutdown self-cleaning cycle.
-      #name: "Self Clean"
-    #horizontal_swing: true # Optional. Uncomment if your HVAC supports also horizontal swing
-    #supported_presets:          # Optional. Enable only the features your HVAC
-      #- "Standard"
-      #- "Hi POWER"
-      #- "ECO"
-      #- "Fireplace 1"
-      #- "Fireplace 2"
-      #- "8 degrees"             # When enabling this mode, the temp range is set to 5-30°C
-      #- "Silent#1"
-      #- "Silent#2"
-      #- "Sleep"
-      #- "Floor"
-      #- "Comfort"
-    #disable_wifi_led: true # Optional. Disable Wifi LED on internal unit.
+    # Supported features, presets and entities are detected automatically
+    # (the device restarts once after the first detection). Everything else is
+    # optional, see README.md for the full list, e.g.:
+    #time_id: hass_time      # needed for energy / power on units that have them
+    #outdoor_temp:           # listing an entity always shows it with your name
+    #  name: Outdoor Temp
+    #supported_presets:      # replaces the detected presets
+    #  - "Sleep"
+    #disable_wifi_led: true
 
 # Enable button to scan for unknown values in AC unit. This is optional.
 button:

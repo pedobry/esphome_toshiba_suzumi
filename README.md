@@ -6,8 +6,6 @@ Toshiba air conditioner has an option for connecting remote module purchased sep
 
 This component use ESPHome UART to connect with Toshiba AC and communicates directly with Home Assistant.
 
-<a href="https://www.buymeacoffee.com/pedobryk" target="_blank"><img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" alt="Buy Me A Coffee" style="height: 60px !important;width: 217px !important;" ></a>
-
 ## ESPHome versions
 Current main branch supports latest ESPHome **2026.1**. There have been some internal changes in climate entity in ESPHome which makes it incompatible with previous ESPHome versions.
 
@@ -134,7 +132,7 @@ uart:
   parity: EVEN
   baud_rate: 9600
 
-# Optional. Required only if the energy/power sensor feature is enabled.
+# Optional. Needed for the energy / power sensors (the unit clock is set from it).
 # time:
 #   - platform: homeassistant
 #     id: hass_time
@@ -144,58 +142,64 @@ climate:
     name: living-room
     id: living_room
     uart_id: uart_bus
-    #time_id: hass_time  # Optional. Required only if the energy/power sensor feature is enabled.
-    #time_sync_interval: 24h  # Optional. Time sync interval. Default 24h. Set to 0 to sync only at startup.
-    #energy:  # Optional. Daily energy consumption sensor (Wh).
-    #  name: "Daily Energy"
-    #power:  # Optional. Estimated real-time power sensor (W).
-    #  name: "Realtime Power"
-    #indoor_temp:        # Optional. Indoor temperature sensor
+    #time_id: hass_time  # Optional. Enables energy / power on units that have them.
+...
+```
+
+That is all that is needed: the component finds out what the unit supports and creates the
+matching Home Assistant entities and presets (see [Automatic feature detection](#automatic-feature-detection)).
+Every option below is optional and only needed to rename an entity or to override detection:
+
+```yaml
+climate:
+  - platform: toshiba_suzumi
+    ...
+    #auto_detect: false      # Turn detection off: only what is listed here is created (old behaviour)
+    #time_sync_interval: 24h # Clock sync interval. Default 24h. Set to 0 to sync only at startup.
+    #disable_wifi_led: true  # Keep the indoor-unit Wi-Fi LED off (EPC 0xDE/0xDF).
+    # Entities. Listing one always shows it, with your name; otherwise it is created
+    # with a default name and shown only when the unit supports it.
+    #indoor_temp:            # Not created automatically (the climate entity shows the room temperature)
     #  name: Indoor Temp
-    outdoor_temp:        # Optional. Outdoor temperature sensor
-      name: Outdoor Temp
-    power_select:
-      name: "Power level"
-    #vertical_air_direction: # Optional. Fixed vertical air direction.
-      # Controls the Toshiba horizontal louver, which directs air up/down.
-      #name: "Vertical air direction"
-    #self_clean:              # Optional. Enables self-clean detection and reports its status.
-      #name: "Self Clean"
-    #off_timer:              # Optional. ON while the OFF timer set on the remote is running.
-      #name: "Off timer"
-    #off_timer_remaining:    # Optional. Minutes until the OFF timer switches the unit off.
-      #name: "Off timer remaining"
-    #horizontal_swing: true # Optional. Uncomment if your HVAC supports also horizontal swing
-    #supported_presets:          # Optional. Enable only the features your HVAC
-      #- "Standard"
+    #outdoor_temp:
+    #  name: Outdoor Temp
+    #power_select:
+    #  name: "Power level"
+    #vertical_air_direction: # Fixed louver position (Toshiba "horizontal louver", air up/down)
+    #  name: "Vertical air direction"
+    #ionizer:                # Ionizer / air purifier on/off (EPC 0xC7)
+    #  name: "Ionizer"
+    #self_clean:             # Post-shutdown self-cleaning status
+    #  name: "Self Clean"
+    #off_timer:              # ON while the OFF timer set on the remote is running
+    #  name: "Off timer"
+    #off_timer_remaining:    # Minutes until the OFF timer switches the unit off
+    #  name: "Off timer remaining"
+    #error_code:             # Fault code reported by the unit ("none" when OK)
+    #  name: Error Code
+    #energy:                 # Daily energy consumption (Wh), needs time_id
+    #  name: "Daily Energy"
+    #power:                  # Estimated real-time power (W), needs time_id
+    #  name: "Realtime Power"
+    #fcu_model / fcu_serial / fcu_firmware / cdu_model / cdu_serial / cdu_firmware: unit information
+    #cdu_load / cdu_iac / cdu_td_temp / cdu_ts_temp / cdu_te_temp: outdoor unit diagnostics
+    #fcu_tc_temp / fcu_tcj_temp / fcu_fan_rpm: indoor unit diagnostics
+    # Climate features. Setting one replaces the detected value.
+    #horizontal_swing: true  # Offer horizontal swing
+    #disable_heat_mode: true # Cooling-only unit
+    #min_temp: 5
+    #supported_presets:      # Exactly these presets. "Sleep" and "Comfort" are never detected
+      #- "Standard"          # (they have no capability bit), list them here if your remote has them.
       #- "Hi POWER"
       #- "ECO"
       #- "Fireplace 1"
       #- "Fireplace 2"
-      #- "8 degrees"             # When enabling this mode, the temp range is set to 5-30°C
+      #- "8 degrees"         # The temp range is then 5-30°C
       #- "Silent#1"
       #- "Silent#2"
       #- "Sleep"
       #- "Floor"
       #- "Comfort"
-    #disable_wifi_led: true # Optional. Disable Wifi LED on internal unit.
-    #cdu_load:                    # Optional. Compressor load (%) - useful for estimating power consumption
-    #  name: "Compressor Load"
-    #cdu_iac:                     # Optional. Compressor current
-    #  name: "Compressor Current"
-    #cdu_td_temp:                 # Optional. CDU discharge pipe temperature
-    #  name: "CDU Discharge Temp"
-    #cdu_ts_temp:                 # Optional. CDU suction pipe temperature
-    #  name: "CDU Suction Temp"
-    #cdu_te_temp:                 # Optional. CDU evaporator temperature
-    #  name: "CDU Evaporator Temp"
-    #fcu_tc_temp:                 # Optional. FCU heat exchanger temperature
-    #  name: "FCU Heat Exchanger Temp"
-    #fcu_tcj_temp:                # Optional. FCU heat exchanger junction temperature
-    #  name: "FCU Junction Temp"
-    #fcu_fan_rpm:                 # Optional. FCU fan speed (RPM)
-    #  name: "FCU Fan RPM"
-...
 ```
 
 The component is automatically installed directly from Github during compilation.
@@ -208,9 +212,28 @@ You can then create a Thermostat card on the dashboard.
 
 ![HomeAssistant card](/images/HA_card.png)
 
-### Temperature range (FrostGuard)
+### Automatic feature detection
+
+The component finds out what the unit supports from:
+
+- the unit identification bytes in the handshake (logged as the unit profile),
+- the unit's feature mask, EPC `0xEE` (special modes, cooling-only / heating-only, horizontal louver, energy, fixed louver positions, ionizer),
+- which properties the unit answers (outdoor temperature, power level, self-clean, OFF timer, fault code) and which status messages it sends (indoor / outdoor diagnostics, unit information).
+
+Presets: units that report a feature mask get "Standard", "ECO" and "Hi POWER", plus "8 degrees", "Fireplace 1/2", "Silent#1/#2" and "Floor" when the mask has them. Units without the mask get no special modes. "Sleep" and "Comfort" are not in the mask and are offered only when you list them in `supported_presets`.
+
+Home Assistant reads entities and presets only when it connects, and ESPHome can hide entities only at startup. The result is therefore stored in flash and applied at the next start: **the first time (and whenever something new is found) the device restarts once**, about 30 seconds after connecting to the unit. You will see `Unit capabilities changed ... Restarting` in the log. For the same indoor unit features are only added, never removed. To detect again from scratch (e.g. after moving the ESP to another unit, which is also detected automatically by model and serial), call `id(living_room).reset_capabilities();` from a button lambda.
+
+On ESP8266 the stored result survives restarts but not a power cut unless `esp8266: restore_from_flash: true` is set; without it the device simply detects again after power is restored.
+
+### Temperature range (8 °C mode / FrostGuard)
 Homeassistant thermostat component is by default set with a range of 17-30°C.
-If your unit is equipped with "8 degress" aka FrostGuard, you can enable that in YAML configuration (Supported presets). The range is then automatically set to 5-30°C and when you set target temp above 17°C, it will switch to Standard mode, when you set target temp below 17°C, it will switch automatically to FrostGuard.
+If your unit has the "8°C operation" (frost protection), the range is 5-30°C (detected automatically, or add "8 degrees" to `supported_presets`):
+- a target temperature below 17°C turns 8 °C mode on (5-16°C, as Haori units do from their own remote; Seiya units accept only 5-13°C in this mode) and switches the unit to Heat (the mode heats only),
+- a target temperature of 17°C or more turns it off,
+- selecting the "8 degrees" preset sets 8°C, leaving it sets 20°C (unless the current target already fits the new mode).
+
+The setpoint and the special mode are always sent together, so the unit never keeps an 8 °C mode setpoint (temperature + 16 on the wire) after the mode changes. On units that report a feature mask they go out in one `0xF8` frame (mode, setpoint, fan and special mode).
 
 ## Filtering incorrect values (127 / 254 / 255)
 
@@ -255,7 +278,7 @@ How the cycle behaves (per the Toshiba service manual):
 
 - It runs only after cooling or dry operation, and only if that ran for at least 10 minutes; it then runs for a fixed ~30 minutes. It does not run after heating, fan-only, or a short (<10 min) cooling/dry run.
 - During the cycle the indoor fan runs at low speed to dry the unit; the compressor stays off. The unit reports itself as not operating, which is why the climate entity is OFF.
-- The service manual documents enabling/disabling the self-clean cycle as a unit-side procedure (the indoor unit's `RESET` button together with a remote-control diagnosis code). This component reports the cycle but does not control it.
+- The service manual documents enabling/disabling the self-clean cycle as a unit-side procedure (the indoor unit's `RESET` button together with a remote-control diagnosis code). `0xCB` is the ECHONET "self-cleaning function setting", but the meaning of the Toshiba bits for writing is not known, so this component reports the cycle but does not control it.
 
 ### OFF timer
 
@@ -270,15 +293,34 @@ The OFF timer set on the IR remote can be shown in Home Assistant:
 
 `off_timer` follows register 0x94, which the unit pushes when the timer starts or ends. `off_timer_remaining` reads register 0x96 (two bytes: hours and minutes) and reports minutes. The unit doesn't push 0x96, so it is polled at the component's update interval while the timer runs, and reported as 0 when no timer is set. The unit updates 0x96 in coarse steps (a 30 min timer read 0:30, then 0:15). Setting the timer from Home Assistant isn't supported.
 
+### Error code
+
+The optional `error_code` text sensor shows the fault code reported by the unit:
+
+```yaml
+    error_code:
+      name: "Error Code"
+```
+
+Property `0x88` (ECHONET "fault status") tells whether a fault is present, and only then
+the 9-byte property `0x86` (manufacturer's fault code) is read. The sensor shows `none` when there is no fault, or the
+code byte in hex (for example `0x1C`). The full `0x86` data is written to the log as a
+warning. The mapping of these codes to the codes shown on the remote (E01, F02, ...) is not
+known yet.
+
+## Unit model information
+
+`fcu_model` and `fcu_serial` come from the handshake. The outdoor unit (CDU) model, serial and firmware, and the indoor unit firmware, come from a model-info message (EPC `0xE0`) that the unit sends on its own. These sensors stay empty until the unit sends that message, and some units may never send it. When it arrives, everything it carries is also logged and shown in `dump_config`.
+
 ## Outdoor/Indoor unit diagnostics (ODU/IDU sensors)
 
-Some Toshiba AC units periodically send extended status messages from the outdoor unit (ODU) and indoor unit (IDU). These messages contain diagnostic data such as compressor load, refrigerant temperatures, and fan speed. The component can parse these and expose them as optional sensors.
+Some Toshiba AC units send extended status messages from the outdoor unit (ODU, EPC `0xE5`) and indoor unit (IDU, EPC `0xE4`). These messages contain diagnostic data such as compressor load, refrigerant temperatures, and fan speed. The component can parse these and expose them as optional sensors.
 
 **Available sensors:**
 
 | Sensor | Description | Unit |
 |--------|-------------|------|
-| `cdu_load` | Compressor load (frequency) | % |
+| `cdu_load` | Compressor load, derived from the compressor frequency byte (raw / 1.7) | % |
 | `cdu_iac` | Compressor current / EEV actuation | A |
 | `cdu_td_temp` | CDU discharge pipe temperature | °C |
 | `cdu_ts_temp` | CDU suction pipe temperature | °C |
@@ -287,7 +329,7 @@ Some Toshiba AC units periodically send extended status messages from the outdoo
 | `fcu_tcj_temp` | FCU heat exchanger junction temperature | °C |
 | `fcu_fan_rpm` | FCU fan speed | RPM |
 
-These sensors are all optional — only add the ones you need to your YAML configuration. The data arrives automatically from the unit (no polling required).
+These sensors are all optional — only add the ones you need to your YAML configuration. On units of profile 3 the component polls `0xE4` / `0xE5` after connect and on each update interval; other units publish the values only when they push a status frame. With automatic detection the sensors appear once the unit has sent them.
 
 ### Native Energy and Power monitoring
 
@@ -310,6 +352,16 @@ climate:
 
 The `power` sensor provides a real-time estimate in Watts, calculated from the rate of change in the AC's internal energy counters.
 
+The daily energy register (`0xD8`) holds 24 hourly values bucketed by the unit's own clock. Until the clock is set, the unit reports zeros, so `energy` and `power` stay at 0. Only units that support energy reporting answer `0xD8` (with automatic detection the sensors appear only on such units).
+
+How the clock is set:
+
+- The component first sends a weekly-schedule frame (EPC `0x99`) with the current date and time and an empty schedule. Most units accept it. Note that it also clears a weekly schedule stored in the unit by the Toshiba app.
+- Some units ignore `0x99` completely, for example the Carrier 40WHP (Toshiba Haori). If there is no acknowledgement within 15 seconds, the component sends the plain clock frame (EPC `0x98`) instead and keeps alternating until one of them is acknowledged: four quick attempts, then one every 5 minutes.
+- The format that worked is used for the periodic sync (`time_sync_interval`, default 24 h), and the clock is synced again after the UART link is re-established.
+
+Look for `AC unit acknowledged time synchronization (EPC 0x99)` or `(EPC 0x98)` in the log. If neither appears, your unit most likely has no clock / energy support.
+
 ### Estimating power consumption (Fallback)
 
 For older units that do not support the native energy registers, you can still estimate power using `cdu_load`. `cdu_load` reports the compressor load as a percentage, which correlates with power usage. You can combine it with your unit's rated power input to estimate consumption in Home Assistant using a template sensor:
@@ -326,28 +378,44 @@ sensor:
 
 Replace `880` with your unit's rated power input in watts (check the datasheet). You can then use the [HA Riemann sum integral integration](https://www.home-assistant.io/integrations/integration/) to track energy consumption over time.
 
-## Scan for unknown sensors
+## Protocol analysis
 
-The code here was developed on certain Toshiba AC unit which provides only certain set of features. Newer or different units might offer more features (ie. horizontal swing etc.). While these are not implemented, you can add a button which scans for all sensors and prints the answers from AC unit. This might help developers to identify these new features.
+What is known about the UART protocol is described in [PROTOCOL.md](PROTOCOL.md): the frame
+format, the handshake, the ECHONET Lite properties of the home air conditioner object
+(`01 30 01`) and the Toshiba-specific ones, and which of them this component implements.
 
-You can enable this by adding a new button:
+Short summary:
 
-```yaml
-button:
-  - platform: template
-    name: "Scan for unknown sensors"
-    icon: "mdi:reload"
-    on_press:
-      then:
-        - lambda: |-
-            auto* controller = static_cast<toshiba_suzumi::ToshibaClimateUart*>(id(living_room));
-            controller->scan();
+- 9600 baud, 8E1. Frames are `STX(02) | FT(u16) | CN | FN | DL(u16) | FD | FCC`, where FCC
+  is the two's complement of the sum of all bytes except STX.
+- After the handshake, all climate traffic uses `FT=0x0003` with the home air-conditioner
+  object `01 30 01`:
+  - Get: `CN=0x10`, `FD = 01 30 01 00 01 <EPC>`
+  - Set: `CN=0x10`, `FD = 01 30 01 00 02 <EPC> <value>`
+  - Reply: `CN=0x90`, `FD = 01 30 01 00 00 <len u16> <EPC> <data>`
+  - Notify from the unit (IR remote, internal change): `CN=0x11`, `FD = 01 30 01 <len u16> <EPC> <data>`,
+    acknowledged with `CN=0x91`.
+- The identity reply in the handshake carries the indoor unit model and serial and four
+  identification bytes.
+
+### Reporting an issue
+
+The component logs how it classified the unit after connect:
+
+```
+[I][ToshibaClimateUart]: Unit profile 3 level 2 (00 01 01 02)
+[I][ToshibaClimateUart]: Unit feature mask 0xEE: 6C 03
+[I][ToshibaClimateUart]: Unit capabilities 0x0F6BF (applied 0x0F6BF)
 ```
 
-and then watching ESPHome logs for data:
+Please include these lines (and your model) when reporting an issue. If the identity reply
+never arrives, the component falls back to reading the basic climate status (logged as
+`No unit identity; loading basic status without diagnostics`).
 
-![ESPHome log](/images/scan_log.png)
-    ```
+### References
+
+- [maxmacstn/ToshibaCarrierController](https://github.com/maxmacstn/ToshibaCarrierController) — handshake indexing and model-info offsets
+- [ormsport/ToshibaCarrierHvac](https://github.com/ormsport/ToshibaCarrierHvac) — earlier community UART library
 
 ## Links
 
