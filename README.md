@@ -6,7 +6,118 @@ Toshiba air conditioner has an option for connecting remote module purchased sep
 
 This component use ESPHome UART to connect with Toshiba AC and communicates directly with Home Assistant.
 
-## ESPHome versions
+## Contents
+
+- [Supported Toshiba units](#supported-toshiba-units)
+- [Hardware](#hardware)
+  - [Pinout](#pinout)
+  - [ESP32 (WROOM 32D)](#esp32-wroom-32d)
+  - [ESP8266 (Lolin D1 mini)](#esp8266-lolin-d1-mini)
+  - [Units with a 4-pin CN22](#units-with-a-4-pin-cn22)
+- [Installation](#installation)
+  - [ESPHome versions](#esphome-versions)
+  - [Configuration](#configuration)
+  - [Optional settings](#optional-settings)
+  - [Home Assistant](#home-assistant)
+- [Automatic feature detection](#automatic-feature-detection)
+  - [Examples](#examples)
+- [Climate control](#climate-control)
+  - [Temperature range](#temperature-range)
+  - [Vertical air directions](#vertical-air-directions)
+- [Sensors](#sensors)
+  - [Filtering incorrect values](#filtering-incorrect-values)
+  - [Self-cleaning status](#self-cleaning-status)
+  - [OFF timer](#off-timer)
+  - [Error code](#error-code)
+  - [Unit model information](#unit-model-information)
+  - [Indoor and outdoor unit diagnostics](#indoor-and-outdoor-unit-diagnostics)
+- [Energy and power](#energy-and-power)
+  - [Native energy and power monitoring](#native-energy-and-power-monitoring)
+  - [Estimating power from compressor load](#estimating-power-from-compressor-load)
+- [Reporting an issue](#reporting-an-issue)
+- [Protocol analysis](#protocol-analysis)
+- [Links](#links)
+
+## Supported Toshiba units
+
+Any unit which have an option to purchase a WiFi adapter RB-N105S-G/RB-N106S-G:
+
+* Seiya RAS-B24 J2KVG-E
+* Suzumi Plus RAS-B18, B22 and B24 PKVSG-E
+* Shorai Premium RAS-B18, B22 and B24 J2KVRG-E
+* Daiseikai 9 RAS-B10, B13 and B16 PKVPG-E
+* Shorai Edge RAS-B07, B10, B13, B16, B18, B22 and B24 J2KVSG-E
+* Seiya RAS-B10, B13, B16 and B18 J2KVG-E
+* Suzumi Plus RAS-B10, B13 and B16 PKVSG-E
+* Mirai RAS-13BKV-E (4-pin CN22, see [Units with a 4-pin CN22](#units-with-a-4-pin-cn22))
+* Shorai Premium RAS-B10, B13 and B16 J2KVRG-E
+* SHORAI CURVE RAS-B13P2KVSG, RAS-B10P2KVSG
+
+**2026 units:** it seems that some 2026 units ship already with new built-in wifi module (SHORAI CURVE RAS-B13P2KVSG, RAS-B10P2KVSG). This adapter is model WRE-T00BJ10 based on RTL8710C (ARM Thumb). Seems to have the same funtionality as RB-N105S-G/RB-N106S-G and can be replaced by custom ESP adapter.
+
+## Hardware
+
+‼️‼️<br>
+**WARNING: Do NOT connect PIN 5 (the outermost pink wire) to anything. Double check that you have wired the ESP device correctly. Only connect and disconnect the ESP while the AC unit is disconnected from main power. Shorts or wrong wiring will damage AC unit board.**<br>
+‼️‼️
+
+* tested with ESP32 (WROOM 32D)
+* tested with ESP8266 (Lolin D1 mini)
+* connection adapter can be used the same as with this solution (https://github.com/toremick/shorai-esp32).
+* Alternatively, you can use only a level shifter between 5V (AC unit) and 3.3V (ESP32) (search Aliexpress for "level shifter"). That's what I use and it works fine.
+
+### Pinout
+
+AC unit has a wifi connector CN22 with an extension cable, usually with pink and blue colors (see the schema below).
+
+<p align="center">
+
+|pin number| color | ESP32 pin  |ESP8266 pin|
+|----------|-------|------------|-----------|
+|    1     |🟦 blue  | 33 (TX)    | GPIO13 / D7 (TX) |
+|    2     |🟪 pink  | GND        | GND       |
+|    3     |⬛️ black | \+5V (Vin) | \+5V (5V pin) |
+|    4     |⬜️ white | 32 (RX)    | GPIO12 / D6 (RX) |
+|    5     |🟪 pink  | **do NOT use** | **do NOT use** |
+
+</p>
+
+The matching connector is JST PA2.0 ([Aliexpress](https://www.aliexpress.com/item/1005007176563512.html))
+
+### ESP32 (WROOM 32D)
+
+   ![schema](/images/schema.jpg)
+
+   Please pay attention to correctly wire the level shifter - it must have both High Voltage (5V and GND from the AC unit) and Low Voltage (3.3V and GND from ESP) connected.
+
+
+   ![adapter](/images/adapter.jpg)
+
+### ESP8266 (Lolin D1 mini)
+
+   ![d1_mini](/images/D1_mini.jpg)
+
+**Do not use the boot strapping pins** GPIO15 (D8), GPIO0 (D3) and GPIO2 (D4) for RX or TX. At reset GPIO15 must be low and GPIO0/GPIO2 high. The level shifter holds an idle UART line high, so with RX on GPIO15 the D1 mini fails to boot or flash, and GPIO0/GPIO2 can be pulled low when the unit transmits during a reset. GPIO13 (D7) and GPIO12 (D6) are safe ([#22](https://github.com/pedobry/esphome_toshiba_suzumi/issues/22)).
+
+A 3D-printable case for a D1 mini with a level shifter, made to fit inside the unit (tested in a Shorai Edge), was shared by jocelyngate38 in [#22](https://github.com/pedobry/esphome_toshiba_suzumi/issues/22) ([Onshape](https://cad.onshape.com/documents/5ec90b698b3d5ae268445e7c/w/77ac5ffb3ec384a32b4f8aa5/e/bcca1c92ac79022cd00207c1)).
+
+### Units with a 4-pin CN22
+
+Some 2017/2018 units have only a 4-pin CN22 on the main board and no extension cable. Toshiba listed them as Wi-Fi ready with adapter RB-N102S-G plus cable 43T60480, which maps CN22 pins 1-4 straight to the adapter's pins 1-4 (pin 5 goes elsewhere). The pinout of pins 1-4 is the same as above: 1 = AC RX, 2 = GND, 3 = +5V, 4 = AC TX.
+
+Confirmed working on a Mirai RAS-13BKV-E with main board WP-026 (sticker B22N3KV2-E1, the same board family as Suzumi RAS-B10/B13/B16/B18/B22 N3KV2-E1):
+
+<p align="center"><img src="images/wp026-overview.jpg" width="45%"> <img src="images/wp026-cn22-pinout.jpg" width="52%"></p>
+
+
+- GND and +5V are the two middle pins; +5V is the one nearer the board edge. The silkscreen marks pin 1 (next to J37) and pin 4. Pin 4 (AC TX) is the outermost pin at the board edge, pin 1 (AC RX) the innermost. Check with a multimeter (continuity to the board's GND test point, unit unplugged) before connecting.
+- Power, mode, fan, swing on/off and setpoint work in both directions; outdoor temperature, power level and self-clean are reported.
+- Not available on this unit: room temperature (0xBB reads 127), Hi POWER and ECO (0xF7 neither answered nor acted on), fixed louver positions (acknowledged but ignored), energy and ODU/IDU data.
+
+## Installation
+
+### ESPHome versions
+
 Current main branch supports latest ESPHome **2026.1**. There have been some internal changes in climate entity in ESPHome which makes it incompatible with previous ESPHome versions.
 
 If you use ESPHome **2025.10 or earlier**, use tag `2025.10` like this:
@@ -34,84 +145,7 @@ external_components:
 
 These older version won't be maintained, I'd recommend to upgrade to ESPHome 2026.1
 
-## Supported Toshiba units
-
-Any unit which have an option to purchase a WiFi adapter RB-N105S-G/RB-N106S-G:
-
-* Seiya RAS-B24 J2KVG-E
-* Suzumi Plus RAS-B18, B22 and B24 PKVSG-E
-* Shorai Premium RAS-B18, B22 and B24 J2KVRG-E
-* Daiseikai 9 RAS-B10, B13 and B16 PKVPG-E
-* Shorai Edge RAS-B07, B10, B13, B16, B18, B22 and B24 J2KVSG-E
-* Seiya RAS-B10, B13, B16 and B18 J2KVG-E
-* Suzumi Plus RAS-B10, B13 and B16 PKVSG-E
-* Mirai RAS-13BKV-E (4-pin CN22, see [Pinout](#pinout))
-* Shorai Premium RAS-B10, B13 and B16 J2KVRG-E
-* SHORAI CURVE RAS-B13P2KVSG, RAS-B10P2KVSG
-
-#### 2026 units
-It seems that some 2026 units ship already with new built-in wifi module (SHORAI CURVE RAS-B13P2KVSG, RAS-B10P2KVSG). This adapter is model WRE-T00BJ10 based on RTL8710C (ARM Thumb). Seems to have the same funtionality as RB-N105S-G/RB-N106S-G and can be replaced by custom ESP adapter.
-
-## Hardware
-
-* tested with ESP32 (WROOM 32D)
-* tested with ESP8266 (Lolin D1 mini)
-* connection adapter can be used the same as with this solution (https://github.com/toremick/shorai-esp32).
-* Alternatively, you can use only a level shifter between 5V (AC unit) and 3.3V (ESP32) (search Aliexpress for "level shifter"). That's what I use and it works fine.
-
-### ESP32 (WROOM 32D)
-
-   ![schema](/images/schema.jpg)
-
-   Please pay attention to correctly wire the level shifter - it must have both High Voltage (5V and GND from the AC unit) and Low Voltage (3.3V and GND from ESP) connected.
-  
-
-   ![adapter](/images/adapter.jpg)
-
-### ESP 8266EX (Lolin D1 mini)
-
-   ![d1_mini](/images/D1_mini.jpg)
-
-### Pinout
-
-AC unit has a wifi connector CN22 with an extension cable, usually with pink and blue colors (see the schema above).
-
-<p align="center">
-
-|pin number| color | ESP32 pin  |ESP8266 pin|
-|----------|-------|------------|-----------|
-|    1     |🟦 blue  | 33 (TX)    | GPIO13 / D7 (TX) |
-|    2     |🟪 pink  | GND        | GND       |
-|    3     |⬛️ black | \+5V (Vin) | \+5V (5V pin) |
-|    4     |⬜️ white | 32 (RX)    | GPIO12 / D6 (RX) |
-|    5     |🟪 pink  | **do NOT use** | **do NOT use** |
-
-</p>
-
-The matching connector is JST PA2.0 ([Aliexpress](https://www.aliexpress.com/item/1005007176563512.html))
-
-**ESP8266: do not use the boot strapping pins** GPIO15 (D8), GPIO0 (D3) and GPIO2 (D4) for RX or TX. At reset GPIO15 must be low and GPIO0/GPIO2 high. The level shifter holds an idle UART line high, so with RX on GPIO15 the D1 mini fails to boot or flash, and GPIO0/GPIO2 can be pulled low when the unit transmits during a reset. GPIO13 (D7) and GPIO12 (D6) are safe ([#22](https://github.com/pedobry/esphome_toshiba_suzumi/issues/22)).
-
-A 3D-printable case for a D1 mini with a level shifter, made to fit inside the unit (tested in a Shorai Edge), was shared by jocelyngate38 in [#22](https://github.com/pedobry/esphome_toshiba_suzumi/issues/22) ([Onshape](https://cad.onshape.com/documents/5ec90b698b3d5ae268445e7c/w/77ac5ffb3ec384a32b4f8aa5/e/bcca1c92ac79022cd00207c1)).
-
-#### Units with a 4-pin CN22 (2017/2018 models)
-
-Some 2017/2018 units have only a 4-pin CN22 on the main board and no extension cable. Toshiba listed them as Wi-Fi ready with adapter RB-N102S-G plus cable 43T60480, which maps CN22 pins 1-4 straight to the adapter's pins 1-4 (pin 5 goes elsewhere). The pinout of pins 1-4 is the same as above: 1 = AC RX, 2 = GND, 3 = +5V, 4 = AC TX.
-
-Confirmed working on a Mirai RAS-13BKV-E with main board WP-026 (sticker B22N3KV2-E1, the same board family as Suzumi RAS-B10/B13/B16/B18/B22 N3KV2-E1):
-
-<p align="center"><img src="images/wp026-overview.jpg" width="45%"> <img src="images/wp026-cn22-pinout.jpg" width="52%"></p>
-
-
-- GND and +5V are the two middle pins; +5V is the one nearer the board edge. The silkscreen marks pin 1 (next to J37) and pin 4. Pin 4 (AC TX) is the outermost pin at the board edge, pin 1 (AC RX) the innermost. Check with a multimeter (continuity to the board's GND test point, unit unplugged) before connecting.
-- Power, mode, fan, swing on/off and setpoint work in both directions; outdoor temperature, power level and self-clean are reported.
-- Not available on this unit: room temperature (0xBB reads 127), Hi POWER and ECO (0xF7 neither answered nor acted on), fixed louver positions (acknowledged but ignored), energy and ODU/IDU data.
-
-‼️‼️<br>
-**WARNING: Do NOT connect PIN 5 (the outermost pink wire) to anything. Double check that you have wired the ESP device correctly. Only connect and disconnect the ESP while the AC unit is disconnected from main power. Shorts or wrong wiring will damage AC unit board.**<br>
-‼️‼️
-
-## Installation
+### Configuration
 
 1. install Home Assistant and [ESPHome Addon](https://esphome.io/guides/getting_started_hassio.html)
 
@@ -154,8 +188,13 @@ climate:
 ...
 ```
 
+The component is automatically installed directly from Github during compilation.
+
 That is all that is needed: the component finds out what the unit supports and creates the
 matching Home Assistant entities and presets (see [Automatic feature detection](#automatic-feature-detection)).
+
+### Optional settings
+
 Every option below is optional and only needed to rename an entity or to override detection:
 
 ```yaml
@@ -210,7 +249,7 @@ climate:
       #- "Comfort"
 ```
 
-The component is automatically installed directly from Github during compilation.
+### Home Assistant
 
 When configured correctly, new ESPHome device will appear in Home Assistant integrations and you'll be asked to provide encryption key (it's in the node configuration from step 2.). All entities then populate automatically.
 
@@ -220,7 +259,7 @@ You can then create a Thermostat card on the dashboard.
 
 ![HomeAssistant card](/images/HA_card.png)
 
-### Automatic feature detection
+## Automatic feature detection
 
 The component finds out what the unit supports from:
 
@@ -234,29 +273,59 @@ Home Assistant reads entities and presets only when it connects, and ESPHome can
 
 On ESP8266 the stored result survives restarts but not a power cut unless `esp8266: restore_from_flash: true` is set; without it the device simply detects again after power is restored.
 
-### Temperature range (8 °C mode / FrostGuard)
+### Examples
+
+The profile comes from the identification bytes. Profile 3 units answer requests for indoor / outdoor diagnostics. Profile 2 units only send them on their own, if at all. The feature mask `0xEE` then decides which special modes are offered.
+
+**Profile 2: RAS-10PKVSG-E**
+
+```
+[I][ToshibaClimateUart]: Unit profile 2 level 0 (00 01 00 00)
+[I][ToshibaClimateUart]: Profile 2: diagnostics only when the unit pushes them
+[C][ToshibaClimateUart]:   Auto-detected capabilities: 0x0E03F (profile 2, 0xEE 0C 00), 8 of 24 optional entities shown
+```
+
+| Detected | Entities / presets |
+|---|---|
+| Heat and cool (`0xEE` byte 1 bits 1..0 = `00`) | all modes |
+| ECO / Hi POWER (every unit with a feature mask) | presets "ECO", "Hi POWER" |
+| 8 °C mode (`0xEE` byte 1 bit 2) | preset "8 degrees", range 5–30 °C |
+| Fireplace (`0xEE` byte 1 bit 3) | presets "Fireplace 1/2" |
+| Answered `0xBE`, `0x87`, `0xCB`, `0x94`, `0x88` | Outdoor Temperature, Power Level, Self Clean, Off Timer, Off Timer Remaining, Error Code |
+| Identity reply | Indoor Unit Model, Indoor Unit Serial |
+| **Not detected** | Ionizer, Silent, Floor; IDU / ODU diagnostics and unit information unless the unit sends them; energy, fixed louver positions and horizontal swing are not read from the mask on profile 2 |
+
+**Profile 3: RAS-13NKVRG**
+
+```
+[C][ToshibaClimateUart]:   Unit profile 3 level 1 (00 01 01 01), diagnostics polled
+[C][ToshibaClimateUart]:   Unit feature mask 0xEE: 2C 03
+[C][ToshibaClimateUart]:   Auto-detected capabilities: 0x1E7BF (profile 3, 0xEE 2C 03), 3 of 8 optional entities shown
+```
+
+| Detected | Entities / presets |
+|---|---|
+| Heat and cool, ECO / Hi POWER, 8 °C mode, Fireplace | same as above |
+| Silent (`0xEE` byte 1 bit 5) | presets "Silent#1/#2" |
+| Energy (`0xEE` byte 2 bit 0) | Energy, Power (needs `time:`) |
+| Fixed louver positions (`0xEE` byte 2 bit 1) | Vertical Air Direction |
+| Polled `0xE4` / `0xE5` | indoor coil / fan and outdoor compressor diagnostics |
+| Answered `0xBE`, `0x87`, `0xCB`, `0x94`, `0x88`; identity reply | as above |
+| **Not detected** | Ionizer, Floor, horizontal swing (`0xEE` byte 1 bit 6); unit information until the unit sends `0xE0` |
+
+"X of Y optional entities shown" counts only the entities in your YAML: Y is how many you configured, X is how many the unit supports.
+
+## Climate control
+
+### Temperature range
+
 Homeassistant thermostat component is by default set with a range of 17-30°C.
-If your unit has the "8°C operation" (frost protection), the range is 5-30°C (detected automatically, or add "8 degrees" to `supported_presets`):
+If your unit has the "8°C operation" (frost protection, FrostGuard), the range is 5-30°C (detected automatically, or add "8 degrees" to `supported_presets`):
 - a target temperature below 17°C turns 8 °C mode on (5-16°C, as Haori units do from their own remote; Seiya units accept only 5-13°C in this mode) and switches the unit to Heat (the mode heats only),
 - a target temperature of 17°C or more turns it off,
 - selecting the "8 degrees" preset sets 8°C, leaving it sets 20°C (unless the current target already fits the new mode).
 
 The setpoint and the special mode are always sent together, so the unit never keeps an 8 °C mode setpoint (temperature + 16 on the wire) after the mode changes. On units that report a feature mask they go out in one `0xF8` frame (mode, setpoint, fan and special mode).
-
-## Filtering incorrect values (127 / 254 / 255)
-
-The component automatically filters out incorrect sensor readings at the code level:
-- Temperature readings of `127` (which the unit transmits when it cannot measure the temperature or when it is off) are ignored.
-- Compressor load and current values of `254` or `255` are also ignored.
-
-Therefore, you do not need to add manual filters in your YAML configuration for these values. However, if you need to filter out other values, you can still add ESPHome filters like this:
-
-```yaml
-    outdoor_temp:
-      name: Outdoor Temp
-      filters:
-        - filter_out: 127
-```
 
 ### Vertical air directions
 
@@ -270,6 +339,23 @@ Some units support fixed vertical air directions in addition to vertical swing. 
 In Toshiba service documentation this corresponds to the horizontal louver, which controls vertical air direction.
 
 The select provides `Off`, `Swing`, `Top`, `Middle Top`, `Middle`, `Middle Bottom`, and `Bottom`.
+
+## Sensors
+
+### Filtering incorrect values
+
+The component automatically filters out incorrect sensor readings at the code level:
+- Temperature readings of `127` (which the unit transmits when it cannot measure the temperature or when it is off) are ignored.
+- Compressor load and current values of `254` or `255` are also ignored.
+
+Therefore, you do not need to add manual filters in your YAML configuration for these values. However, if you need to filter out other values, you can still add ESPHome filters like this:
+
+```yaml
+    outdoor_temp:
+      name: Outdoor Temp
+      filters:
+        - filter_out: 127
+```
 
 ### Self-cleaning status
 
@@ -316,15 +402,13 @@ code byte in hex (for example `0x1C`). The full `0x86` data is written to the lo
 warning. The mapping of these codes to the codes shown on the remote (E01, F02, ...) is not
 known yet.
 
-## Unit model information
+### Unit model information
 
 `fcu_model` and `fcu_serial` come from the handshake. The outdoor unit (CDU) model, serial and firmware, and the indoor unit firmware, come from a model-info message (EPC `0xE0`) that the unit sends on its own. These sensors stay empty until the unit sends that message, and some units may never send it. When it arrives, everything it carries is also logged and shown in `dump_config`.
 
-## Outdoor/Indoor unit diagnostics (ODU/IDU sensors)
+### Indoor and outdoor unit diagnostics
 
 Some Toshiba AC units send extended status messages from the outdoor unit (ODU, EPC `0xE5`) and indoor unit (IDU, EPC `0xE4`). These messages contain diagnostic data such as compressor load, refrigerant temperatures, and fan speed. The component can parse these and expose them as optional sensors.
-
-**Available sensors:**
 
 | Sensor | Description | Unit |
 |--------|-------------|------|
@@ -339,7 +423,9 @@ Some Toshiba AC units send extended status messages from the outdoor unit (ODU, 
 
 These sensors are all optional — only add the ones you need to your YAML configuration. On units of profile 3 the component polls `0xE4` / `0xE5` after connect and on each update interval; other units publish the values only when they push a status frame. With automatic detection the sensors appear once the unit has sent them.
 
-### Native Energy and Power monitoring
+## Energy and power
+
+### Native energy and power monitoring
 
 If your AC unit supports it, you can now get native energy consumption data. This requires adding a `time` component to your configuration so the component can sync the current time with the AC unit.
 
@@ -352,10 +438,6 @@ climate:
   - platform: toshiba_suzumi
     # ...
     time_id: hass_time
-    energy:
-      name: "Daily Energy"
-    power:
-      name: "Realtime Power"
 ```
 
 The `power` sensor provides a real-time estimate in Watts, calculated from the rate of change in the AC's internal energy counters.
@@ -370,7 +452,7 @@ How the clock is set:
 
 Look for `AC unit acknowledged time synchronization (EPC 0x99)` or `(EPC 0x98)` in the log. If neither appears, your unit most likely has no clock / energy support.
 
-### Estimating power consumption (Fallback)
+### Estimating power from compressor load
 
 For older units that do not support the native energy registers, you can still estimate power using `cdu_load`. `cdu_load` reports the compressor load as a percentage, which correlates with power usage. You can combine it with your unit's rated power input to estimate consumption in Home Assistant using a template sensor:
 
@@ -385,6 +467,22 @@ sensor:
 ```
 
 Replace `880` with your unit's rated power input in watts (check the datasheet). You can then use the [HA Riemann sum integral integration](https://www.home-assistant.io/integrations/integration/) to track energy consumption over time.
+
+## Reporting an issue
+
+The component logs how it classified the unit after connect:
+
+```
+[C][ToshibaClimateUart:1386]:   FCU Model: 'RAS-13NKVRG'
+[C][ToshibaClimateUart:1389]:   FCU Serial: 'xxxxxxx'
+[C][ToshibaClimateUart:1399]:   Unit profile 3 level 1 (00 01 01 01), diagnostics polled
+[C][ToshibaClimateUart:1408]:   Unit feature mask 0xEE: 2C 03
+[C][ToshibaClimateUart:1412]:   Auto-detected capabilities: 0x1E7BF (profile 3, 0xEE 2C 03), 3 of 8 optional entities shown
+```
+
+Please include these lines (and your model) when reporting an issue. If the identity reply
+never arrives, the component falls back to reading the basic climate status (logged as
+`No unit identity; loading basic status without diagnostics`).
 
 ## Protocol analysis
 
@@ -405,20 +503,6 @@ Short summary:
     acknowledged with `CN=0x91`.
 - The identity reply in the handshake carries the indoor unit model and serial and four
   identification bytes.
-
-### Reporting an issue
-
-The component logs how it classified the unit after connect:
-
-```
-[I][ToshibaClimateUart]: Unit profile 3 level 2 (00 01 01 02)
-[I][ToshibaClimateUart]: Unit feature mask 0xEE: 6C 03
-[I][ToshibaClimateUart]: Unit capabilities 0x0F6BF (applied 0x0F6BF)
-```
-
-Please include these lines (and your model) when reporting an issue. If the identity reply
-never arrives, the component falls back to reading the basic climate status (logged as
-`No unit identity; loading basic status without diagnostics`).
 
 ### References
 
