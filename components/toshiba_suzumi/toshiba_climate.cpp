@@ -915,8 +915,9 @@ void ToshibaClimateUart::parse_unit_identity_(const std::vector<uint8_t> &rawDat
                                    rawData[UNIT_INFO_FD_VER0 + 2], rawData[UNIT_INFO_FD_VER0 + 3]);
   }
 
-  // Length-prefixed FCU model at abs[180]/abs[181..], serial is the following ASCII run.
-  // Live example: 0F |"RAS-13PKVSG E2 "| "NO.01243D"
+  // FCU model at abs[181..], serial ("NO.xxxxx") follows. The byte at abs[180] does not
+  // match the model length on every unit (seen one too high, swallowing the serial's 'N'),
+  // so split at "NO." when present and use the length byte only as a fallback.
   this->fcu_model_.clear();
   this->fcu_serial_.clear();
 
@@ -924,6 +925,15 @@ void ToshibaClimateUart::parse_unit_identity_(const std::vector<uint8_t> &rawDat
     size_t model_len = rawData[UNIT_INFO_MODEL_LEN_IDX];
     if (model_len > UNIT_INFO_MODEL_MAX)
       model_len = UNIT_INFO_MODEL_MAX;
+
+    const size_t scan_end = std::min(rawData.size(), UNIT_INFO_MODEL_DATA + UNIT_INFO_MODEL_MAX + 3);
+    for (size_t i = UNIT_INFO_MODEL_DATA + 1; i + 3 <= scan_end; i++) {
+      if (rawData[i] == 'N' && rawData[i + 1] == 'O' && rawData[i + 2] == '.') {
+        model_len = i - UNIT_INFO_MODEL_DATA;
+        break;
+      }
+    }
+
     this->fcu_model_ = extract_unit_field_(rawData.data(), rawData.size(), UNIT_INFO_MODEL_DATA, model_len);
 
     size_t serial_off = UNIT_INFO_MODEL_DATA + model_len;
