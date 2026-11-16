@@ -20,6 +20,7 @@ This component use ESPHome UART to connect with Toshiba AC and communicates dire
   - [Optional settings](#optional-settings)
   - [Home Assistant](#home-assistant)
 - [Automatic feature detection](#automatic-feature-detection)
+  - [Detecting features again](#detecting-features-again)
   - [Examples](#examples)
 - [Climate control](#climate-control)
   - [Temperature range](#temperature-range)
@@ -185,6 +186,16 @@ climate:
     id: ${climate_id}
     uart_id: uart_bus
     #time_id: hass_time  # Optional. Enables energy / power on units that have them.
+
+button:
+  # Optional. Forget the detected unit features and detect them again (restarts the ESP).
+  - platform: template
+    name: "Detect AC features again"
+    icon: "mdi:magnify-scan"
+    entity_category: config
+    on_press:
+      then:
+        - lambda: id(${climate_id}).reset_capabilities();
 ...
 ```
 
@@ -269,9 +280,35 @@ The component finds out what the unit supports from:
 
 Presets: units that report a feature mask get "Standard", "ECO" and "Hi POWER", plus "8 degrees", "Fireplace 1/2", "Silent#1/#2" and "Floor" when the mask has them. Units without the mask get no special modes. "Sleep" and "Comfort" are not in the mask and are offered only when you list them in `supported_presets`.
 
-Home Assistant reads entities and presets only when it connects, and ESPHome can hide entities only at startup. The result is therefore stored in flash and applied at the next start: **the first time (and whenever something new is found) the device restarts once**, about 30 seconds after connecting to the unit. You will see `Unit capabilities changed ... Restarting` in the log. For the same indoor unit features are only added, never removed. To detect again from scratch (e.g. after moving the ESP to another unit, which is also detected automatically by model and serial), call `id(${climate_id}).reset_capabilities();` from a button lambda (see the "Detect AC features again" button in [example.yaml](example.yaml)).
+Home Assistant reads entities and presets only when it connects, and ESPHome can hide entities only at startup. The result is therefore stored in flash and applied at the next start: **the first time (and whenever something new is found) the device restarts once**, about 30 seconds after connecting to the unit. You will see `Unit capabilities changed ... Restarting` in the log. For the same indoor unit features are only added, never removed.
 
 On ESP8266 the stored result survives restarts but not a power cut unless `esp8266: restore_from_flash: true` is set; without it the device simply detects again after power is restored.
+
+### Detecting features again
+
+Because detected features are only ever added, a feature that was found by mistake (or that belonged to a different unit) stays until the stored result is cleared. Both example configurations include an optional button that does this:
+
+```yaml
+button:
+  # Optional. Forget the detected unit features and detect them again (restarts the ESP).
+  - platform: template
+    name: "Detect AC features again"
+    icon: "mdi:magnify-scan"
+    entity_category: config
+    on_press:
+      then:
+        - lambda: id(${climate_id}).reset_capabilities();
+```
+
+Pressing **Detect AC features again** (in the device's *Configuration* section in Home Assistant) calls `reset_capabilities()`, which erases the stored result and restarts the ESP. After the restart the device starts with nothing detected, finds the features again and restarts once more when detection finishes (about 30 seconds after connecting to the unit), the same as on the first start. Entities and presets that the unit does not support then disappear from Home Assistant.
+
+Use it when:
+
+- the ESP was moved to a different unit (normally detected automatically by model and serial, the button forces it),
+- an entity or preset is shown that the unit does not actually support,
+- you want to check detection again after updating the component.
+
+The button is not required for normal operation; leave it out if you do not want it in Home Assistant. Anything set manually in the YAML (listed entities, `supported_presets`, `horizontal_swing`, ...) is not affected by the reset. With `auto_detect: false` the button does nothing.
 
 ### Examples
 

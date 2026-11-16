@@ -44,6 +44,16 @@ climate:
     #  - "Sleep"
     #disable_wifi_led: true
 
+button:
+  # Optional. Forget the detected unit features and detect them again (restarts the ESP).
+  - platform: template
+    name: "Detect AC features again"
+    icon: "mdi:magnify-scan"
+    entity_category: config
+    on_press:
+      then:
+        - lambda: id(${climate_id}).reset_capabilities();
+
 # Enable Home Assistant API
 api:
   encryption:
