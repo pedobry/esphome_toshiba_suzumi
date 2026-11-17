@@ -1433,6 +1433,10 @@ void ToshibaClimateUart::dump_config() {
   } else {
     ESP_LOGCONFIG(TAG, "  Auto-detection: disabled");
   }
+  if (this->caps_volatile_) {
+    ESP_LOGW(TAG, "  Detected features are lost on a power cut (the device then restarts once to detect them "
+                  "again). Set 'restore_from_flash: true' under 'esp8266:' to keep them.");
+  }
   // Auto-detected entities the unit does not support are internal: list them
   // on one line instead of the full entity dump.
   auto log_hidden = [this](const char *label, EntityBase *entity) {

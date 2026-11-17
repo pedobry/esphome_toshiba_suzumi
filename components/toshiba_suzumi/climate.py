@@ -23,6 +23,9 @@ from esphome.const import (
 )
 import logging
 
+import esphome.final_validate as fv
+from esphome.core import CORE
+
 _LOGGER = logging.getLogger(__name__)
 
 DEPENDENCIES = ["uart"]
@@ -240,6 +243,26 @@ def _add_auto_entities(config):
 CONFIG_SCHEMA = cv.All(BASE_SCHEMA, _add_auto_entities)
 
 
+def _caps_lost_on_power_cut(full_config, config):
+    """ESP8266 without restore_from_flash keeps preferences in RTC memory only."""
+    if not config[CONF_AUTO_DETECT] or "esp8266" not in full_config:
+        return False
+    return not full_config["esp8266"].get("restore_from_flash", False)
+
+
+def _final_validate(config):
+    if _caps_lost_on_power_cut(fv.full_config.get(), config):
+        _LOGGER.warning(
+            "toshiba_suzumi: the detected unit features are lost on a power cut, and the "
+            "device restarts once to detect them again. Add 'restore_from_flash: true' "
+            "under 'esp8266:' to keep them."
+        )
+    return config
+
+
+FINAL_VALIDATE_SCHEMA = _final_validate
+
+
 def _mark_auto(var, config, key, entity):
     if key in config[CONF_AUTO_KEYS]:
         cg.add(var.add_auto_entity(entity, AUTO_ENTITIES[key][1]))
@@ -251,6 +274,8 @@ async def to_code(config):
     await climate.register_climate(var, config)
     await uart.register_uart_device(var, config)
     cg.add(var.set_auto_detect(config[CONF_AUTO_DETECT]))
+    if _caps_lost_on_power_cut(CORE.config, config):
+        cg.add(var.set_caps_volatile(True))
 
     if CONF_IONIZER in config:
         sw = await switch.new_switch(config[CONF_IONIZER])

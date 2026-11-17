@@ -160,6 +160,7 @@ class ToshibaClimateUart : public PollingComponent, public climate::Climate, pub
   }
   void set_ionizer_switch(switch_::Switch *sw) { ionizer_switch_ = sw; }
   void set_auto_detect(bool enabled) { auto_detect_ = enabled; }
+  void set_caps_volatile(bool v) { caps_volatile_ = v; }
   // Entity created by the component (not listed in YAML); hidden from Home
   // Assistant unless the unit has `feature`.
   void add_auto_entity(EntityBase *entity, uint32_t feature) { auto_entities_.push_back({entity, feature}); }
@@ -243,6 +244,7 @@ class ToshibaClimateUart : public PollingComponent, public climate::Climate, pub
     uint32_t feature;
   };
   bool auto_detect_ = false;
+  bool caps_volatile_ = false;  // ESP8266 without restore_from_flash
   std::vector<AutoEntity> auto_entities_;
   ESPPreferenceObject caps_pref_;
   UnitCapabilities caps_{};       // applied at boot (from flash)
