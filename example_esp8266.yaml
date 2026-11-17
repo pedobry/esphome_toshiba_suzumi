@@ -58,6 +58,11 @@ button:
 api:
   encryption:
     key: !secret ha_enc_key
+  # Each connection takes memory, which is short on an ESP8266
+  max_connections: 2
+
+# Do not add web_server on an ESP8266: it takes too much memory and the
+# Wi-Fi stack then crashes (see README, ESP8266 section).
 
 ota:
   - platform: esphome

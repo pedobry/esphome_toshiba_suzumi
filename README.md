@@ -100,6 +100,15 @@ The matching connector is JST PA2.0 ([Aliexpress](https://www.aliexpress.com/ite
 
 **Do not use the boot strapping pins** GPIO15 (D8), GPIO0 (D3) and GPIO2 (D4) for RX or TX. At reset GPIO15 must be low and GPIO0/GPIO2 high. The level shifter holds an idle UART line high, so with RX on GPIO15 the D1 mini fails to boot or flash, and GPIO0/GPIO2 can be pulled low when the unit transmits during a reset. GPIO13 (D7) and GPIO12 (D6) are safe ([#22](https://github.com/pedobry/esphome_toshiba_suzumi/issues/22)).
 
+**Keep the configuration small.** After Wi-Fi, the API with encryption and this component, an ESP8266 has little free memory left. When it runs out, the closed Wi-Fi library crashes, typically while processing a beacon from the access point. The log after the restart then shows `CRASH DETECTED ON PREVIOUS BOOT`, `StoreProhibit`, `EXCVADDR: 0x00000000` and a backtrace through `ieee80211_*` / `sta_input`. To avoid it:
+
+* Do not add `web_server`. It is the biggest memory user on an ESP8266, and Home Assistant does not need it. `captive_portal` is fine, because it runs only while the fallback hotspot is active.
+* Leave out other optional components you do not need (`prometheus`, `mqtt` next to `api`, extra sensors).
+* Keep `logger` at `INFO` or lower. `DEBUG` formats many more messages for every log client.
+* Limit API connections: `api: max_connections: 2`.
+
+To check the free memory, add the `debug` component with the `free` and `block` (largest free block) sensors. If the largest block keeps dropping toward 2–4 KB, the device is running out of memory. If you need `web_server` or many extra components, use an ESP32.
+
 A 3D-printable case for a D1 mini with a level shifter, made to fit inside the unit (tested in a Shorai Edge), was shared by jocelyngate38 in [#22](https://github.com/pedobry/esphome_toshiba_suzumi/issues/22) ([Onshape](https://cad.onshape.com/documents/5ec90b698b3d5ae268445e7c/w/77ac5ffb3ec384a32b4f8aa5/e/bcca1c92ac79022cd00207c1)).
 
 ### Units with a 4-pin CN22
