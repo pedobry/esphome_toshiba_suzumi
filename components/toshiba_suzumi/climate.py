@@ -371,7 +371,7 @@ async def to_code(config):
         _mark_auto(var, config, CONF_ERROR_CODE, sens)
 
     if FEATURE_HORIZONTAL_SWING in config:
-        cg.add(var.set_horizontal_swing(True))
+        cg.add(var.set_horizontal_swing(config[FEATURE_HORIZONTAL_SWING]))
 
     if MIN_TEMP in config:
         cg.add(var.set_min_temp(config[MIN_TEMP]))

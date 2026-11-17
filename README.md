@@ -330,7 +330,9 @@ The profile comes from the identification bytes. Profile 3 units answer requests
 | Fireplace (`0xEE` byte 1 bit 3) | presets "Fireplace 1/2" |
 | Answered `0xBE`, `0x87`, `0xCB`, `0x94`, `0x88` | Outdoor Temperature, Power Level, Self Clean, Off Timer, Off Timer Remaining, Error Code |
 | Identity reply | Indoor Unit Model, Indoor Unit Serial |
-| **Not detected** | Ionizer, Silent, Floor; IDU / ODU diagnostics and unit information unless the unit sends them; energy, fixed louver positions and horizontal swing are not read from the mask on profile 2 |
+| **Not detected** | Ionizer, Silent, Floor, horizontal swing; IDU / ODU diagnostics and unit information unless the unit sends them; energy and fixed louver positions are not read from the mask on profile 2 |
+
+Horizontal swing (`0xEE` byte 1 bit 6) is read on profile 2 as well, e.g. RAS-10PKVPG (`0xEE 7C 00`) has it. The Toshiba app ignores this bit on profile 2; if your unit reports it but has no horizontal louver, set `horizontal_swing: false`.
 
 **Profile 3: RAS-13NKVRG**
 

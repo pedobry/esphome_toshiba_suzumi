@@ -85,7 +85,7 @@ enum UnitFeature : uint32_t {
   FEATURE_ENERGY = 1u << 9,         // profile 3, 0xEE byte 2 bit 0
   FEATURE_LOUVER_FIXED = 1u << 10,  // profile 3, 0xEE byte 2 bit 1
   FEATURE_PURE = 1u << 11,          // profile 2/3, 0xEE byte 1 bit 4
-  FEATURE_LR_LOUVER = 1u << 12,     // profile 3, 0xEE byte 1 bit 6
+  FEATURE_LR_LOUVER = 1u << 12,     // profile 2/3, 0xEE byte 1 bit 6
   FEATURE_ECO_HIPOWER = 1u << 13,   // profile 2/3
   FEATURE_EIGHT_DEG = 1u << 14,     // profile 2/3, 0xEE byte 1 bit 2
   FEATURE_FIREPLACE = 1u << 15,     // profile 2/3, 0xEE byte 1 bit 3

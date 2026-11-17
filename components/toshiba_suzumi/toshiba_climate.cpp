@@ -473,9 +473,11 @@ uint32_t ToshibaClimateUart::derived_features_() const {
     f |= FEATURE_SILENT;
   if (b1 & 0x80)
     f |= FEATURE_FLOOR;
+  // The app ignores bit 6 on profile 2, but profile 2 units with a horizontal
+  // louver (RAS-10PKVPG, 0xEE 7C) set it and those without (RAS-10PKVSG, 0C) do not.
+  if (b1 & 0x40)
+    f |= FEATURE_LR_LOUVER;
   if (profile == 3) {
-    if (b1 & 0x40)
-      f |= FEATURE_LR_LOUVER;
     if (b2 & 0x01)
       f |= FEATURE_ENERGY;
     if (b2 & 0x02)
