@@ -1431,76 +1431,84 @@ void ToshibaClimateUart::dump_config() {
   } else {
     ESP_LOGCONFIG(TAG, "  Auto-detection: disabled");
   }
-  if (this->ionizer_switch_ != nullptr) {
+  // Auto-detected entities the unit does not support are internal: list them
+  // on one line instead of the full entity dump.
+  auto log_hidden = [this](const char *label, EntityBase *entity) {
+    if (!this->is_hidden_auto_entity_(entity))
+      return false;
+    ESP_LOGCONFIG(TAG, "%s '%s': hidden (feature not detected)", label, entity->get_name().c_str());
+    return true;
+  };
+  if (this->ionizer_switch_ != nullptr && !log_hidden("Ionizer", this->ionizer_switch_)) {
     LOG_SWITCH("", "Ionizer", this->ionizer_switch_);
   }
-  if (this->fcu_model_text_sensor_ != nullptr) {
+  if (this->fcu_model_text_sensor_ != nullptr && !log_hidden("FCU Model", this->fcu_model_text_sensor_)) {
     LOG_TEXT_SENSOR("", "FCU Model", this->fcu_model_text_sensor_);
   }
-  if (this->fcu_serial_text_sensor_ != nullptr) {
+  if (this->fcu_serial_text_sensor_ != nullptr && !log_hidden("FCU Serial", this->fcu_serial_text_sensor_)) {
     LOG_TEXT_SENSOR("", "FCU Serial", this->fcu_serial_text_sensor_);
   }
-  if (this->fcu_firmware_text_sensor_ != nullptr) {
+  if (this->fcu_firmware_text_sensor_ != nullptr && !log_hidden("FCU Firmware", this->fcu_firmware_text_sensor_)) {
     LOG_TEXT_SENSOR("", "FCU Firmware", this->fcu_firmware_text_sensor_);
   }
-  if (this->cdu_model_text_sensor_ != nullptr) {
+  if (this->cdu_model_text_sensor_ != nullptr && !log_hidden("CDU Model", this->cdu_model_text_sensor_)) {
     LOG_TEXT_SENSOR("", "CDU Model", this->cdu_model_text_sensor_);
   }
-  if (this->cdu_serial_text_sensor_ != nullptr) {
+  if (this->cdu_serial_text_sensor_ != nullptr && !log_hidden("CDU Serial", this->cdu_serial_text_sensor_)) {
     LOG_TEXT_SENSOR("", "CDU Serial", this->cdu_serial_text_sensor_);
   }
-  if (this->cdu_firmware_text_sensor_ != nullptr) {
+  if (this->cdu_firmware_text_sensor_ != nullptr && !log_hidden("CDU Firmware", this->cdu_firmware_text_sensor_)) {
     LOG_TEXT_SENSOR("", "CDU Firmware", this->cdu_firmware_text_sensor_);
   }
-  if (this->error_code_text_sensor_ != nullptr) {
+  if (this->error_code_text_sensor_ != nullptr && !log_hidden("Error Code", this->error_code_text_sensor_)) {
     LOG_TEXT_SENSOR("", "Error Code", this->error_code_text_sensor_);
   }
-  if (outdoor_temp_sensor_ != nullptr) {
+  if (this->outdoor_temp_sensor_ != nullptr && !log_hidden("Outdoor Temp", this->outdoor_temp_sensor_)) {
     LOG_SENSOR("", "Outdoor Temp", this->outdoor_temp_sensor_);
   }
-  if (cdu_td_temp_sensor_ != nullptr) {
+  if (this->cdu_td_temp_sensor_ != nullptr && !log_hidden("CDU Td Temp", this->cdu_td_temp_sensor_)) {
     LOG_SENSOR("", "CDU Td Temp", this->cdu_td_temp_sensor_);
   }
-  if (cdu_ts_temp_sensor_ != nullptr) {
+  if (this->cdu_ts_temp_sensor_ != nullptr && !log_hidden("CDU Ts Temp", this->cdu_ts_temp_sensor_)) {
     LOG_SENSOR("", "CDU Ts Temp", this->cdu_ts_temp_sensor_);
   }
-  if (cdu_te_temp_sensor_ != nullptr) {
+  if (this->cdu_te_temp_sensor_ != nullptr && !log_hidden("CDU Te Temp", this->cdu_te_temp_sensor_)) {
     LOG_SENSOR("", "CDU Te Temp", this->cdu_te_temp_sensor_);
   }
-  if (cdu_load_sensor_ != nullptr) {
+  if (this->cdu_load_sensor_ != nullptr && !log_hidden("CDU Load", this->cdu_load_sensor_)) {
     LOG_SENSOR("", "CDU Load", this->cdu_load_sensor_);
   }
-  if (cdu_iac_sensor_ != nullptr) {
+  if (this->cdu_iac_sensor_ != nullptr && !log_hidden("CDU IAC", this->cdu_iac_sensor_)) {
     LOG_SENSOR("", "CDU IAC", this->cdu_iac_sensor_);
   }
-  if (fcu_tc_temp_sensor_ != nullptr) {
+  if (this->fcu_tc_temp_sensor_ != nullptr && !log_hidden("FCU Tc Temp", this->fcu_tc_temp_sensor_)) {
     LOG_SENSOR("", "FCU Tc Temp", this->fcu_tc_temp_sensor_);
   }
-  if (fcu_tcj_temp_sensor_ != nullptr) {
+  if (this->fcu_tcj_temp_sensor_ != nullptr && !log_hidden("FCU Tcj Temp", this->fcu_tcj_temp_sensor_)) {
     LOG_SENSOR("", "FCU Tcj Temp", this->fcu_tcj_temp_sensor_);
   }
-  if (fcu_fan_rpm_sensor_ != nullptr) {
+  if (this->fcu_fan_rpm_sensor_ != nullptr && !log_hidden("FCU Fan RPM", this->fcu_fan_rpm_sensor_)) {
     LOG_SENSOR("", "FCU Fan RPM", this->fcu_fan_rpm_sensor_);
   }
-  if (energy_sensor_ != nullptr) {
+  if (this->energy_sensor_ != nullptr && !log_hidden("Energy", this->energy_sensor_)) {
     LOG_SENSOR("", "Energy", this->energy_sensor_);
   }
-  if (power_sensor_ != nullptr) {
+  if (this->power_sensor_ != nullptr && !log_hidden("Power", this->power_sensor_)) {
     LOG_SENSOR("", "Power", this->power_sensor_);
   }
-  if (pwr_select_ != nullptr) {
+  if (this->pwr_select_ != nullptr && !log_hidden("Power selector", this->pwr_select_)) {
     LOG_SELECT("", "Power selector", this->pwr_select_);
   }
-  if (vertical_air_direction_select_ != nullptr) {
+  if (this->vertical_air_direction_select_ != nullptr && !log_hidden("Vertical air direction", this->vertical_air_direction_select_)) {
     LOG_SELECT("", "Vertical air direction", this->vertical_air_direction_select_);
   }
-  if (self_clean_sensor_ != nullptr) {
+  if (this->self_clean_sensor_ != nullptr && !log_hidden("Self Clean", this->self_clean_sensor_)) {
     LOG_BINARY_SENSOR("", "Self Clean", this->self_clean_sensor_);
   }
-  if (off_timer_sensor_ != nullptr) {
+  if (this->off_timer_sensor_ != nullptr && !log_hidden("OFF Timer", this->off_timer_sensor_)) {
     LOG_BINARY_SENSOR("", "OFF Timer", this->off_timer_sensor_);
   }
-  if (off_timer_remaining_sensor_ != nullptr) {
+  if (this->off_timer_remaining_sensor_ != nullptr && !log_hidden("OFF Timer Remaining", this->off_timer_remaining_sensor_)) {
     LOG_SENSOR("", "OFF Timer Remaining", this->off_timer_remaining_sensor_);
   }
   if (!supported_presets_.empty()) {
