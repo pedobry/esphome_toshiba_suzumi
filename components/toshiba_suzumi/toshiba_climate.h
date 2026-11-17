@@ -95,6 +95,13 @@ enum UnitFeature : uint32_t {
   FEATURE_HEAT_ONLY = 1u << 19,     // 0xEE byte 1 bits 1..0 = 01
 };
 
+// Features that change the climate traits or presets. Home Assistant reads
+// those once per connection, so adding one needs a restart; the others only
+// show entities.
+static constexpr uint32_t TRAIT_FEATURES = FEATURE_LR_LOUVER | FEATURE_ECO_HIPOWER | FEATURE_EIGHT_DEG |
+                                           FEATURE_FIREPLACE | FEATURE_SILENT | FEATURE_FLOOR | FEATURE_COOL_ONLY |
+                                           FEATURE_HEAT_ONLY;
+
 // Persisted detection result (flash / RTC preferences).
 struct UnitCapabilities {
   uint32_t magic;
@@ -346,6 +353,8 @@ class ToshibaClimateUart : public PollingComponent, public climate::Climate, pub
   uint32_t unit_hash_() const;
   void note_feature_(uint32_t features);
   void evaluate_capabilities_();
+  // Saves to flash and makes it the applied set; returns the previous features.
+  uint32_t store_capabilities_(uint32_t features);
   void store_capabilities_and_restart_(uint32_t features, const char *reason);
   bool has_feature_(uint32_t feature) const { return (this->caps_.features & feature) != 0; }
   bool is_hidden_auto_entity_(const EntityBase *entity) const;

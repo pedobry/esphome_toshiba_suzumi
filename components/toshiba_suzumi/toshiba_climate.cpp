@@ -513,11 +513,23 @@ void ToshibaClimateUart::evaluate_capabilities_() {
   if (this->caps_loaded_ && features == this->caps_.features && this->caps_.profile == profile) {
     return;
   }
+  // Only entities added (e.g. diagnostics a profile 1/2 unit pushed hours after
+  // boot): store and show them without a restart. Climate traits and presets
+  // are fixed once Home Assistant has connected, so those still restart.
+  // (same_unit already merged the stored features in, so nothing was removed.)
+  const uint32_t added = features & ~this->caps_.features;
+  if (this->caps_loaded_ && same_unit && this->caps_.profile == profile && (added & TRAIT_FEATURES) == 0) {
+    this->store_capabilities_(features);
+    this->apply_capabilities_();
+    ESP_LOGI(TAG, "New unit features 0x%05X stored without a restart; Home Assistant lists the new entities after the "
+                  "next restart or a reload of the ESPHome integration", static_cast<unsigned>(added));
+    return;
+  }
   this->store_capabilities_and_restart_(features, this->caps_loaded_ ? (same_unit ? "new features found" : "different unit")
                                                                       : "first detection");
 }
 
-void ToshibaClimateUart::store_capabilities_and_restart_(uint32_t features, const char *reason) {
+uint32_t ToshibaClimateUart::store_capabilities_(uint32_t features) {
   UnitCapabilities caps{};
   caps.magic = CAPS_MAGIC;
   caps.features = features;
@@ -529,9 +541,17 @@ void ToshibaClimateUart::store_capabilities_and_restart_(uint32_t features, cons
   caps.merit_mask[1] = this->feature_mask_known_ ? this->feature_mask_[1] : this->caps_.merit_mask[1];
   this->caps_pref_.save(&caps);
   global_preferences->sync();
+  const uint32_t previous = this->caps_.features;
+  this->caps_ = caps;
+  this->caps_loaded_ = true;
+  return previous;
+}
+
+void ToshibaClimateUart::store_capabilities_and_restart_(uint32_t features, const char *reason) {
+  const uint32_t previous = this->store_capabilities_(features);
   this->caps_reboot_pending_ = true;
   ESP_LOGW(TAG, "Unit capabilities changed (%s): 0x%05X -> 0x%05X. Restarting to update Home Assistant entities", reason,
-           static_cast<unsigned>(this->caps_.features), static_cast<unsigned>(features));
+           static_cast<unsigned>(previous), static_cast<unsigned>(features));
   this->set_timeout("toshiba_caps_reboot", 2000, []() { App.safe_reboot(); });
 }
 

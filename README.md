@@ -282,6 +282,8 @@ Presets: units that report a feature mask get "Standard", "ECO" and "Hi POWER", 
 
 Home Assistant reads entities and presets only when it connects, and ESPHome can hide entities only at startup. The result is therefore stored in flash and applied at the next start: **the first time (and whenever something new is found) the device restarts once**, about 30 seconds after connecting to the unit. You will see `Unit capabilities changed ... Restarting` in the log. For the same indoor unit features are only added, never removed.
 
+The exception is a unit that sends its diagnostics or unit information only later (profile 1 and 2 units push `0xE0`/`0xE4`/`0xE5` on their own, sometimes hours after the start). Those only add sensors, so the device stores them without a restart (`New unit features ... stored without a restart` in the log). Home Assistant shows the new sensors after the next restart, or right away if you reload the ESPHome integration.
+
 On ESP8266 the stored result survives restarts but not a power cut unless `esp8266: restore_from_flash: true` is set; without it the device simply detects again after power is restored.
 
 ### Detecting features again
