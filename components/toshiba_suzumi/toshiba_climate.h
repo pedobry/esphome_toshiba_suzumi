@@ -110,13 +110,6 @@ enum UnitFeature : uint32_t {
   FEATURE_HADA = 1u << 20,          // profile 2/3, 0xEE byte 2 bit 2 (HADA Care Flow)
 };
 
-// Features that change the climate traits or presets. Home Assistant reads
-// those once per connection, so adding one needs a restart; the others only
-// show entities.
-static constexpr uint32_t TRAIT_FEATURES = FEATURE_LR_LOUVER | FEATURE_ECO_HIPOWER | FEATURE_EIGHT_DEG |
-                                           FEATURE_FIREPLACE | FEATURE_SILENT | FEATURE_FLOOR | FEATURE_COOL_ONLY |
-                                           FEATURE_HEAT_ONLY;
-
 // Persisted detection result (flash / RTC preferences).
 struct UnitCapabilities {
   uint32_t magic;

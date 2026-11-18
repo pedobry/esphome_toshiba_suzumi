@@ -601,20 +601,10 @@ void ToshibaClimateUart::evaluate_capabilities_() {
   if (this->caps_loaded_ && features == this->caps_.features && this->caps_.profile == profile) {
     return;
   }
-  // Only entities added (e.g. diagnostics a profile 1/2 unit pushed hours after
-  // boot): store and show them without a restart. Climate traits and presets
-  // are fixed once Home Assistant has connected, so those still restart.
-  // (same_unit already merged the stored features in, so nothing was removed.)
-  const uint32_t added = features & ~this->caps_.features;
-  if (this->caps_loaded_ && same_unit && this->caps_.profile == profile && (added & TRAIT_FEATURES) == 0) {
-    this->store_capabilities_(features);
-    this->apply_capabilities_();
-    ESP_LOGI(TAG,
-             "New unit features 0x%05X stored without a restart; Home Assistant lists the new entities after the "
-             "next restart or a reload of the ESPHome integration",
-             static_cast<unsigned>(added));
-    return;
-  }
+  // Entities can be shown or hidden only during setup(), and Home Assistant reads
+  // the climate traits only when it connects, so any change restarts the device
+  // once. For the same unit features are only added (same_unit merged the stored
+  // ones in), so a late notify restarts at most once per new feature.
   this->store_capabilities_and_restart_(
       features, this->caps_loaded_ ? (same_unit ? "new features found" : "different unit") : "first detection");
 }

@@ -30,6 +30,12 @@ Compatibility with ESPHome 2026.11 and ESPHome coding standards.
 * disable_heat_mode: false and disable_wifi_led: false now really keep heat
   mode / the Wi-Fi LED on (before, listing the key at all disabled it).
 
+* A feature found later (e.g. diagnostics a profile 1/2 unit sends hours
+  after the start) restarts the device once, like any other detection
+  change. Before, the entities were shown without a restart, which uses
+  set_internal() after setup: an error in ESPHome 2026.11, ignored from
+  2027.3.
+
 * New HADA Care Flow switch (swing property 0xA3 = 0x60). Shown automatically
   on units with 0xEE byte 2 bit 2. Choosing a swing mode or louver position
   turns it off; the value no longer logs "Invalid swing mode 96".
