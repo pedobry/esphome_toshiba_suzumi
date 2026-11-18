@@ -263,6 +263,13 @@ class ToshibaClimateUart final : public PollingComponent, public climate::Climat
 
   std::array<uint8_t, RX_FRAME_MAX> rx_buf_{};
   size_t rx_len_ = 0;
+  // Frame being sent. A long frame (the 247-byte 0x99 time sync) does not fit
+  // the UART TX FIFO, so it goes out over several loop() passes instead of
+  // blocking loop() until the FIFO has taken all of it.
+  std::array<uint8_t, TX_FRAME_MAX> tx_buf_{};
+  size_t tx_len_ = 0;
+  size_t tx_sent_ = 0;
+  uint32_t last_tx_write_ = 0;
   bool climate_changed_ = false;  // set by set_custom_*_() while parsing a frame
   CommandQueue<ToshibaCommand, COMMAND_QUEUE_SIZE> command_queue_;
   uint32_t last_command_timestamp_ = 0;
@@ -370,6 +377,8 @@ class ToshibaClimateUart final : public PollingComponent, public climate::Climat
 
   void enqueue_command_(const ToshibaCommand &command);
   void send_to_uart_(const ToshibaCommand &command, uint32_t now);
+  void write_pending_tx_(uint32_t now);
+  bool tx_busy_() const { return this->tx_sent_ < this->tx_len_; }
   void start_handshake_();
   void parse_response_(const uint8_t *data, size_t len);
   void parse_unit_identity_(const uint8_t *data, size_t len);

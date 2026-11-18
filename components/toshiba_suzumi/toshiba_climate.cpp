@@ -180,17 +180,35 @@ uint32_t fnv1_extend(uint32_t hash, const char *str) {
  * Send the command to UART interface.
  */
 void ToshibaClimateUart::send_to_uart_(const ToshibaCommand &command, uint32_t now) {
-  uint8_t frame[TX_FRAME_MAX];
-  const size_t len = encode_command(command, frame);
+  this->tx_len_ = encode_command(command, this->tx_buf_.data());
+  this->tx_sent_ = 0;
   this->last_command_timestamp_ = now;
   if (command.keepalive) {
     this->keepalive_pending_ = true;
     this->keepalive_epc_ = static_cast<uint8_t>(command.cmd);
-    this->keepalive_fn_ = frame[4];
+    this->keepalive_fn_ = this->tx_buf_[4];
     this->keepalive_sent_at_ = now;
   }
-  ESP_LOGV_HEX(TAG, frame, len, LOG_HEX_MAX_BYTES, "Sending: [%s]");
-  this->write_array(frame, len);
+  ESP_LOGV_HEX(TAG, this->tx_buf_.data(), this->tx_len_, LOG_HEX_MAX_BYTES, "Sending: [%s]");
+  this->write_pending_tx_(now);
+}
+
+/**
+ * Write as much of the pending frame as the UART takes without blocking.
+ * Short frames go out at once; the rest of a long one in later loop() passes.
+ */
+void ToshibaClimateUart::write_pending_tx_(uint32_t now) {
+  if (!this->tx_busy_())
+    return;
+  const size_t room = this->parent_->paced_write_room(this->last_tx_write_);
+  const size_t len = std::min(room, this->tx_len_ - this->tx_sent_);
+  if (len == 0)
+    return;
+  this->write_array(this->tx_buf_.data() + this->tx_sent_, len);
+  this->tx_sent_ += len;
+  this->last_tx_write_ = now;
+  // The pause before the next command counts from the end of the frame.
+  this->last_command_timestamp_ = now;
 }
 
 /**
@@ -898,7 +916,7 @@ void ToshibaClimateUart::process_command_queue_() {
   }
 
   // when there is no RX message and there is a command to send
-  if (since_last_command > COMMAND_DELAY && !this->command_queue_.empty() && this->rx_len_ == 0) {
+  if (since_last_command > COMMAND_DELAY && !this->command_queue_.empty() && this->rx_len_ == 0 && !this->tx_busy_()) {
     const ToshibaCommand next_command = this->command_queue_.front();
     if (next_command.kind == CommandKind::DELAY && since_last_command < next_command.delay) {
       // delay command did not finished yet
@@ -930,6 +948,7 @@ void ToshibaClimateUart::handle_rx_byte_(uint8_t c) {
 void ToshibaClimateUart::loop() {
   // Reads only what is available now, so a unit sending without pause cannot keep loop() busy.
   this->read_available([this](uint8_t c) { this->handle_rx_byte_(c); });
+  this->write_pending_tx_(App.get_loop_component_start_time());
   this->process_command_queue_();
 #ifdef USE_TIME
   // Checked here rather than in update(): the fallback retries need a shorter

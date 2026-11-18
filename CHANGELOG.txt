@@ -30,6 +30,10 @@ Compatibility with ESPHome 2026.11 and ESPHome coding standards.
 * disable_heat_mode: false and disable_wifi_led: false now really keep heat
   mode / the Wi-Fi LED on (before, listing the key at all disabled it).
 
+* Long frames (the 247-byte 0x99 time sync) are sent over several loop()
+  passes as the UART takes them, instead of blocking loop() until the TX FIFO
+  has taken the whole frame ("took a long time for an operation" warning).
+
 * No heap allocation in the UART path after setup: commands are queued in a
   fixed-size queue and frames are built when sent; received frames use a
   fixed buffer.
