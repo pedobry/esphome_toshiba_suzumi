@@ -48,7 +48,8 @@ CONF_FCU_TC_TEMP = "fcu_tc_temp"
 CONF_FCU_TCJ_TEMP = "fcu_tcj_temp"
 CONF_FCU_FAN_RPM = "fcu_fan_rpm"
 CONF_PWR_SELECT = "power_select"
-CONF_VERTICAL_AIR_DIRECTION = "vertical_air_direction"
+CONF_AIR_DIRECTION = "air_direction"
+CONF_VERTICAL_AIR_DIRECTION = "vertical_air_direction"  # deprecated, now air_direction
 CONF_SPECIAL_MODE = "special_mode"  # deprecated - replaced by CONF_SUPPORTED_PRESETS
 CONF_SPECIAL_MODE_MODES = "modes"  # deprecated - replaced by CONF_SUPPORTED_PRESETS
 CONF_SELF_CLEAN = "self_clean"
@@ -63,7 +64,6 @@ CONF_CDU_SERIAL = "cdu_serial"
 CONF_CDU_FIRMWARE = "cdu_firmware"
 CONF_ERROR_CODE = "error_code"
 CONF_IONIZER = "ionizer"
-CONF_HADA_CARE_FLOW = "hada_care_flow"
 CONF_AUTO_DETECT = "auto_detect"
 
 # Preset names, the same strings as SPECIAL_MODE_* in toshiba_climate_mode.h.
@@ -88,16 +88,31 @@ CONF_DISABLE_HEAT_MODE = "disable_heat_mode"
 CONF_DISABLE_WIFI_LED = "disable_wifi_led"
 
 # Select options. The C++ side maps the option index, so keep the order of
-# POWER_LEVELS and VERTICAL_AIR_DIRECTIONS in toshiba_climate_mode.cpp.
+# POWER_LEVELS in toshiba_climate_mode.cpp. The air direction options are
+# AIR_DIRECTIONS in toshiba_climate_mode.cpp (same names, same order); setup()
+# narrows them to what the unit supports.
 PWR_SELECT_OPTIONS = ["50 %", "75 %", "100 %"]
-VERTICAL_AIR_DIRECTION_OPTIONS = ["Off", "Swing", "Top", "Middle Top", "Middle", "Middle Bottom", "Bottom"]
+AIR_DIRECTION_OPTIONS = [
+    "Off",
+    "Swing",
+    "Top",
+    "Middle Top",
+    "Middle",
+    "Middle Bottom",
+    "Bottom",
+    "Left",
+    "Middle Left",
+    "Center",
+    "Middle Right",
+    "Right",
+    "HADA Care Flow",
+]
 
 toshiba_ns = cg.esphome_ns.namespace("toshiba_suzumi")
 ToshibaClimateUart = toshiba_ns.class_("ToshibaClimateUart", cg.PollingComponent, climate.Climate, uart.UARTDevice)
 ToshibaPwrModeSelect = toshiba_ns.class_("ToshibaPwrModeSelect", select.Select)
-ToshibaVerticalAirDirectionSelect = toshiba_ns.class_("ToshibaVerticalAirDirectionSelect", select.Select)
+ToshibaAirDirectionSelect = toshiba_ns.class_("ToshibaAirDirectionSelect", select.Select)
 ToshibaIonizerSwitch = toshiba_ns.class_("ToshibaIonizerSwitch", switch.Switch)
-ToshibaHadaCareSwitch = toshiba_ns.class_("ToshibaHadaCareSwitch", switch.Switch)
 
 # Unit features, the UnitFeature enum in toshiba_climate.h.
 UnitFeature = toshiba_ns.enum("UnitFeature")
@@ -137,7 +152,8 @@ ENTITY_SCHEMAS = {
         entity_category=ENTITY_CATEGORY_DIAGNOSTIC,
     ),
     CONF_PWR_SELECT: select.select_schema(ToshibaPwrModeSelect),
-    CONF_VERTICAL_AIR_DIRECTION: select.select_schema(ToshibaVerticalAirDirectionSelect),
+    # Swing off/on, fixed louver positions and HADA Care Flow (all EPC 0xA3).
+    CONF_AIR_DIRECTION: select.select_schema(ToshibaAirDirectionSelect, icon="mdi:arrow-decision-outline"),
     CONF_SELF_CLEAN: binary_sensor.binary_sensor_schema(device_class=DEVICE_CLASS_RUNNING),
     CONF_OFF_TIMER: binary_sensor.binary_sensor_schema(icon="mdi:timer-off-outline"),
     CONF_OFF_TIMER_REMAINING: sensor.sensor_schema(
@@ -174,8 +190,6 @@ ENTITY_SCHEMAS = {
     ),
     # Ionizer / air purifier, EPC 0xC7.
     CONF_IONIZER: switch.switch_schema(ToshibaIonizerSwitch, icon="mdi:air-purifier"),
-    # HADA Care Flow louver mode, EPC 0xA3 = 0x60.
-    CONF_HADA_CARE_FLOW: switch.switch_schema(ToshibaHadaCareSwitch, icon="mdi:weather-windy"),
 }
 
 # Entities created automatically when `auto_detect` is on and the key is not in
@@ -184,9 +198,8 @@ ENTITY_SCHEMAS = {
 AUTO_ENTITIES = {
     CONF_OUTDOOR_TEMP: ("Outdoor Temperature", UnitFeature.FEATURE_OUTDOOR_TEMP, False),
     CONF_PWR_SELECT: ("Power Level", UnitFeature.FEATURE_POWER_SEL, False),
-    CONF_VERTICAL_AIR_DIRECTION: ("Vertical Air Direction", UnitFeature.FEATURE_LOUVER_FIXED, False),
+    CONF_AIR_DIRECTION: ("Air Direction", toshiba_ns.AIR_DIRECTION_FEATURES, False),
     CONF_IONIZER: ("Ionizer", UnitFeature.FEATURE_PURE, False),
-    CONF_HADA_CARE_FLOW: ("HADA Care Flow", UnitFeature.FEATURE_HADA, False),
     CONF_SELF_CLEAN: ("Self Clean", UnitFeature.FEATURE_SELF_CLEAN, False),
     CONF_OFF_TIMER: ("Off Timer", UnitFeature.FEATURE_OFF_TIMER, False),
     CONF_OFF_TIMER_REMAINING: ("Off Timer Remaining", UnitFeature.FEATURE_OFF_TIMER, False),
@@ -212,6 +225,27 @@ AUTO_ENTITIES = {
 
 # Keys added by _add_auto_entities (not set by the user).
 CONF_AUTO_KEYS = "_toshiba_auto_entities"
+
+
+def _migrate_vertical_air_direction(config):
+    """vertical_air_direction (deprecated) is the air_direction select under its old key."""
+    if not isinstance(config, dict) or CONF_VERTICAL_AIR_DIRECTION not in config:
+        return config
+    if CONF_AIR_DIRECTION in config:
+        raise cv.Invalid(
+            f"Use only '{CONF_AIR_DIRECTION}'; '{CONF_VERTICAL_AIR_DIRECTION}' is its old name",
+            path=[CONF_VERTICAL_AIR_DIRECTION],
+        )
+    _LOGGER.warning(
+        "%s: '%s' is deprecated and will be removed. Rename it to '%s' (it now also offers the "
+        "left/right positions and HADA Care Flow).",
+        DOMAIN,
+        CONF_VERTICAL_AIR_DIRECTION,
+        CONF_AIR_DIRECTION,
+    )
+    config = dict(config)
+    config[CONF_AIR_DIRECTION] = config.pop(CONF_VERTICAL_AIR_DIRECTION)
+    return config
 
 
 def _warn_special_mode_deprecated(value):
@@ -267,7 +301,9 @@ def _add_auto_entities(config):
 
 
 # Older ESPHome versions: use the 2026.10 tag of this repository (see README).
-CONFIG_SCHEMA = cv.All(cv.require_esphome_version(2026, 11, 0), BASE_SCHEMA, _add_auto_entities)
+CONFIG_SCHEMA = cv.All(
+    cv.require_esphome_version(2026, 11, 0), _migrate_vertical_air_direction, BASE_SCHEMA, _add_auto_entities
+)
 
 
 def _caps_lost_on_power_cut(full_config, config):
@@ -331,11 +367,10 @@ TEXT_SENSORS = {
 }
 SWITCHES = {
     CONF_IONIZER: "set_ionizer_switch",
-    CONF_HADA_CARE_FLOW: "set_hada_care_switch",
 }
 SELECTS = {
     CONF_PWR_SELECT: ("set_pwr_select", PWR_SELECT_OPTIONS),
-    CONF_VERTICAL_AIR_DIRECTION: ("set_vertical_air_direction_select", VERTICAL_AIR_DIRECTION_OPTIONS),
+    CONF_AIR_DIRECTION: ("set_air_direction_select", AIR_DIRECTION_OPTIONS),
 }
 
 

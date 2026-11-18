@@ -39,9 +39,12 @@ Compatibility with ESPHome 2026.11 and ESPHome coding standards.
 * Self-clean status (0xCB) uses only bits 3-4; values with settings in the
   low bits (e.g. 0x11) no longer log "unknown self-clean state".
 
-* New HADA Care Flow switch (swing property 0xA3 = 0x60). Shown automatically
-  on units with 0xEE byte 2 bit 2. Choosing a swing mode or louver position
-  turns it off; the value no longer logs "Invalid swing mode 96".
+* The vertical_air_direction select is now air_direction and offers every
+  louver setting of the Toshiba app: Off, Swing, the five up/down positions,
+  the five left/right positions (0xA3 = 0x61-0x65) and HADA Care Flow (0x60).
+  It offers only what the unit reports in 0xEE byte 2. vertical_air_direction
+  still works with a deprecation warning. 0x60 no longer logs
+  "Invalid swing mode 96".
 
 * Long frames (the 247-byte 0x99 time sync) are sent over several loop()
   passes as the UART takes them, instead of blocking loop() until the TX FIFO

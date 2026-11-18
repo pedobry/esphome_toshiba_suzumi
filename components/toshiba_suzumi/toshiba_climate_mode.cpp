@@ -101,49 +101,49 @@ const char *power_level_to_string(PowerLevel mode) {
   }
 }
 
-struct VerticalAirDirection {
-  ToshibaSwing swing;
-  const char *name;
+// All values of EPC 0xA3 a user can pick, as in the Toshiba app. Toshiba
+// service manuals call the up/down flap the horizontal louver; the names say
+// where the air goes. The order is the option order of the select, and the
+// option list in climate.py has the same names in the same order.
+const AirDirection AIR_DIRECTIONS[AIR_DIRECTION_COUNT] = {
+    {ToshibaSwing::OFF, "Off", AirDirectionGroup::ALWAYS},
+    {ToshibaSwing::VERTICAL, "Swing", AirDirectionGroup::ALWAYS},
+    {ToshibaSwing::VERTICAL_FIX_POSITION_1, "Top", AirDirectionGroup::VERTICAL_FIXED},
+    {ToshibaSwing::VERTICAL_FIX_POSITION_2, "Middle Top", AirDirectionGroup::VERTICAL_FIXED},
+    {ToshibaSwing::VERTICAL_FIX_POSITION_3, "Middle", AirDirectionGroup::VERTICAL_FIXED},
+    {ToshibaSwing::VERTICAL_FIX_POSITION_4, "Middle Bottom", AirDirectionGroup::VERTICAL_FIXED},
+    {ToshibaSwing::VERTICAL_FIX_POSITION_5, "Bottom", AirDirectionGroup::VERTICAL_FIXED},
+    {ToshibaSwing::HORIZONTAL_FIX_POSITION_1, "Left", AirDirectionGroup::HORIZONTAL_FIXED},
+    {ToshibaSwing::HORIZONTAL_FIX_POSITION_2, "Middle Left", AirDirectionGroup::HORIZONTAL_FIXED},
+    {ToshibaSwing::HORIZONTAL_FIX_POSITION_3, "Center", AirDirectionGroup::HORIZONTAL_FIXED},
+    {ToshibaSwing::HORIZONTAL_FIX_POSITION_4, "Middle Right", AirDirectionGroup::HORIZONTAL_FIXED},
+    {ToshibaSwing::HORIZONTAL_FIX_POSITION_5, "Right", AirDirectionGroup::HORIZONTAL_FIXED},
+    {ToshibaSwing::HADA_CARE, "HADA Care Flow", AirDirectionGroup::HADA},
 };
 
-// Toshiba service manuals call the physical up/down flap a horizontal louver;
-// expose the user-facing effect as vertical air direction. Same order as the
-// vertical_air_direction options in climate.py.
-static const VerticalAirDirection VERTICAL_AIR_DIRECTIONS[] = {
-    {ToshibaSwing::OFF, "Off"},
-    {ToshibaSwing::VERTICAL, "Swing"},
-    {ToshibaSwing::VERTICAL_FIX_POSITION_1, "Top"},
-    {ToshibaSwing::VERTICAL_FIX_POSITION_2, "Middle Top"},
-    {ToshibaSwing::VERTICAL_FIX_POSITION_3, "Middle"},
-    {ToshibaSwing::VERTICAL_FIX_POSITION_4, "Middle Bottom"},
-    {ToshibaSwing::VERTICAL_FIX_POSITION_5, "Bottom"},
-};
-
-optional<ToshibaSwing> vertical_air_direction_from_index(size_t index) {
-  if (index >= sizeof(VERTICAL_AIR_DIRECTIONS) / sizeof(VERTICAL_AIR_DIRECTIONS[0]))
-    return nullopt;
-  return VERTICAL_AIR_DIRECTIONS[index].swing;
+ToshibaSwing air_direction_of(ToshibaSwing mode) {
+  if (mode == ToshibaSwing::HORIZONTAL)
+    return ToshibaSwing::OFF;
+  if (mode == ToshibaSwing::BOTH)
+    return ToshibaSwing::VERTICAL;
+  return mode;
 }
 
-const char *vertical_air_direction_to_string(ToshibaSwing mode) {
-  if (mode == ToshibaSwing::HORIZONTAL) {
-    mode = ToshibaSwing::OFF;
-  }
-  if (mode == ToshibaSwing::BOTH) {
-    mode = ToshibaSwing::VERTICAL;
-  }
-  for (auto const &direction : VERTICAL_AIR_DIRECTIONS) {
-    if (mode == direction.swing) {
+const char *air_direction_name(ToshibaSwing mode) {
+  mode = air_direction_of(mode);
+  for (const auto &direction : AIR_DIRECTIONS) {
+    if (mode == direction.swing)
       return direction.name;
-    }
   }
   return nullptr;
 }
 
-bool is_fixed_vertical_air_direction(ToshibaSwing mode) {
+bool is_fixed_air_direction(ToshibaSwing mode) {
   auto value = static_cast<uint8_t>(mode);
-  return value >= static_cast<uint8_t>(ToshibaSwing::VERTICAL_FIX_POSITION_1) &&
-         value <= static_cast<uint8_t>(ToshibaSwing::VERTICAL_FIX_POSITION_5);
+  return (value >= static_cast<uint8_t>(ToshibaSwing::VERTICAL_FIX_POSITION_1) &&
+          value <= static_cast<uint8_t>(ToshibaSwing::VERTICAL_FIX_POSITION_5)) ||
+         (value >= static_cast<uint8_t>(ToshibaSwing::HADA_CARE) &&
+          value <= static_cast<uint8_t>(ToshibaSwing::HORIZONTAL_FIX_POSITION_5));
 }
 
 ToshibaSwing to_toshiba_swing(climate::ClimateSwingMode mode) {

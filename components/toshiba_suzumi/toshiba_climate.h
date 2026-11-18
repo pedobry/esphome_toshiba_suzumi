@@ -87,28 +87,32 @@ static constexpr size_t COMMAND_QUEUE_SIZE = 48;
 // so keep the values stable. Sources: replies to Gets / notifies seen on the
 // wire, the identity profile and the unit's feature mask (EPC 0xEE).
 enum UnitFeature : uint32_t {
-  FEATURE_OUTDOOR_TEMP = 1u << 0,   // 0xBE answered
-  FEATURE_POWER_SEL = 1u << 1,      // 0x87 answered
-  FEATURE_SELF_CLEAN = 1u << 2,     // 0xCB answered
-  FEATURE_OFF_TIMER = 1u << 3,      // 0x94 answered
-  FEATURE_ERROR_CODE = 1u << 4,     // 0x88 answered
-  FEATURE_FCU_IDENTITY = 1u << 5,   // FCU model in the handshake identity
-  FEATURE_MODEL_INFO = 1u << 6,     // 0xE0 notify seen
-  FEATURE_IDU_DIAG = 1u << 7,       // 0xE4 seen
-  FEATURE_ODU_DIAG = 1u << 8,       // 0xE5 seen
-  FEATURE_ENERGY = 1u << 9,         // profile 3, 0xEE byte 2 bit 0
-  FEATURE_LOUVER_FIXED = 1u << 10,  // profile 3, 0xEE byte 2 bit 1
-  FEATURE_PURE = 1u << 11,          // profile 2/3, 0xEE byte 1 bit 4
-  FEATURE_LR_LOUVER = 1u << 12,     // profile 2/3, 0xEE byte 1 bit 6
-  FEATURE_ECO_HIPOWER = 1u << 13,   // profile 2/3
-  FEATURE_EIGHT_DEG = 1u << 14,     // profile 2/3, 0xEE byte 1 bit 2
-  FEATURE_FIREPLACE = 1u << 15,     // profile 2/3, 0xEE byte 1 bit 3
-  FEATURE_SILENT = 1u << 16,        // profile 2/3, 0xEE byte 1 bit 5
-  FEATURE_FLOOR = 1u << 17,         // profile 2/3, 0xEE byte 1 bit 7
-  FEATURE_COOL_ONLY = 1u << 18,     // 0xEE byte 1 bits 1..0 = 10
-  FEATURE_HEAT_ONLY = 1u << 19,     // 0xEE byte 1 bits 1..0 = 01
-  FEATURE_HADA = 1u << 20,          // profile 2/3, 0xEE byte 2 bit 2 (HADA Care Flow)
+  FEATURE_OUTDOOR_TEMP = 1u << 0,      // 0xBE answered
+  FEATURE_POWER_SEL = 1u << 1,         // 0x87 answered
+  FEATURE_SELF_CLEAN = 1u << 2,        // 0xCB answered
+  FEATURE_OFF_TIMER = 1u << 3,         // 0x94 answered
+  FEATURE_ERROR_CODE = 1u << 4,        // 0x88 answered
+  FEATURE_FCU_IDENTITY = 1u << 5,      // FCU model in the handshake identity
+  FEATURE_MODEL_INFO = 1u << 6,        // 0xE0 notify seen
+  FEATURE_IDU_DIAG = 1u << 7,          // 0xE4 seen
+  FEATURE_ODU_DIAG = 1u << 8,          // 0xE5 seen
+  FEATURE_ENERGY = 1u << 9,            // profile 3, 0xEE byte 2 bit 0
+  FEATURE_LOUVER_FIXED = 1u << 10,     // profile 3, 0xEE byte 2 bit 1
+  FEATURE_PURE = 1u << 11,             // profile 2/3, 0xEE byte 1 bit 4
+  FEATURE_LR_LOUVER = 1u << 12,        // profile 2/3, 0xEE byte 1 bit 6
+  FEATURE_ECO_HIPOWER = 1u << 13,      // profile 2/3
+  FEATURE_EIGHT_DEG = 1u << 14,        // profile 2/3, 0xEE byte 1 bit 2
+  FEATURE_FIREPLACE = 1u << 15,        // profile 2/3, 0xEE byte 1 bit 3
+  FEATURE_SILENT = 1u << 16,           // profile 2/3, 0xEE byte 1 bit 5
+  FEATURE_FLOOR = 1u << 17,            // profile 2/3, 0xEE byte 1 bit 7
+  FEATURE_COOL_ONLY = 1u << 18,        // 0xEE byte 1 bits 1..0 = 10
+  FEATURE_HEAT_ONLY = 1u << 19,        // 0xEE byte 1 bits 1..0 = 01
+  FEATURE_HADA = 1u << 20,             // profile 2/3, 0xEE byte 2 bit 2 (HADA Care Flow)
+  FEATURE_LOUVER_FIXED_LR = 1u << 21,  // profile 2/3, 0xEE byte 2 bit 5 (left/right positions)
 };
+
+// The air direction select is shown when the unit has any of these.
+static constexpr uint32_t AIR_DIRECTION_FEATURES = FEATURE_LOUVER_FIXED | FEATURE_LOUVER_FIXED_LR | FEATURE_HADA;
 
 // Persisted detection result (flash / RTC preferences).
 struct UnitCapabilities {
@@ -208,8 +212,8 @@ class ToshibaClimateUart final : public PollingComponent, public climate::Climat
   void set_energy_sensor(sensor::Sensor *sensor) { this->energy_sensor_ = sensor; }
   void set_power_sensor(sensor::Sensor *sensor) { this->power_sensor_ = sensor; }
   void set_pwr_select(select::Select *pws_select) { this->pwr_select_ = pws_select; }
-  void set_vertical_air_direction_select(select::Select *vertical_air_direction_select) {
-    this->vertical_air_direction_select_ = vertical_air_direction_select;
+  void set_air_direction_select(select::Select *air_direction_select) {
+    this->air_direction_select_ = air_direction_select;
   }
   void set_self_clean_sensor(binary_sensor::BinarySensor *self_clean_sensor) {
     this->self_clean_sensor_ = self_clean_sensor;
@@ -232,7 +236,6 @@ class ToshibaClimateUart final : public PollingComponent, public climate::Climat
     this->heat_mode_explicit_ = true;
   }
   void set_ionizer_switch(switch_::Switch *sw) { this->ionizer_switch_ = sw; }
-  void set_hada_care_switch(switch_::Switch *sw) { this->hada_care_switch_ = sw; }
   void set_auto_detect(bool enabled) { this->auto_detect_ = enabled; }
   void set_caps_volatile(bool v) { this->caps_volatile_ = v; }
   // Entity created by the component (not listed in YAML); hidden from Home
@@ -241,7 +244,6 @@ class ToshibaClimateUart final : public PollingComponent, public climate::Climat
   // Forget the detected capabilities and detect again (restarts the device).
   void reset_capabilities();
   void set_ionizer(bool on);
-  void set_hada_care(bool on);
   void disable_wifi_led(bool disabled) { this->wifi_led_disabled_ = disabled; }
   void set_supported_presets(const std::vector<const char *> &presets) { this->supported_presets_ = presets; }
   void set_min_temp(uint8_t min_temp) {
@@ -284,7 +286,10 @@ class ToshibaClimateUart final : public PollingComponent, public climate::Climat
   // Set when the unit rejects 0xF8; later changes then use single Sets.
   bool bundle_rejected_ = false;
   select::Select *pwr_select_ = nullptr;
-  select::Select *vertical_air_direction_select_ = nullptr;
+  select::Select *air_direction_select_ = nullptr;
+  // Swing value of each option the select offers (set in setup()).
+  std::array<ToshibaSwing, AIR_DIRECTION_COUNT> air_direction_values_{};
+  uint8_t air_direction_count_ = 0;
   binary_sensor::BinarySensor *self_clean_sensor_ = nullptr;
   binary_sensor::BinarySensor *off_timer_sensor_ = nullptr;
   sensor::Sensor *off_timer_remaining_sensor_ = nullptr;
@@ -318,7 +323,6 @@ class ToshibaClimateUart final : public PollingComponent, public climate::Climat
   bool min_temp_explicit_ = false;
   bool presets_explicit_ = false;
   switch_::Switch *ionizer_switch_ = nullptr;
-  switch_::Switch *hada_care_switch_ = nullptr;
 
   // Automatic capability detection.
   struct AutoEntity {
@@ -418,9 +422,9 @@ class ToshibaClimateUart final : public PollingComponent, public climate::Climat
     return this->off_timer_sensor_ != nullptr || this->off_timer_remaining_sensor_ != nullptr;
   }
   void on_set_pwr_level_(size_t index);
-  void on_set_vertical_air_direction_(size_t index);
-  void publish_vertical_air_direction_(ToshibaSwing swing_mode);
-  void publish_hada_care_(bool on);
+  void configure_air_direction_options_();
+  void on_set_air_direction_(size_t index);
+  void publish_air_direction_(ToshibaSwing swing_mode);
   void configure_supported_custom_modes_();
   void load_capabilities_();
   void apply_capabilities_();
@@ -446,9 +450,8 @@ class ToshibaClimateUart final : public PollingComponent, public climate::Climat
   void estimate_wattage_(uint32_t current_energy);
 
   friend class ToshibaPwrModeSelect;
-  friend class ToshibaVerticalAirDirectionSelect;
+  friend class ToshibaAirDirectionSelect;
   friend class ToshibaIonizerSwitch;
-  friend class ToshibaHadaCareSwitch;
 };
 
 class ToshibaPwrModeSelect final : public select::Select, public esphome::Parented<ToshibaClimateUart> {
@@ -461,14 +464,9 @@ class ToshibaIonizerSwitch final : public switch_::Switch, public esphome::Paren
   void write_state(bool state) override { this->parent_->set_ionizer(state); }
 };
 
-class ToshibaHadaCareSwitch final : public switch_::Switch, public esphome::Parented<ToshibaClimateUart> {
+class ToshibaAirDirectionSelect final : public select::Select, public esphome::Parented<ToshibaClimateUart> {
  protected:
-  void write_state(bool state) override { this->parent_->set_hada_care(state); }
-};
-
-class ToshibaVerticalAirDirectionSelect final : public select::Select, public esphome::Parented<ToshibaClimateUart> {
- protected:
-  void control(size_t index) override { this->parent_->on_set_vertical_air_direction_(index); }
+  void control(size_t index) override { this->parent_->on_set_air_direction_(index); }
 };
 
 }  // namespace toshiba_suzumi

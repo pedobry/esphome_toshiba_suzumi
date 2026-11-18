@@ -570,6 +570,8 @@ uint32_t ToshibaClimateUart::derived_features_() const {
   }
   if (b2 & 0x04)
     f |= FEATURE_HADA;
+  if (b2 & 0x20)
+    f |= FEATURE_LOUVER_FIXED_LR;
   return f;
 }
 
@@ -654,28 +656,6 @@ void ToshibaClimateUart::set_ionizer(bool on) {
   this->send_cmd_(ToshibaCommandType::AIR_PURIFIER, on ? 0x18 : 0x10);
   if (this->ionizer_switch_ != nullptr)
     this->ionizer_switch_->publish_state(on);
-}
-
-/**
- * HADA Care Flow is a value of the swing property (EPC 0xA3 = 0x60). Off sets
- * swing off (0x31), as the Toshiba app does.
- */
-void ToshibaClimateUart::set_hada_care(bool on) {
-  const ToshibaSwing swing = on ? ToshibaSwing::HADA_CARE : ToshibaSwing::OFF;
-  ESP_LOGV(TAG, "Setting HADA Care Flow %s", on ? "ON" : "OFF");
-  this->send_cmd_(ToshibaCommandType::SWING, static_cast<uint8_t>(swing));
-  this->publish_hada_care_(on);
-  if (!on)
-    this->publish_vertical_air_direction_(swing);
-  if (this->swing_mode != climate::CLIMATE_SWING_OFF) {
-    this->swing_mode = climate::CLIMATE_SWING_OFF;
-    this->publish_state();
-  }
-}
-
-void ToshibaClimateUart::publish_hada_care_(bool on) {
-  if (this->hada_care_switch_ != nullptr && this->hada_care_switch_->state != on)
-    this->hada_care_switch_->publish_state(on);
 }
 
 bool ToshibaClimateUart::has_idu_diagnostics_(bool probe) const {
@@ -899,6 +879,7 @@ void ToshibaClimateUart::setup() {
     }
   }
   this->configure_supported_custom_modes_();
+  this->configure_air_direction_options_();
   // Handshake first. Status Gets are queued once the identity reply is
   // classified (or from update() if that reply never arrives).
   this->start_handshake_();
@@ -1265,18 +1246,10 @@ void ToshibaClimateUart::parse_response_(const uint8_t *data, size_t len) {
     case ToshibaCommandType::SWING: {
       ESP_LOGD(TAG, "Received swing mode: %d", value);
       auto swing = static_cast<ToshibaSwing>(value);
-      this->publish_hada_care_(swing == ToshibaSwing::HADA_CARE);
-      auto air_direction = vertical_air_direction_to_string(swing);
-      if (air_direction != nullptr) {
-        ESP_LOGD(TAG, "Received vertical air direction: %s", air_direction);
-        this->publish_vertical_air_direction_(swing);
-      }
-
-      if (swing == ToshibaSwing::HADA_CARE) {
-        // The louvers do not swing; the switch shows the mode.
-        ESP_LOGD(TAG, "Received swing mode: HADA Care Flow");
-        this->swing_mode = climate::CLIMATE_SWING_OFF;
-      } else if (is_fixed_vertical_air_direction(swing)) {
+      this->publish_air_direction_(swing);
+      if (is_fixed_air_direction(swing)) {
+        // A fixed louver position or HADA Care Flow: the louvers do not swing.
+        ESP_LOGD(TAG, "Received air direction: %s", air_direction_name(swing));
         this->swing_mode = climate::CLIMATE_SWING_OFF;
       } else {
         auto climate_swing = from_toshiba_swing(swing);
@@ -1578,9 +1551,6 @@ void ToshibaClimateUart::dump_config() {
   if (this->ionizer_switch_ != nullptr && !log_hidden("Ionizer", this->ionizer_switch_)) {
     LOG_SWITCH("", "Ionizer", this->ionizer_switch_);
   }
-  if (this->hada_care_switch_ != nullptr && !log_hidden("HADA Care Flow", this->hada_care_switch_)) {
-    LOG_SWITCH("", "HADA Care Flow", this->hada_care_switch_);
-  }
   if (this->fcu_model_text_sensor_ != nullptr && !log_hidden("FCU Model", this->fcu_model_text_sensor_)) {
     LOG_TEXT_SENSOR("", "FCU Model", this->fcu_model_text_sensor_);
   }
@@ -1638,9 +1608,8 @@ void ToshibaClimateUart::dump_config() {
   if (this->pwr_select_ != nullptr && !log_hidden("Power selector", this->pwr_select_)) {
     LOG_SELECT("", "Power selector", this->pwr_select_);
   }
-  if (this->vertical_air_direction_select_ != nullptr &&
-      !log_hidden("Vertical air direction", this->vertical_air_direction_select_)) {
-    LOG_SELECT("", "Vertical air direction", this->vertical_air_direction_select_);
+  if (this->air_direction_select_ != nullptr && !log_hidden("Air direction", this->air_direction_select_)) {
+    LOG_SELECT("", "Air direction", this->air_direction_select_);
   }
   if (this->self_clean_sensor_ != nullptr && !log_hidden("Self Clean", this->self_clean_sensor_)) {
     LOG_BINARY_SENSOR("", "Self Clean", this->self_clean_sensor_);
@@ -1760,9 +1729,7 @@ void ToshibaClimateUart::control(const climate::ClimateCall &call) {
     ESP_LOGV(TAG, "Setting swing mode to %s", LOG_STR_ARG(climate_swing_mode_to_string(swing_mode)));
     this->swing_mode = swing_mode;
     this->send_cmd_(ToshibaCommandType::SWING, static_cast<uint8_t>(function_value));
-    this->publish_vertical_air_direction_(function_value);
-    // Swing and HADA Care Flow share EPC 0xA3: a swing mode ends HADA.
-    this->publish_hada_care_(false);
+    this->publish_air_direction_(function_value);
   }
 
   // Requested merit (special mode) from a standard or custom preset.
@@ -1934,33 +1901,64 @@ void ToshibaClimateUart::on_set_pwr_level_(size_t index) {
   this->pwr_select_->publish_state(index);
 }
 
-void ToshibaClimateUart::on_set_vertical_air_direction_(size_t index) {
-  auto position = vertical_air_direction_from_index(index);
-  if (!position.has_value()) {
-    ESP_LOGW(TAG, "Unknown vertical air direction option %u", static_cast<unsigned>(index));
+/**
+ * Offer the air directions the unit supports. Called from setup(), before Home
+ * Assistant reads the options. Without stored detection every option is offered.
+ */
+void ToshibaClimateUart::configure_air_direction_options_() {
+  if (this->air_direction_select_ == nullptr)
+    return;
+  const bool filter = this->auto_detect_ && this->caps_loaded_;
+  FixedVector<const char *> names;
+  names.init(AIR_DIRECTION_COUNT);
+  this->air_direction_count_ = 0;
+  for (const auto &direction : AIR_DIRECTIONS) {
+    uint32_t feature = 0;
+    switch (direction.group) {
+      case AirDirectionGroup::VERTICAL_FIXED:
+        feature = FEATURE_LOUVER_FIXED;
+        break;
+      case AirDirectionGroup::HORIZONTAL_FIXED:
+        feature = FEATURE_LOUVER_FIXED_LR;
+        break;
+      case AirDirectionGroup::HADA:
+        feature = FEATURE_HADA;
+        break;
+      case AirDirectionGroup::ALWAYS:
+        break;
+    }
+    if (filter && feature != 0 && !this->has_feature_(feature))
+      continue;
+    names.push_back(direction.name);
+    this->air_direction_values_[this->air_direction_count_++] = direction.swing;
+  }
+  this->air_direction_select_->traits.set_options(names);
+}
+
+void ToshibaClimateUart::on_set_air_direction_(size_t index) {
+  if (index >= this->air_direction_count_) {
+    ESP_LOGW(TAG, "Unknown air direction option %u", static_cast<unsigned>(index));
     return;
   }
-
-  ESP_LOGV(TAG, "Setting vertical air direction to %s", vertical_air_direction_to_string(position.value()));
-  this->send_cmd_(ToshibaCommandType::SWING, static_cast<uint8_t>(position.value()));
-  this->publish_hada_care_(false);
-  this->publish_vertical_air_direction_(position.value());
-  if (position.value() == ToshibaSwing::VERTICAL || position.value() == ToshibaSwing::BOTH) {
-    this->swing_mode = climate::CLIMATE_SWING_VERTICAL;
-  } else {
-    this->swing_mode = climate::CLIMATE_SWING_OFF;
-  }
+  const ToshibaSwing position = this->air_direction_values_[index];
+  ESP_LOGV(TAG, "Setting air direction to %s", air_direction_name(position));
+  this->send_cmd_(ToshibaCommandType::SWING, static_cast<uint8_t>(position));
+  this->publish_air_direction_(position);
+  this->swing_mode = position == ToshibaSwing::VERTICAL ? climate::CLIMATE_SWING_VERTICAL : climate::CLIMATE_SWING_OFF;
   this->publish_state();
 }
 
-void ToshibaClimateUart::publish_vertical_air_direction_(ToshibaSwing swing_mode) {
-  if (this->vertical_air_direction_select_ == nullptr) {
+void ToshibaClimateUart::publish_air_direction_(ToshibaSwing swing_mode) {
+  if (this->air_direction_select_ == nullptr)
     return;
+  const ToshibaSwing position = air_direction_of(swing_mode);
+  for (uint8_t i = 0; i < this->air_direction_count_; i++) {
+    if (this->air_direction_values_[i] == position) {
+      this->air_direction_select_->publish_state(i);
+      return;
+    }
   }
-  auto position = vertical_air_direction_to_string(swing_mode);
-  if (position != nullptr) {
-    this->vertical_air_direction_select_->publish_state(position);
-  }
+  ESP_LOGV(TAG, "Air direction 0x%02X is not an offered option", static_cast<uint8_t>(swing_mode));
 }
 
 /**

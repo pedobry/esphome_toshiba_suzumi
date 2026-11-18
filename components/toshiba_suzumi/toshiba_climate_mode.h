@@ -55,9 +55,27 @@ enum class ToshibaSwing {
   VERTICAL_FIX_POSITION_3 = 82,
   VERTICAL_FIX_POSITION_4 = 83,
   VERTICAL_FIX_POSITION_5 = 84,
-  // HADA Care Flow: louvers keep the air flow away from people (0xEE byte 2 bit 2).
-  HADA_CARE = 96
+  // HADA Care Flow: both louvers move to their middle positions and keep the
+  // air flow away from people (0xEE byte 2 bit 2).
+  HADA_CARE = 96,
+  // Fixed left/right louver positions, left to right (0xEE byte 2 bit 5).
+  HORIZONTAL_FIX_POSITION_1 = 97,
+  HORIZONTAL_FIX_POSITION_2 = 98,
+  HORIZONTAL_FIX_POSITION_3 = 99,
+  HORIZONTAL_FIX_POSITION_4 = 100,
+  HORIZONTAL_FIX_POSITION_5 = 101
 };
+
+// Options of the air direction select. Each needs a unit feature, except Off
+// and Swing, which every unit has.
+enum class AirDirectionGroup : uint8_t { ALWAYS, VERTICAL_FIXED, HORIZONTAL_FIXED, HADA };
+struct AirDirection {
+  ToshibaSwing swing;
+  const char *name;
+  AirDirectionGroup group;
+};
+static constexpr size_t AIR_DIRECTION_COUNT = 13;
+extern const AirDirection AIR_DIRECTIONS[AIR_DIRECTION_COUNT];
 // EPC 0x80.
 enum class PowerState { ON = 48, OFF = 49 };
 // EPC 0x87 (ECHONET current limit setting), Toshiba power level 50 / 75 / 100 %.
@@ -173,9 +191,12 @@ const char *toshiba_fan_to_custom_fan_mode(ToshibaFan mode);
 optional<PowerLevel> power_level_from_index(size_t index);
 const char *power_level_to_string(PowerLevel mode);
 
-optional<ToshibaSwing> vertical_air_direction_from_index(size_t index);
-const char *vertical_air_direction_to_string(ToshibaSwing mode);
-bool is_fixed_vertical_air_direction(ToshibaSwing mode);
+// The air direction option that shows a swing value: horizontal swing shows as
+// Off, swing in both directions as Swing.
+ToshibaSwing air_direction_of(ToshibaSwing mode);
+const char *air_direction_name(ToshibaSwing mode);
+// A fixed louver position or HADA Care Flow: the louvers do not swing.
+bool is_fixed_air_direction(ToshibaSwing mode);
 
 const optional<SpecialMode> preset_to_special_mode(const char *preset);
 const char *special_mode_to_preset(SpecialMode mode);

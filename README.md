@@ -24,7 +24,7 @@ This component use ESPHome UART to connect with Toshiba AC and communicates dire
   - [Examples](#examples)
 - [Climate control](#climate-control)
   - [Temperature range](#temperature-range)
-  - [Vertical air directions](#vertical-air-directions)
+  - [Air direction](#air-direction)
 - [Sensors](#sensors)
   - [Filtering incorrect values](#filtering-incorrect-values)
   - [Self-cleaning status](#self-cleaning-status)
@@ -227,12 +227,10 @@ climate:
     #  name: Outdoor Temp
     #power_select:
     #  name: "Power level"
-    #vertical_air_direction: # Fixed louver position (Toshiba "horizontal louver", air up/down)
-    #  name: "Vertical air direction"
+    #air_direction:          # Swing off/on, fixed louver positions, HADA Care Flow (EPC 0xA3)
+    #  name: "Air direction"
     #ionizer:                # Ionizer / air purifier on/off (EPC 0xC7)
     #  name: "Ionizer"
-    #hada_care_flow:         # HADA Care Flow louver mode on/off (EPC 0xA3 = 0x60)
-    #  name: "HADA Care Flow"
     #self_clean:             # Post-shutdown self-cleaning status
     #  name: "Self Clean"
     #off_timer:              # ON while the OFF timer set on the remote is running
@@ -281,7 +279,7 @@ You can then create a Thermostat card on the dashboard.
 The component finds out what the unit supports from:
 
 - the unit identification bytes in the handshake (logged as the unit profile),
-- the unit's feature mask, EPC `0xEE` (special modes, cooling-only / heating-only, horizontal louver, energy, fixed louver positions, ionizer, HADA Care Flow),
+- the unit's feature mask, EPC `0xEE` (special modes, cooling-only / heating-only, horizontal louver, energy, fixed louver positions, HADA Care Flow, ionizer),
 - which properties the unit answers (outdoor temperature, power level, self-clean, OFF timer, fault code) and which status messages it sends (indoor / outdoor diagnostics, unit information).
 
 Presets: units that report a feature mask get "Standard", "ECO" and "Hi POWER", plus "8 degrees", "Fireplace 1/2", "Silent#1/#2" and "Floor" when the mask has them. Units without the mask get no special modes. "Sleep" and "Comfort" are not in the mask and are offered only when you list them in `supported_presets`.
@@ -355,7 +353,7 @@ Horizontal swing (`0xEE` byte 1 bit 6) is read on profile 2 as well, e.g. RAS-10
 | Heat and cool, ECO / Hi POWER, 8 °C mode, Fireplace | same as above |
 | Silent (`0xEE` byte 1 bit 5) | presets "Silent#1/#2" |
 | Energy (`0xEE` byte 2 bit 0) | Energy, Power (needs `time:`) |
-| Fixed louver positions (`0xEE` byte 2 bit 1) | Vertical Air Direction |
+| Fixed louver positions (`0xEE` byte 2 bit 1) | Air Direction: Top … Bottom |
 | Polled `0xE4` / `0xE5` | indoor coil / fan and outdoor compressor diagnostics |
 | Answered `0xBE`, `0x87`, `0xCB`, `0x94`, `0x88`; identity reply | as above |
 | **Not detected** | Ionizer, Floor, horizontal swing (`0xEE` byte 1 bit 6); unit information until the unit sends `0xE0` |
@@ -374,18 +372,27 @@ If your unit has the "8°C operation" (frost protection, FrostGuard), the range 
 
 The setpoint and the special mode are always sent together, so the unit never keeps an 8 °C mode setpoint (temperature + 16 on the wire) after the mode changes. On units that report a feature mask they go out in one `0xF8` frame (mode, setpoint, fan and special mode).
 
-### Vertical air directions
+### Air direction
 
-Some units support fixed vertical air directions in addition to vertical swing. ESPHome's native climate swing modes are limited to `off`, `vertical`, `horizontal`, and `both`, so fixed positions are exposed as a Home Assistant select entity:
+ESPHome's climate swing modes are limited to `off`, `vertical`, `horizontal` and `both`. The other louver settings of the unit are in a select entity, as in the Toshiba app:
 
 ```yaml
-    vertical_air_direction:
-      name: "Vertical air direction"
+    air_direction:
+      name: "Air direction"
 ```
 
-In Toshiba service documentation this corresponds to the horizontal louver, which controls vertical air direction.
+| Option | EPC `0xA3` | Offered when the unit reports |
+|---|---|---|
+| `Off`, `Swing` (vertical) | `0x31`, `0x41` | always |
+| `Top`, `Middle Top`, `Middle`, `Middle Bottom`, `Bottom` | `0x50`–`0x54` | fixed up/down positions (`0xEE` byte 2 bit 1) |
+| `Left`, `Middle Left`, `Center`, `Middle Right`, `Right` | `0x61`–`0x65` | fixed left/right positions (`0xEE` byte 2 bit 5) |
+| `HADA Care Flow` | `0x60` | HADA Care Flow (`0xEE` byte 2 bit 2) |
 
-The select provides `Off`, `Swing`, `Top`, `Middle Top`, `Middle`, `Middle Bottom`, and `Bottom`.
+All options are values of one property, so only one is active at a time: choosing a left/right position ends a fixed up/down position and the other way round. `HADA Care Flow` moves both louvers to their middle positions and keeps the air flow away from people. A swing mode set on the climate entity shows as `Swing` (vertical or both) or `Off` (horizontal).
+
+Without auto-detection, or before the first detection, the select offers all options. The select was called `vertical_air_direction` before; that key still works but logs a deprecation warning.
+
+In Toshiba service documentation the up/down flap is called the horizontal louver.
 
 ## Sensors
 
