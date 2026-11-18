@@ -568,6 +568,8 @@ uint32_t ToshibaClimateUart::derived_features_() const {
     if (b2 & 0x02)
       f |= FEATURE_LOUVER_FIXED;
   }
+  if (b2 & 0x04)
+    f |= FEATURE_HADA;
   return f;
 }
 
@@ -662,6 +664,28 @@ void ToshibaClimateUart::set_ionizer(bool on) {
   this->send_cmd_(ToshibaCommandType::AIR_PURIFIER, on ? 0x18 : 0x10);
   if (this->ionizer_switch_ != nullptr)
     this->ionizer_switch_->publish_state(on);
+}
+
+/**
+ * HADA Care Flow is a value of the swing property (EPC 0xA3 = 0x60). Off sets
+ * swing off (0x31), as the Toshiba app does.
+ */
+void ToshibaClimateUart::set_hada_care(bool on) {
+  const ToshibaSwing swing = on ? ToshibaSwing::HADA_CARE : ToshibaSwing::OFF;
+  ESP_LOGV(TAG, "Setting HADA Care Flow %s", on ? "ON" : "OFF");
+  this->send_cmd_(ToshibaCommandType::SWING, static_cast<uint8_t>(swing));
+  this->publish_hada_care_(on);
+  if (!on)
+    this->publish_vertical_air_direction_(swing);
+  if (this->swing_mode != climate::CLIMATE_SWING_OFF) {
+    this->swing_mode = climate::CLIMATE_SWING_OFF;
+    this->publish_state();
+  }
+}
+
+void ToshibaClimateUart::publish_hada_care_(bool on) {
+  if (this->hada_care_switch_ != nullptr && this->hada_care_switch_->state != on)
+    this->hada_care_switch_->publish_state(on);
 }
 
 bool ToshibaClimateUart::has_idu_diagnostics_(bool probe) const {
@@ -1250,13 +1274,18 @@ void ToshibaClimateUart::parse_response_(const uint8_t *data, size_t len) {
     }
     case ToshibaCommandType::SWING: {
       auto swing = static_cast<ToshibaSwing>(value);
+      this->publish_hada_care_(swing == ToshibaSwing::HADA_CARE);
       auto air_direction = vertical_air_direction_to_string(swing);
       if (air_direction != nullptr) {
         ESP_LOGD(TAG, "Received vertical air direction: %s", air_direction);
         this->publish_vertical_air_direction_(swing);
       }
 
-      if (is_fixed_vertical_air_direction(swing)) {
+      if (swing == ToshibaSwing::HADA_CARE) {
+        // The louvers do not swing; the switch shows the mode.
+        ESP_LOGD(TAG, "Received swing mode: HADA Care Flow");
+        this->swing_mode = climate::CLIMATE_SWING_OFF;
+      } else if (is_fixed_vertical_air_direction(swing)) {
         this->swing_mode = climate::CLIMATE_SWING_OFF;
       } else {
         auto climate_swing = from_toshiba_swing(swing);
@@ -1558,6 +1587,9 @@ void ToshibaClimateUart::dump_config() {
   if (this->ionizer_switch_ != nullptr && !log_hidden("Ionizer", this->ionizer_switch_)) {
     LOG_SWITCH("", "Ionizer", this->ionizer_switch_);
   }
+  if (this->hada_care_switch_ != nullptr && !log_hidden("HADA Care Flow", this->hada_care_switch_)) {
+    LOG_SWITCH("", "HADA Care Flow", this->hada_care_switch_);
+  }
   if (this->fcu_model_text_sensor_ != nullptr && !log_hidden("FCU Model", this->fcu_model_text_sensor_)) {
     LOG_TEXT_SENSOR("", "FCU Model", this->fcu_model_text_sensor_);
   }
@@ -1738,6 +1770,8 @@ void ToshibaClimateUart::control(const climate::ClimateCall &call) {
     this->swing_mode = swing_mode;
     this->send_cmd_(ToshibaCommandType::SWING, static_cast<uint8_t>(function_value));
     this->publish_vertical_air_direction_(function_value);
+    // Swing and HADA Care Flow share EPC 0xA3: a swing mode ends HADA.
+    this->publish_hada_care_(false);
   }
 
   // Requested merit (special mode) from a standard or custom preset.
@@ -1918,6 +1952,7 @@ void ToshibaClimateUart::on_set_vertical_air_direction_(size_t index) {
 
   ESP_LOGV(TAG, "Setting vertical air direction to %s", vertical_air_direction_to_string(position.value()));
   this->send_cmd_(ToshibaCommandType::SWING, static_cast<uint8_t>(position.value()));
+  this->publish_hada_care_(false);
   this->publish_vertical_air_direction_(position.value());
   if (position.value() == ToshibaSwing::VERTICAL || position.value() == ToshibaSwing::BOTH) {
     this->swing_mode = climate::CLIMATE_SWING_VERTICAL;

@@ -63,6 +63,7 @@ CONF_CDU_SERIAL = "cdu_serial"
 CONF_CDU_FIRMWARE = "cdu_firmware"
 CONF_ERROR_CODE = "error_code"
 CONF_IONIZER = "ionizer"
+CONF_HADA_CARE_FLOW = "hada_care_flow"
 CONF_AUTO_DETECT = "auto_detect"
 
 # Preset names, the same strings as SPECIAL_MODE_* in toshiba_climate_mode.h.
@@ -96,6 +97,7 @@ ToshibaClimateUart = toshiba_ns.class_("ToshibaClimateUart", cg.PollingComponent
 ToshibaPwrModeSelect = toshiba_ns.class_("ToshibaPwrModeSelect", select.Select)
 ToshibaVerticalAirDirectionSelect = toshiba_ns.class_("ToshibaVerticalAirDirectionSelect", select.Select)
 ToshibaIonizerSwitch = toshiba_ns.class_("ToshibaIonizerSwitch", switch.Switch)
+ToshibaHadaCareSwitch = toshiba_ns.class_("ToshibaHadaCareSwitch", switch.Switch)
 
 # Unit features, the UnitFeature enum in toshiba_climate.h.
 UnitFeature = toshiba_ns.enum("UnitFeature")
@@ -172,6 +174,8 @@ ENTITY_SCHEMAS = {
     ),
     # Ionizer / air purifier, EPC 0xC7.
     CONF_IONIZER: switch.switch_schema(ToshibaIonizerSwitch, icon="mdi:air-purifier"),
+    # HADA Care Flow louver mode, EPC 0xA3 = 0x60.
+    CONF_HADA_CARE_FLOW: switch.switch_schema(ToshibaHadaCareSwitch, icon="mdi:weather-windy"),
 }
 
 # Entities created automatically when `auto_detect` is on and the key is not in
@@ -182,6 +186,7 @@ AUTO_ENTITIES = {
     CONF_PWR_SELECT: ("Power Level", UnitFeature.FEATURE_POWER_SEL, False),
     CONF_VERTICAL_AIR_DIRECTION: ("Vertical Air Direction", UnitFeature.FEATURE_LOUVER_FIXED, False),
     CONF_IONIZER: ("Ionizer", UnitFeature.FEATURE_PURE, False),
+    CONF_HADA_CARE_FLOW: ("HADA Care Flow", UnitFeature.FEATURE_HADA, False),
     CONF_SELF_CLEAN: ("Self Clean", UnitFeature.FEATURE_SELF_CLEAN, False),
     CONF_OFF_TIMER: ("Off Timer", UnitFeature.FEATURE_OFF_TIMER, False),
     CONF_OFF_TIMER_REMAINING: ("Off Timer Remaining", UnitFeature.FEATURE_OFF_TIMER, False),
@@ -324,6 +329,10 @@ TEXT_SENSORS = {
     CONF_CDU_FIRMWARE: "set_cdu_firmware_text_sensor",
     CONF_ERROR_CODE: "set_error_code_text_sensor",
 }
+SWITCHES = {
+    CONF_IONIZER: "set_ionizer_switch",
+    CONF_HADA_CARE_FLOW: "set_hada_care_switch",
+}
 SELECTS = {
     CONF_PWR_SELECT: ("set_pwr_select", PWR_SELECT_OPTIONS),
     CONF_VERTICAL_AIR_DIRECTION: ("set_vertical_air_direction_select", VERTICAL_AIR_DIRECTION_OPTIONS),
@@ -345,11 +354,12 @@ async def to_code(config):
     if _caps_lost_on_power_cut(CORE.config, config):
         cg.add(var.set_caps_volatile(True))
 
-    if conf := config.get(CONF_IONIZER):
-        sw = await switch.new_switch(conf)
-        await cg.register_parented(sw, config[CONF_ID])
-        cg.add(var.set_ionizer_switch(sw))
-        _mark_auto(var, config, CONF_IONIZER, sw)
+    for key, setter in SWITCHES.items():
+        if conf := config.get(key):
+            sw = await switch.new_switch(conf)
+            await cg.register_parented(sw, config[CONF_ID])
+            cg.add(getattr(var, setter)(sw))
+            _mark_auto(var, config, key, sw)
 
     for key, setter in SENSORS.items():
         if conf := config.get(key):

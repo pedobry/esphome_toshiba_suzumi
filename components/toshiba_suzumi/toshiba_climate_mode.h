@@ -54,7 +54,9 @@ enum class ToshibaSwing {
   VERTICAL_FIX_POSITION_2 = 81,
   VERTICAL_FIX_POSITION_3 = 82,
   VERTICAL_FIX_POSITION_4 = 83,
-  VERTICAL_FIX_POSITION_5 = 84
+  VERTICAL_FIX_POSITION_5 = 84,
+  // HADA Care Flow: louvers keep the air flow away from people (0xEE byte 2 bit 2).
+  HADA_CARE = 96
 };
 // EPC 0x80.
 enum class PowerState { ON = 48, OFF = 49 };

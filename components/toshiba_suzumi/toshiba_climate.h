@@ -107,6 +107,7 @@ enum UnitFeature : uint32_t {
   FEATURE_FLOOR = 1u << 17,         // profile 2/3, 0xEE byte 1 bit 7
   FEATURE_COOL_ONLY = 1u << 18,     // 0xEE byte 1 bits 1..0 = 10
   FEATURE_HEAT_ONLY = 1u << 19,     // 0xEE byte 1 bits 1..0 = 01
+  FEATURE_HADA = 1u << 20,          // profile 2/3, 0xEE byte 2 bit 2 (HADA Care Flow)
 };
 
 // Features that change the climate traits or presets. Home Assistant reads
@@ -238,6 +239,7 @@ class ToshibaClimateUart final : public PollingComponent, public climate::Climat
     this->heat_mode_explicit_ = true;
   }
   void set_ionizer_switch(switch_::Switch *sw) { this->ionizer_switch_ = sw; }
+  void set_hada_care_switch(switch_::Switch *sw) { this->hada_care_switch_ = sw; }
   void set_auto_detect(bool enabled) { this->auto_detect_ = enabled; }
   void set_caps_volatile(bool v) { this->caps_volatile_ = v; }
   // Entity created by the component (not listed in YAML); hidden from Home
@@ -246,6 +248,7 @@ class ToshibaClimateUart final : public PollingComponent, public climate::Climat
   // Forget the detected capabilities and detect again (restarts the device).
   void reset_capabilities();
   void set_ionizer(bool on);
+  void set_hada_care(bool on);
   void disable_wifi_led(bool disabled) { this->wifi_led_disabled_ = disabled; }
   void set_supported_presets(const std::vector<const char *> &presets) { this->supported_presets_ = presets; }
   void set_min_temp(uint8_t min_temp) {
@@ -322,6 +325,7 @@ class ToshibaClimateUart final : public PollingComponent, public climate::Climat
   bool min_temp_explicit_ = false;
   bool presets_explicit_ = false;
   switch_::Switch *ionizer_switch_ = nullptr;
+  switch_::Switch *hada_care_switch_ = nullptr;
 
   // Automatic capability detection.
   struct AutoEntity {
@@ -423,6 +427,7 @@ class ToshibaClimateUart final : public PollingComponent, public climate::Climat
   void on_set_pwr_level_(size_t index);
   void on_set_vertical_air_direction_(size_t index);
   void publish_vertical_air_direction_(ToshibaSwing swing_mode);
+  void publish_hada_care_(bool on);
   void configure_supported_custom_modes_();
   void load_capabilities_();
   void apply_capabilities_();
@@ -450,6 +455,7 @@ class ToshibaClimateUart final : public PollingComponent, public climate::Climat
   friend class ToshibaPwrModeSelect;
   friend class ToshibaVerticalAirDirectionSelect;
   friend class ToshibaIonizerSwitch;
+  friend class ToshibaHadaCareSwitch;
 };
 
 class ToshibaPwrModeSelect final : public select::Select, public esphome::Parented<ToshibaClimateUart> {
@@ -460,6 +466,11 @@ class ToshibaPwrModeSelect final : public select::Select, public esphome::Parent
 class ToshibaIonizerSwitch final : public switch_::Switch, public esphome::Parented<ToshibaClimateUart> {
  protected:
   void write_state(bool state) override { this->parent_->set_ionizer(state); }
+};
+
+class ToshibaHadaCareSwitch final : public switch_::Switch, public esphome::Parented<ToshibaClimateUart> {
+ protected:
+  void write_state(bool state) override { this->parent_->set_hada_care(state); }
 };
 
 class ToshibaVerticalAirDirectionSelect final : public select::Select, public esphome::Parented<ToshibaClimateUart> {

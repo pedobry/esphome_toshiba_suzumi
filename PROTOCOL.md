@@ -119,7 +119,8 @@ the home air conditioner class).
 | `0xCB` | Self-cleaning function setting | 1 B | Toshiba status bits: `0x18` running, `0x10` idle *(observed)* |
 
 Toshiba specifics *(observed)*: fan levels `0x31`–`0x36` (quiet, low, low-medium, medium,
-medium-high, high); fixed louver positions on `0xA3`: `0x50`–`0x54` (top … bottom).
+medium-high, high); fixed louver positions on `0xA3`: `0x50`–`0x54` (top … bottom); `0x60` on
+`0xA3` is HADA Care Flow (louvers keep the air flow away from people).
 
 ### Fault code (`0x88`, `0x86`)
 
@@ -203,6 +204,7 @@ built-in adapter):
 | Power level | `87` | implemented |
 | Room / outdoor temperature | `BB BE` | implemented |
 | Ionizer (air purifier) | `C7` | implemented (`ionizer` switch) |
+| HADA Care Flow | `A3` = `60` | implemented (`hada_care_flow` switch) |
 | Self-clean status | `CB` | implemented (read only) |
 | OFF timer state and remaining time | `94 96` | implemented (read only) |
 | Fault code | `88 86` | implemented (`error_code` text sensor) |

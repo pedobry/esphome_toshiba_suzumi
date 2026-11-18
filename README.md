@@ -231,6 +231,8 @@ climate:
     #  name: "Vertical air direction"
     #ionizer:                # Ionizer / air purifier on/off (EPC 0xC7)
     #  name: "Ionizer"
+    #hada_care_flow:         # HADA Care Flow louver mode on/off (EPC 0xA3 = 0x60)
+    #  name: "HADA Care Flow"
     #self_clean:             # Post-shutdown self-cleaning status
     #  name: "Self Clean"
     #off_timer:              # ON while the OFF timer set on the remote is running
@@ -279,7 +281,7 @@ You can then create a Thermostat card on the dashboard.
 The component finds out what the unit supports from:
 
 - the unit identification bytes in the handshake (logged as the unit profile),
-- the unit's feature mask, EPC `0xEE` (special modes, cooling-only / heating-only, horizontal louver, energy, fixed louver positions, ionizer),
+- the unit's feature mask, EPC `0xEE` (special modes, cooling-only / heating-only, horizontal louver, energy, fixed louver positions, ionizer, HADA Care Flow),
 - which properties the unit answers (outdoor temperature, power level, self-clean, OFF timer, fault code) and which status messages it sends (indoor / outdoor diagnostics, unit information).
 
 Presets: units that report a feature mask get "Standard", "ECO" and "Hi POWER", plus "8 degrees", "Fireplace 1/2", "Silent#1/#2" and "Floor" when the mask has them. Units without the mask get no special modes. "Sleep" and "Comfort" are not in the mask and are offered only when you list them in `supported_presets`.
