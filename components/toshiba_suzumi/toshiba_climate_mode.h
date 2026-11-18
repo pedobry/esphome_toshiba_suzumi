@@ -64,6 +64,8 @@ enum class PowerState { ON = 48, OFF = 49 };
 enum class PowerLevel { PCT_50 = 50, PCT_75 = 75, PCT_100 = 100 };
 // EPC 0xCB status bits 3..4. Values documented by maxmacstn/ToshibaCarrierController.
 enum class SelfCleanState : uint8_t { RUNNING = 0x18, OFF = 0x10 };
+// The status is in bits 3..4; the low bits are settings (bit 0 = self-clean enabled).
+static constexpr uint8_t SELF_CLEAN_STATUS_MASK = 0x18;
 
 // Wi-Fi LED on the indoor unit front panel. Units use either 0xDE or 0xDF;
 // this component writes both, which is harmless on units that ignore one.

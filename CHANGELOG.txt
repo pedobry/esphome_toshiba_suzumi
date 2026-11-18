@@ -36,6 +36,9 @@ Compatibility with ESPHome 2026.11 and ESPHome coding standards.
   set_internal() after setup: an error in ESPHome 2026.11, ignored from
   2027.3.
 
+* Self-clean status (0xCB) uses only bits 3-4; values with settings in the
+  low bits (e.g. 0x11) no longer log "unknown self-clean state".
+
 * New HADA Care Flow switch (swing property 0xA3 = 0x60). Shown automatically
   on units with 0xEE byte 2 bit 2. Choosing a swing mode or louver position
   turns it off; the value no longer logs "Invalid swing mode 96".

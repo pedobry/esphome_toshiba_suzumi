@@ -1401,7 +1401,7 @@ void ToshibaClimateUart::parse_response_(const uint8_t *data, size_t len) {
       break;
     }
     case ToshibaCommandType::SELF_CLEAN: {
-      auto self_clean_state = static_cast<SelfCleanState>(value);
+      auto self_clean_state = static_cast<SelfCleanState>(value & SELF_CLEAN_STATUS_MASK);
       bool was_running = this->self_clean_running_;
       if (self_clean_state == SelfCleanState::RUNNING) {
         ESP_LOGV(TAG, "Self-clean is running");

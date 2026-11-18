@@ -116,7 +116,7 @@ the home air conditioner class).
 | `0xBB` | Measured room temperature | 1 B signed | `0x7F` = not available |
 | `0xBE` | Measured outdoor air temperature | 1 B signed | `0x7F` = not available |
 | `0xC7` | Air purifier function setting | 1 B | Toshiba values are vendor specific *(observed: `0x18`)* |
-| `0xCB` | Self-cleaning function setting | 1 B | Toshiba status bits: `0x18` running, `0x10` idle *(observed)* |
+| `0xCB` | Self-cleaning function setting | 1 B | Toshiba status in bits 3–4: `0x18` running, `0x10` idle; low bits are settings, e.g. `0x11` = idle with self-clean enabled *(observed)* |
 
 Toshiba specifics *(observed)*: fan levels `0x31`–`0x36` (quiet, low, low-medium, medium,
 medium-high, high); fixed louver positions on `0xA3`: `0x50`–`0x54` (top … bottom); `0x60` on
