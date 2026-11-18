@@ -25,6 +25,8 @@ static const uint32_t KEEPALIVE_REPLY_TIMEOUT = 9000;
 // Counter is compared with 4; the fifth missing reply restarts the link.
 static const uint8_t KEEPALIVE_FAIL_LIMIT = 4;
 static const int KEEPALIVE_RECOVERY_DELAY = 1000;
+// Stack buffer for frame hex dumps in the log: up to 64 bytes are shown.
+static constexpr size_t LOG_HEX_BUF_SIZE = format_hex_pretty_size(64);
 
 /**
  * FCC checksum: two's complement of the sum of every byte except STX.
@@ -81,7 +83,8 @@ std::string ToshibaClimateUart::extract_unit_field_(const uint8_t *data, size_t 
  */
 void ToshibaClimateUart::send_to_uart(const ToshibaCommand &command) {
   this->last_command_timestamp_ = millis();
-  ESP_LOGV(TAG, "Sending: [%s]", format_hex_pretty(command.payload).c_str());
+  char hex[LOG_HEX_BUF_SIZE];
+  ESP_LOGV(TAG, "Sending: [%s]", format_hex_pretty_to(hex, command.payload));
   this->write_array(command.payload);
 }
 
@@ -139,14 +142,16 @@ bool ToshibaClimateUart::validate_message_() {
   uint8_t calc_checksum = checksum(this->rx_message_, at);
 
   if (rx_checksum != calc_checksum) {
+    char hex[LOG_HEX_BUF_SIZE];
     ESP_LOGW(TAG, "Received invalid message checksum %02X!=%02X len=%u DATA=[%s]", rx_checksum, calc_checksum,
-             static_cast<unsigned>(at + 1), format_hex_pretty(data, at + 1).c_str());
+             static_cast<unsigned>(at + 1), format_hex_pretty_to(hex, data, at + 1));
     return false;
   }
 
   // valid message (trim to exact frame length in case of extras)
   this->rx_message_.resize(at + 1);
-  ESP_LOGV(TAG, "Received: DATA=[%s]", format_hex_pretty(this->rx_message_).c_str());
+  char hex[LOG_HEX_BUF_SIZE];
+  ESP_LOGV(TAG, "Received: DATA=[%s]", format_hex_pretty_to(hex, this->rx_message_));
   // Hand the frame over to a second buffer (no copy): parsing may queue and
   // send commands, which must not see or clear the frame being parsed.
   this->rx_frame_.swap(this->rx_message_);
@@ -994,8 +999,8 @@ void ToshibaClimateUart::parseResponse(const std::vector<uint8_t> &rawData) {
 
   // Short handshake ACKs (FT != 0x0003) are expected during init.
   if (ft != FRAME_FT_PROPERTY) {
-    ESP_LOGD(TAG, "Handshake reply FT=0x%04X CN=0x%02X FN=0x%02X [%s]", ft, cn, fn,
-             format_hex_pretty(rawData).c_str());
+    char hex[LOG_HEX_BUF_SIZE];
+    ESP_LOGD(TAG, "Handshake reply FT=0x%04X CN=0x%02X FN=0x%02X [%s]", ft, cn, fn, format_hex_pretty_to(hex, rawData));
     return;
   }
 
@@ -1010,8 +1015,9 @@ void ToshibaClimateUart::parseResponse(const std::vector<uint8_t> &rawData) {
   bool rejected = false;
   if (!find_property_(cn, fd, dl, &prop, &rejected)) {
     if (rejected) {
+      char hex[LOG_HEX_BUF_SIZE];
       ESP_LOGD(TAG, "Unit rejected request EPC=0x%02X CN=0x%02X FN=0x%02X [%s]", prop.epc, cn, fn,
-               format_hex_pretty(rawData).c_str());
+               format_hex_pretty_to(hex, rawData));
       if (this->keepalive_reply_matches_(cn, fn, prop.epc))
         this->note_keepalive_result_(false);
       if (prop.epc == static_cast<uint8_t>(ToshibaCommandType::BUNDLE) && !this->bundle_rejected_) {
@@ -1030,8 +1036,9 @@ void ToshibaClimateUart::parseResponse(const std::vector<uint8_t> &rawData) {
         this->on_time_sync_result_(prop.epc, false);
 #endif
     } else {
+      char hex[LOG_HEX_BUF_SIZE];
       ESP_LOGD(TAG, "Property frame without EPC CN=0x%02X FN=0x%02X DL=%u [%s]", cn, fn, dl,
-               format_hex_pretty(rawData).c_str());
+               format_hex_pretty_to(hex, rawData));
     }
     return;
   }
@@ -2011,7 +2018,8 @@ void ToshibaClimateUart::publish_error_code_(const uint8_t *edt, size_t len) {
     ESP_LOGW(TAG, "Error detail EDT too short (%u)", static_cast<unsigned>(len));
     return;
   }
-  ESP_LOGW(TAG, "Unit reports a fault, detail [%s]", format_hex_pretty(edt, len).c_str());
+  char hex[LOG_HEX_BUF_SIZE];
+  ESP_LOGW(TAG, "Unit reports a fault, detail [%s]", format_hex_pretty_to(hex, edt, len));
   if (edt[8] == 0x00) {
     this->error_code_text_sensor_->publish_state("unknown");
     return;
