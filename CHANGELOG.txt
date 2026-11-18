@@ -40,8 +40,9 @@ Compatibility with ESPHome 2026.11 and ESPHome coding standards.
   the low bits (e.g. 0x11, Strong Defrost on) no longer log "unknown self-clean
   state".
 
-* New Strong Defrost switch (0xCB bit 0) and Defrost button (0xCB bit 1, runs
-  one defrost; Heat mode only, as in the Toshiba app). Shown automatically on
+* New Strong Defrost switch (0xCB bit 0, active right away) and Defrost button
+  (0xCB bit 1, runs one defrost); both in Heat mode only, as in the Toshiba
+  app. Shown automatically on
   units with 0xEE byte 2 bit 6. The unit ends the defrost on its own.
 
 * The vertical_air_direction select is now air_direction and offers every

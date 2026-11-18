@@ -661,10 +661,18 @@ void ToshibaClimateUart::set_ionizer(bool on) {
 }
 
 /**
- * Strong Defrost mode: 0xCB bit 0. Like the Toshiba app, write only the low
- * bits and clear the defrost-now bit.
+ * Strong Defrost mode: 0xCB bit 0, active right away (the unit lights its
+ * defrost LED). Like the Toshiba app, write only the low bits, clear the
+ * defrost-now bit and allow it in Heat mode only.
  */
 void ToshibaClimateUart::set_strong_defrost(bool on) {
+  if (this->mode != climate::CLIMATE_MODE_HEAT) {
+    // As in the Toshiba app: defrost settings only in Heat mode. Show the unit's state again.
+    ESP_LOGW(TAG, "Strong Defrost works in Heat mode only");
+    if (this->strong_defrost_switch_ != nullptr)
+      this->strong_defrost_switch_->publish_state((this->defrost_bits_ & DEFROST_STRONG) != 0);
+    return;
+  }
   const uint8_t value = on ? DEFROST_STRONG : 0;
   ESP_LOGV(TAG, "Setting Strong Defrost %s", on ? "ON" : "OFF");
   this->send_cmd_(ToshibaCommandType::SELF_CLEAN, value);
