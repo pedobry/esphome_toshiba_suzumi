@@ -128,32 +128,27 @@ Confirmed working on a Mirai RAS-13BKV-E with main board WP-026 (sticker B22N3KV
 
 ### ESPHome versions
 
-Current main branch supports latest ESPHome **2026.1**. There have been some internal changes in climate entity in ESPHome which makes it incompatible with previous ESPHome versions.
+The main branch needs ESPHome **2026.11** or newer. With an older ESPHome the configuration check stops with `This component requires at least ESPHome version 2026.11.0`.
 
-If you use ESPHome **2025.10 or earlier**, use tag `2025.10` like this:
+For older ESPHome versions, pin a tag of this repository:
 
-```
-external_components:
-  - source: 
-      type: git
-      url: https://github.com/pedobry/esphome_toshiba_suzumi
-      ref: "2025.10"
-    components: [toshiba_suzumi]
-    refresh: 1min
-```
-If you use ESPHome **2025.11 or 2025.12**, use tag `2025.12` like this:
+| ESPHome | Tag |
+|---|---|
+| 2026.4 – 2026.10 | `2026.10` |
+| 2025.11 – 2025.12 | `2025.12` |
+| 2025.10 or earlier | `2025.10` |
 
 ```
 external_components:
   - source: 
       type: git
       url: https://github.com/pedobry/esphome_toshiba_suzumi
-      ref: "2025.12"
+      ref: "2026.10"
     components: [toshiba_suzumi]
     refresh: 1min
 ```
 
-These older version won't be maintained, I'd recommend to upgrade to ESPHome 2026.1
+The tags are not maintained. Automatic feature detection, the ionizer switch and later fixes are only in the main branch, so upgrading ESPHome is recommended.
 
 ### Configuration
 
@@ -328,9 +323,9 @@ The profile comes from the identification bytes. Profile 3 units answer requests
 **Profile 2: RAS-10PKVSG-E**
 
 ```
-[I][ToshibaClimateUart]: Unit profile 2 level 0 (00 01 00 00)
-[I][ToshibaClimateUart]: Profile 2: diagnostics only when the unit pushes them
-[C][ToshibaClimateUart]:   Auto-detected capabilities: 0x0E03F (profile 2, 0xEE 0C 00), 8 of 24 optional entities shown
+[I][toshiba_suzumi]: Unit profile 2 level 0 (00 01 00 00)
+[I][toshiba_suzumi]: Profile 2: diagnostics only when the unit pushes them
+[C][toshiba_suzumi]:   Auto-detected capabilities: 0x0E03F (profile 2, 0xEE 0C 00), 8 of 24 optional entities shown
 ```
 
 | Detected | Entities / presets |
@@ -348,9 +343,9 @@ Horizontal swing (`0xEE` byte 1 bit 6) is read on profile 2 as well, e.g. RAS-10
 **Profile 3: RAS-13NKVRG**
 
 ```
-[C][ToshibaClimateUart]:   Unit profile 3 level 1 (00 01 01 01), diagnostics polled
-[C][ToshibaClimateUart]:   Unit feature mask 0xEE: 2C 03
-[C][ToshibaClimateUart]:   Auto-detected capabilities: 0x1E7BF (profile 3, 0xEE 2C 03), 3 of 8 optional entities shown
+[C][toshiba_suzumi]:   Unit profile 3 level 1 (00 01 01 01), diagnostics polled
+[C][toshiba_suzumi]:   Unit feature mask 0xEE: 2C 03
+[C][toshiba_suzumi]:   Auto-detected capabilities: 0x1E7BF (profile 3, 0xEE 2C 03), 3 of 8 optional entities shown
 ```
 
 | Detected | Entities / presets |
@@ -523,16 +518,28 @@ Replace `880` with your unit's rated power input in watts (check the datasheet).
 The component logs how it classified the unit after connect:
 
 ```
-[C][ToshibaClimateUart:1386]:   FCU Model: 'RAS-13NKVRG'
-[C][ToshibaClimateUart:1389]:   FCU Serial: 'xxxxxxx'
-[C][ToshibaClimateUart:1399]:   Unit profile 3 level 1 (00 01 01 01), diagnostics polled
-[C][ToshibaClimateUart:1408]:   Unit feature mask 0xEE: 2C 03
-[C][ToshibaClimateUart:1412]:   Auto-detected capabilities: 0x1E7BF (profile 3, 0xEE 2C 03), 3 of 8 optional entities shown
+[C][toshiba_suzumi]:   FCU Model: 'RAS-13NKVRG'
+[C][toshiba_suzumi]:   FCU Serial: 'xxxxxxx'
+[C][toshiba_suzumi]:   Unit profile 3 level 1 (00 01 01 01), diagnostics polled
+[C][toshiba_suzumi]:   Unit feature mask 0xEE: 2C 03
+[C][toshiba_suzumi]:   Auto-detected capabilities: 0x1E7BF (profile 3, 0xEE 2C 03), 3 of 8 optional entities shown
 ```
 
 Please include these lines (and your model) when reporting an issue. If the identity reply
 never arrives, the component falls back to reading the basic climate status (logged as
 `No unit identity; loading basic status without diagnostics`).
+
+Values received from the unit and the frames on the wire are logged at `VERBOSE`. To include
+them, raise the level for this component only:
+
+```yaml
+logger:
+  level: VERBOSE
+  logs:
+    toshiba_suzumi: VERBOSE
+```
+
+Set the global `level` back afterwards (see the memory notes for ESP8266 above).
 
 ## Protocol analysis
 

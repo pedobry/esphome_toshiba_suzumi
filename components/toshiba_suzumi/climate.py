@@ -1,37 +1,42 @@
-import esphome.codegen as cg
-import esphome.config_validation as cv
-from esphome.components import binary_sensor, sensor, climate, uart, select, switch, text_sensor
-from esphome.const import (
-    CONF_ID,
-    CONF_NAME,
-    STATE_CLASS_MEASUREMENT,
-    UNIT_CELSIUS,
-    UNIT_PERCENT,
-    UNIT_AMPERE,
-    UNIT_WATT_HOURS,
-    UNIT_WATT,
-    UNIT_MINUTE,
-    DEVICE_CLASS_DURATION,
-    DEVICE_CLASS_TEMPERATURE,
-    DEVICE_CLASS_CURRENT,
-    DEVICE_CLASS_RUNNING,
-    DEVICE_CLASS_ENERGY,
-    DEVICE_CLASS_POWER,
-    CONF_TIME_ID,
-    STATE_CLASS_TOTAL_INCREASING,
-    ENTITY_CATEGORY_DIAGNOSTIC,
-)
 import logging
 
+import esphome.codegen as cg
+import esphome.config_validation as cv
 import esphome.final_validate as fv
+from esphome.components import binary_sensor, climate, select, sensor, switch, text_sensor, uart
+from esphome.const import (
+    CONF_ENERGY,
+    CONF_ID,
+    CONF_NAME,
+    CONF_POWER,
+    CONF_SUPPORTED_PRESETS,
+    CONF_TIME_ID,
+    DEVICE_CLASS_CURRENT,
+    DEVICE_CLASS_DURATION,
+    DEVICE_CLASS_ENERGY,
+    DEVICE_CLASS_POWER,
+    DEVICE_CLASS_RUNNING,
+    DEVICE_CLASS_TEMPERATURE,
+    ENTITY_CATEGORY_DIAGNOSTIC,
+    STATE_CLASS_MEASUREMENT,
+    STATE_CLASS_TOTAL_INCREASING,
+    UNIT_AMPERE,
+    UNIT_CELSIUS,
+    UNIT_MINUTE,
+    UNIT_PERCENT,
+    UNIT_REVOLUTIONS_PER_MINUTE,
+    UNIT_WATT,
+    UNIT_WATT_HOURS,
+)
 from esphome.core import CORE
+
+from . import DOMAIN
 
 _LOGGER = logging.getLogger(__name__)
 
 DEPENDENCIES = ["uart"]
 AUTO_LOAD = ["binary_sensor", "sensor", "select", "switch", "text_sensor"]
 
-CONF_ROOM_TEMP = "room_temp"
 CONF_INDOOR_TEMP = "indoor_temp"
 CONF_OUTDOOR_TEMP = "outdoor_temp"
 CONF_CDU_TD_TEMP = "cdu_td_temp"
@@ -44,15 +49,12 @@ CONF_FCU_TCJ_TEMP = "fcu_tcj_temp"
 CONF_FCU_FAN_RPM = "fcu_fan_rpm"
 CONF_PWR_SELECT = "power_select"
 CONF_VERTICAL_AIR_DIRECTION = "vertical_air_direction"
-CONF_SPECIAL_MODE = "special_mode" # deprecated - replaced by CONF_SUPPORTED_PRESETS
-CONF_SPECIAL_MODE_MODES = "modes" # deprecated - replaced by CONF_SUPPORTED_PRESETS
-CONF_SUPPORTED_PRESETS = "supported_presets"
+CONF_SPECIAL_MODE = "special_mode"  # deprecated - replaced by CONF_SUPPORTED_PRESETS
+CONF_SPECIAL_MODE_MODES = "modes"  # deprecated - replaced by CONF_SUPPORTED_PRESETS
 CONF_SELF_CLEAN = "self_clean"
 CONF_OFF_TIMER = "off_timer"
 CONF_OFF_TIMER_REMAINING = "off_timer_remaining"
 CONF_TIME_SYNC_INTERVAL = "time_sync_interval"
-CONF_ENERGY = "energy"
-CONF_POWER = "power"
 CONF_FCU_MODEL = "fcu_model"
 CONF_FCU_SERIAL = "fcu_serial"
 CONF_FCU_FIRMWARE = "fcu_firmware"
@@ -63,34 +65,40 @@ CONF_ERROR_CODE = "error_code"
 CONF_IONIZER = "ionizer"
 CONF_AUTO_DETECT = "auto_detect"
 
-PRESETS = ("Standard", "Hi POWER", "ECO", "Fireplace 1", "Fireplace 2", "8 degrees", "Silent#1", "Silent#2", "Sleep",
-           "Floor", "Comfort")
+# Preset names, the same strings as SPECIAL_MODE_* in toshiba_climate_mode.h.
+PRESET_EIGHT_DEG = "8 degrees"
+PRESETS = (
+    "Standard",
+    "Hi POWER",
+    "ECO",
+    "Fireplace 1",
+    "Fireplace 2",
+    PRESET_EIGHT_DEG,
+    "Silent#1",
+    "Silent#2",
+    "Sleep",
+    "Floor",
+    "Comfort",
+)
 
-FEATURE_HORIZONTAL_SWING = "horizontal_swing"
-MIN_TEMP = "min_temp"
-DISABLE_HEAT_MODE = "disable_heat_mode"
-DISABLE_WIFI_LED = "disable_wifi_led"
+CONF_HORIZONTAL_SWING = "horizontal_swing"
+CONF_MIN_TEMP = "min_temp"
+CONF_DISABLE_HEAT_MODE = "disable_heat_mode"
+CONF_DISABLE_WIFI_LED = "disable_wifi_led"
+
+# Select options. The C++ side maps the option index, so keep the order of
+# POWER_LEVELS and VERTICAL_AIR_DIRECTIONS in toshiba_climate_mode.cpp.
+PWR_SELECT_OPTIONS = ["50 %", "75 %", "100 %"]
+VERTICAL_AIR_DIRECTION_OPTIONS = ["Off", "Swing", "Top", "Middle Top", "Middle", "Middle Bottom", "Bottom"]
 
 toshiba_ns = cg.esphome_ns.namespace("toshiba_suzumi")
 ToshibaClimateUart = toshiba_ns.class_("ToshibaClimateUart", cg.PollingComponent, climate.Climate, uart.UARTDevice)
-ToshibaPwrModeSelect = toshiba_ns.class_('ToshibaPwrModeSelect', select.Select)
-ToshibaSpecialModeSelect = toshiba_ns.class_('ToshibaSpecialModeSelect', select.Select)
-ToshibaVerticalAirDirectionSelect = toshiba_ns.class_('ToshibaVerticalAirDirectionSelect', select.Select)
-ToshibaIonizerSwitch = toshiba_ns.class_('ToshibaIonizerSwitch', switch.Switch)
+ToshibaPwrModeSelect = toshiba_ns.class_("ToshibaPwrModeSelect", select.Select)
+ToshibaVerticalAirDirectionSelect = toshiba_ns.class_("ToshibaVerticalAirDirectionSelect", select.Select)
+ToshibaIonizerSwitch = toshiba_ns.class_("ToshibaIonizerSwitch", switch.Switch)
 
-# Unit features (must match UnitFeature in toshiba_climate.h).
-FEATURE_OUTDOOR_TEMP = 1 << 0
-FEATURE_POWER_SEL = 1 << 1
-FEATURE_SELF_CLEAN = 1 << 2
-FEATURE_OFF_TIMER = 1 << 3
-FEATURE_ERROR_CODE = 1 << 4
-FEATURE_FCU_IDENTITY = 1 << 5
-FEATURE_MODEL_INFO = 1 << 6
-FEATURE_IDU_DIAG = 1 << 7
-FEATURE_ODU_DIAG = 1 << 8
-FEATURE_ENERGY = 1 << 9
-FEATURE_LOUVER_FIXED = 1 << 10
-FEATURE_PURE = 1 << 11
+# Unit features, the UnitFeature enum in toshiba_climate.h.
+UnitFeature = toshiba_ns.enum("UnitFeature")
 
 TEMPERATURE_SENSOR = dict(
     unit_of_measurement=UNIT_CELSIUS,
@@ -121,17 +129,13 @@ ENTITY_SCHEMAS = {
     CONF_FCU_TC_TEMP: sensor.sensor_schema(**TEMPERATURE_SENSOR, entity_category=ENTITY_CATEGORY_DIAGNOSTIC),
     CONF_FCU_TCJ_TEMP: sensor.sensor_schema(**TEMPERATURE_SENSOR, entity_category=ENTITY_CATEGORY_DIAGNOSTIC),
     CONF_FCU_FAN_RPM: sensor.sensor_schema(
-        unit_of_measurement="RPM",
+        unit_of_measurement=UNIT_REVOLUTIONS_PER_MINUTE,
         accuracy_decimals=0,
         state_class=STATE_CLASS_MEASUREMENT,
         entity_category=ENTITY_CATEGORY_DIAGNOSTIC,
     ),
-    CONF_PWR_SELECT: select.select_schema(ToshibaPwrModeSelect).extend({
-        cv.GenerateID(): cv.declare_id(ToshibaPwrModeSelect),
-    }),
-    CONF_VERTICAL_AIR_DIRECTION: select.select_schema(ToshibaVerticalAirDirectionSelect).extend({
-        cv.GenerateID(): cv.declare_id(ToshibaVerticalAirDirectionSelect),
-    }),
+    CONF_PWR_SELECT: select.select_schema(ToshibaPwrModeSelect),
+    CONF_VERTICAL_AIR_DIRECTION: select.select_schema(ToshibaVerticalAirDirectionSelect),
     CONF_SELF_CLEAN: binary_sensor.binary_sensor_schema(device_class=DEVICE_CLASS_RUNNING),
     CONF_OFF_TIMER: binary_sensor.binary_sensor_schema(icon="mdi:timer-off-outline"),
     CONF_OFF_TIMER_REMAINING: sensor.sensor_schema(
@@ -174,58 +178,75 @@ ENTITY_SCHEMAS = {
 # YAML: key -> (default name, feature the unit must have to show it, needs time).
 # indoor_temp is left out: the climate entity already shows the room temperature.
 AUTO_ENTITIES = {
-    CONF_OUTDOOR_TEMP: ("Outdoor Temperature", FEATURE_OUTDOOR_TEMP, False),
-    CONF_PWR_SELECT: ("Power Level", FEATURE_POWER_SEL, False),
-    CONF_VERTICAL_AIR_DIRECTION: ("Vertical Air Direction", FEATURE_LOUVER_FIXED, False),
-    CONF_IONIZER: ("Ionizer", FEATURE_PURE, False),
-    CONF_SELF_CLEAN: ("Self Clean", FEATURE_SELF_CLEAN, False),
-    CONF_OFF_TIMER: ("Off Timer", FEATURE_OFF_TIMER, False),
-    CONF_OFF_TIMER_REMAINING: ("Off Timer Remaining", FEATURE_OFF_TIMER, False),
-    CONF_ERROR_CODE: ("Error Code", FEATURE_ERROR_CODE, False),
-    CONF_FCU_MODEL: ("Indoor Unit Model", FEATURE_FCU_IDENTITY, False),
-    CONF_FCU_SERIAL: ("Indoor Unit Serial", FEATURE_FCU_IDENTITY, False),
-    CONF_FCU_FIRMWARE: ("Indoor Unit Firmware", FEATURE_MODEL_INFO, False),
-    CONF_CDU_MODEL: ("Outdoor Unit Model", FEATURE_MODEL_INFO, False),
-    CONF_CDU_SERIAL: ("Outdoor Unit Serial", FEATURE_MODEL_INFO, False),
-    CONF_CDU_FIRMWARE: ("Outdoor Unit Firmware", FEATURE_MODEL_INFO, False),
-    CONF_FCU_TC_TEMP: ("Indoor Coil Temperature", FEATURE_IDU_DIAG, False),
-    CONF_FCU_TCJ_TEMP: ("Indoor Coil Junction Temperature", FEATURE_IDU_DIAG, False),
-    CONF_FCU_FAN_RPM: ("Indoor Fan Speed", FEATURE_IDU_DIAG, False),
-    CONF_CDU_TD_TEMP: ("Compressor Discharge Temperature", FEATURE_ODU_DIAG, False),
-    CONF_CDU_TS_TEMP: ("Compressor Suction Temperature", FEATURE_ODU_DIAG, False),
-    CONF_CDU_TE_TEMP: ("Outdoor Coil Temperature", FEATURE_ODU_DIAG, False),
-    CONF_CDU_LOAD: ("Compressor Load", FEATURE_ODU_DIAG, False),
-    CONF_CDU_IAC: ("Compressor Current", FEATURE_ODU_DIAG, False),
+    CONF_OUTDOOR_TEMP: ("Outdoor Temperature", UnitFeature.FEATURE_OUTDOOR_TEMP, False),
+    CONF_PWR_SELECT: ("Power Level", UnitFeature.FEATURE_POWER_SEL, False),
+    CONF_VERTICAL_AIR_DIRECTION: ("Vertical Air Direction", UnitFeature.FEATURE_LOUVER_FIXED, False),
+    CONF_IONIZER: ("Ionizer", UnitFeature.FEATURE_PURE, False),
+    CONF_SELF_CLEAN: ("Self Clean", UnitFeature.FEATURE_SELF_CLEAN, False),
+    CONF_OFF_TIMER: ("Off Timer", UnitFeature.FEATURE_OFF_TIMER, False),
+    CONF_OFF_TIMER_REMAINING: ("Off Timer Remaining", UnitFeature.FEATURE_OFF_TIMER, False),
+    CONF_ERROR_CODE: ("Error Code", UnitFeature.FEATURE_ERROR_CODE, False),
+    CONF_FCU_MODEL: ("Indoor Unit Model", UnitFeature.FEATURE_FCU_IDENTITY, False),
+    CONF_FCU_SERIAL: ("Indoor Unit Serial", UnitFeature.FEATURE_FCU_IDENTITY, False),
+    CONF_FCU_FIRMWARE: ("Indoor Unit Firmware", UnitFeature.FEATURE_MODEL_INFO, False),
+    CONF_CDU_MODEL: ("Outdoor Unit Model", UnitFeature.FEATURE_MODEL_INFO, False),
+    CONF_CDU_SERIAL: ("Outdoor Unit Serial", UnitFeature.FEATURE_MODEL_INFO, False),
+    CONF_CDU_FIRMWARE: ("Outdoor Unit Firmware", UnitFeature.FEATURE_MODEL_INFO, False),
+    CONF_FCU_TC_TEMP: ("Indoor Coil Temperature", UnitFeature.FEATURE_IDU_DIAG, False),
+    CONF_FCU_TCJ_TEMP: ("Indoor Coil Junction Temperature", UnitFeature.FEATURE_IDU_DIAG, False),
+    CONF_FCU_FAN_RPM: ("Indoor Fan Speed", UnitFeature.FEATURE_IDU_DIAG, False),
+    CONF_CDU_TD_TEMP: ("Compressor Discharge Temperature", UnitFeature.FEATURE_ODU_DIAG, False),
+    CONF_CDU_TS_TEMP: ("Compressor Suction Temperature", UnitFeature.FEATURE_ODU_DIAG, False),
+    CONF_CDU_TE_TEMP: ("Outdoor Coil Temperature", UnitFeature.FEATURE_ODU_DIAG, False),
+    CONF_CDU_LOAD: ("Compressor Load", UnitFeature.FEATURE_ODU_DIAG, False),
+    CONF_CDU_IAC: ("Compressor Current", UnitFeature.FEATURE_ODU_DIAG, False),
     # Energy needs the unit clock, which is set only with a time source.
-    CONF_ENERGY: ("Energy", FEATURE_ENERGY, True),
-    CONF_POWER: ("Power", FEATURE_ENERGY, True),
+    CONF_ENERGY: ("Energy", UnitFeature.FEATURE_ENERGY, True),
+    CONF_POWER: ("Power", UnitFeature.FEATURE_ENERGY, True),
 }
 
 # Keys added by _add_auto_entities (not set by the user).
 CONF_AUTO_KEYS = "_toshiba_auto_entities"
 
-BASE_SCHEMA = climate.climate_schema(ToshibaClimateUart).extend(
-    {
-        cv.GenerateID(): cv.declare_id(ToshibaClimateUart),
-        **{cv.Optional(key): schema for key, schema in ENTITY_SCHEMAS.items()},
-        # Detect what the unit supports and create the matching entities.
-        # Settings and entities listed in YAML always win.
-        cv.Optional(CONF_AUTO_DETECT, default=True): cv.boolean,
-        cv.Optional(FEATURE_HORIZONTAL_SWING): cv.boolean,
-        cv.Optional(DISABLE_WIFI_LED): cv.boolean,
-        cv.Optional(DISABLE_HEAT_MODE): cv.boolean,
-        # CONF_SPECIAL_MODE is deprecated - replaced by CONF_SUPPORTED_PRESETS
-        # Keep it for backward compatibility
-        cv.Optional(CONF_SPECIAL_MODE): select.select_schema(ToshibaSpecialModeSelect).extend({
-            cv.GenerateID(): cv.declare_id(ToshibaSpecialModeSelect),
-            cv.Required(CONF_SPECIAL_MODE_MODES): cv.ensure_list(cv.one_of(*PRESETS))
-        }),
-        cv.Optional(CONF_SUPPORTED_PRESETS): cv.ensure_list(cv.one_of(*PRESETS)),
-        cv.Optional(MIN_TEMP): cv.int_,
-        cv.Optional(CONF_TIME_ID): cv.use_id(cg.esphome_ns.namespace("time").class_("RealTimeClock")),
-        cv.Optional(CONF_TIME_SYNC_INTERVAL, default="24h"): cv.positive_time_period_milliseconds,
-    }
-).extend(uart.UART_DEVICE_SCHEMA).extend(cv.polling_component_schema("120s"))
+
+def _warn_special_mode_deprecated(value):
+    _LOGGER.warning(
+        "%s: 'special_mode' is deprecated and will be removed. Use 'supported_presets' with the same list "
+        "instead of 'special_mode: modes:'.",
+        DOMAIN,
+    )
+    return value
+
+
+BASE_SCHEMA = (
+    climate.climate_schema(ToshibaClimateUart)
+    .extend(
+        {
+            **{cv.Optional(key): schema for key, schema in ENTITY_SCHEMAS.items()},
+            # Detect what the unit supports and create the matching entities.
+            # Settings and entities listed in YAML always win.
+            cv.Optional(CONF_AUTO_DETECT, default=True): cv.boolean,
+            cv.Optional(CONF_HORIZONTAL_SWING): cv.boolean,
+            cv.Optional(CONF_DISABLE_WIFI_LED): cv.boolean,
+            cv.Optional(CONF_DISABLE_HEAT_MODE): cv.boolean,
+            # Deprecated since 2025.09, replaced by supported_presets. Only
+            # `modes` is used; the old select entity keys are accepted and ignored.
+            cv.Optional(CONF_SPECIAL_MODE): cv.All(
+                _warn_special_mode_deprecated,
+                cv.Schema(
+                    {cv.Required(CONF_SPECIAL_MODE_MODES): cv.ensure_list(cv.one_of(*PRESETS))},
+                    extra=cv.ALLOW_EXTRA,
+                ),
+            ),
+            cv.Optional(CONF_SUPPORTED_PRESETS): cv.ensure_list(cv.one_of(*PRESETS)),
+            cv.Optional(CONF_MIN_TEMP): cv.int_range(min=5, max=30),
+            cv.Optional(CONF_TIME_ID): cv.use_id(cg.esphome_ns.namespace("time").class_("RealTimeClock")),
+            cv.Optional(CONF_TIME_SYNC_INTERVAL, default="24h"): cv.positive_time_period_milliseconds,
+        }
+    )
+    .extend(uart.UART_DEVICE_SCHEMA)
+    .extend(cv.polling_component_schema("120s"))
+)
 
 
 def _add_auto_entities(config):
@@ -240,7 +261,8 @@ def _add_auto_entities(config):
     return config
 
 
-CONFIG_SCHEMA = cv.All(BASE_SCHEMA, _add_auto_entities)
+# Older ESPHome versions: use the 2026.10 tag of this repository (see README).
+CONFIG_SCHEMA = cv.All(cv.require_esphome_version(2026, 11, 0), BASE_SCHEMA, _add_auto_entities)
 
 
 def _caps_lost_on_power_cut(full_config, config):
@@ -253,14 +275,19 @@ def _caps_lost_on_power_cut(full_config, config):
 def _final_validate(config):
     if _caps_lost_on_power_cut(fv.full_config.get(), config):
         _LOGGER.warning(
-            "toshiba_suzumi: the detected unit features are lost on a power cut, and the "
+            "%s: the detected unit features are lost on a power cut, and the "
             "device restarts once to detect them again. Add 'restore_from_flash: true' "
-            "under 'esp8266:' to keep them."
+            "under 'esp8266:' to keep them.",
+            DOMAIN,
         )
     return config
 
 
-FINAL_VALIDATE_SCHEMA = _final_validate
+# The unit talks 9600 baud 8E1; catch a wrong uart: block at compile time.
+FINAL_VALIDATE_SCHEMA = cv.All(
+    uart.final_validate_device_schema(DOMAIN, baud_rate=9600, data_bits=8, parity="EVEN", stop_bits=1),
+    _final_validate,
+)
 
 
 def _mark_auto(var, config, key, entity):
@@ -268,174 +295,109 @@ def _mark_auto(var, config, key, entity):
         cg.add(var.add_auto_entity(entity, AUTO_ENTITIES[key][1]))
 
 
+# Entity setters: key -> (setter on the climate component).
+SENSORS = {
+    CONF_INDOOR_TEMP: "set_indoor_temp_sensor",
+    CONF_OUTDOOR_TEMP: "set_outdoor_temp_sensor",
+    CONF_CDU_TD_TEMP: "set_cdu_td_temp_sensor",
+    CONF_CDU_TS_TEMP: "set_cdu_ts_temp_sensor",
+    CONF_CDU_TE_TEMP: "set_cdu_te_temp_sensor",
+    CONF_CDU_LOAD: "set_cdu_load_sensor",
+    CONF_CDU_IAC: "set_cdu_iac_sensor",
+    CONF_FCU_TC_TEMP: "set_fcu_tc_temp_sensor",
+    CONF_FCU_TCJ_TEMP: "set_fcu_tcj_temp_sensor",
+    CONF_FCU_FAN_RPM: "set_fcu_fan_rpm_sensor",
+    CONF_OFF_TIMER_REMAINING: "set_off_timer_remaining_sensor",
+    CONF_ENERGY: "set_energy_sensor",
+    CONF_POWER: "set_power_sensor",
+}
+BINARY_SENSORS = {
+    CONF_SELF_CLEAN: "set_self_clean_sensor",
+    CONF_OFF_TIMER: "set_off_timer_sensor",
+}
+TEXT_SENSORS = {
+    CONF_FCU_MODEL: "set_fcu_model_text_sensor",
+    CONF_FCU_SERIAL: "set_fcu_serial_text_sensor",
+    CONF_FCU_FIRMWARE: "set_fcu_firmware_text_sensor",
+    CONF_CDU_MODEL: "set_cdu_model_text_sensor",
+    CONF_CDU_SERIAL: "set_cdu_serial_text_sensor",
+    CONF_CDU_FIRMWARE: "set_cdu_firmware_text_sensor",
+    CONF_ERROR_CODE: "set_error_code_text_sensor",
+}
+SELECTS = {
+    CONF_PWR_SELECT: ("set_pwr_select", PWR_SELECT_OPTIONS),
+    CONF_VERTICAL_AIR_DIRECTION: ("set_vertical_air_direction_select", VERTICAL_AIR_DIRECTION_OPTIONS),
+}
+
+
+def _set_presets(var, presets):
+    cg.add(var.set_supported_presets(presets))
+    if PRESET_EIGHT_DEG in presets:
+        # 8 °C heating goes down to 5 °C.
+        cg.add(var.set_min_temp(5))
+
+
 async def to_code(config):
-    var = cg.new_Pvariable(config[CONF_ID])
+    var = await climate.new_climate(config)
     await cg.register_component(var, config)
-    await climate.register_climate(var, config)
     await uart.register_uart_device(var, config)
     cg.add(var.set_auto_detect(config[CONF_AUTO_DETECT]))
     if _caps_lost_on_power_cut(CORE.config, config):
         cg.add(var.set_caps_volatile(True))
 
-    if CONF_IONIZER in config:
-        sw = await switch.new_switch(config[CONF_IONIZER])
+    if conf := config.get(CONF_IONIZER):
+        sw = await switch.new_switch(conf)
         await cg.register_parented(sw, config[CONF_ID])
         cg.add(var.set_ionizer_switch(sw))
         _mark_auto(var, config, CONF_IONIZER, sw)
 
-    if CONF_INDOOR_TEMP in config:
-        conf = config[CONF_INDOOR_TEMP]
-        sens = await sensor.new_sensor(conf)
-        cg.add(var.set_indoor_temp_sensor(sens))
+    for key, setter in SENSORS.items():
+        if conf := config.get(key):
+            sens = await sensor.new_sensor(conf)
+            cg.add(getattr(var, setter)(sens))
+            _mark_auto(var, config, key, sens)
 
-    if CONF_OUTDOOR_TEMP in config:
-        conf = config[CONF_OUTDOOR_TEMP]
-        sens = await sensor.new_sensor(conf)
-        cg.add(var.set_outdoor_temp_sensor(sens))
-        _mark_auto(var, config, CONF_OUTDOOR_TEMP, sens)
+    for key, setter in BINARY_SENSORS.items():
+        if conf := config.get(key):
+            sens = await binary_sensor.new_binary_sensor(conf)
+            cg.add(getattr(var, setter)(sens))
+            _mark_auto(var, config, key, sens)
 
-    if CONF_CDU_TD_TEMP in config:
-        sens = await sensor.new_sensor(config[CONF_CDU_TD_TEMP])
-        cg.add(var.set_cdu_td_temp_sensor(sens))
-        _mark_auto(var, config, CONF_CDU_TD_TEMP, sens)
+    for key, setter in TEXT_SENSORS.items():
+        if conf := config.get(key):
+            sens = await text_sensor.new_text_sensor(conf)
+            cg.add(getattr(var, setter)(sens))
+            _mark_auto(var, config, key, sens)
 
-    if CONF_CDU_TS_TEMP in config:
-        sens = await sensor.new_sensor(config[CONF_CDU_TS_TEMP])
-        cg.add(var.set_cdu_ts_temp_sensor(sens))
-        _mark_auto(var, config, CONF_CDU_TS_TEMP, sens)
+    for key, (setter, options) in SELECTS.items():
+        if conf := config.get(key):
+            sel = await select.new_select(conf, options=options)
+            await cg.register_parented(sel, config[CONF_ID])
+            cg.add(getattr(var, setter)(sel))
+            _mark_auto(var, config, key, sel)
 
-    if CONF_CDU_TE_TEMP in config:
-        sens = await sensor.new_sensor(config[CONF_CDU_TE_TEMP])
-        cg.add(var.set_cdu_te_temp_sensor(sens))
-        _mark_auto(var, config, CONF_CDU_TE_TEMP, sens)
+    if CONF_HORIZONTAL_SWING in config:
+        cg.add(var.set_horizontal_swing(config[CONF_HORIZONTAL_SWING]))
 
-    if CONF_CDU_LOAD in config:
-        sens = await sensor.new_sensor(config[CONF_CDU_LOAD])
-        cg.add(var.set_cdu_load_sensor(sens))
-        _mark_auto(var, config, CONF_CDU_LOAD, sens)
+    if (min_temp := config.get(CONF_MIN_TEMP)) is not None:
+        cg.add(var.set_min_temp(min_temp))
 
-    if CONF_CDU_IAC in config:
-        sens = await sensor.new_sensor(config[CONF_CDU_IAC])
-        cg.add(var.set_cdu_iac_sensor(sens))
-        _mark_auto(var, config, CONF_CDU_IAC, sens)
+    if (disable_heat := config.get(CONF_DISABLE_HEAT_MODE)) is not None:
+        cg.add(var.disable_heat_mode(disable_heat))
 
-    if CONF_FCU_TC_TEMP in config:
-        sens = await sensor.new_sensor(config[CONF_FCU_TC_TEMP])
-        cg.add(var.set_fcu_tc_temp_sensor(sens))
-        _mark_auto(var, config, CONF_FCU_TC_TEMP, sens)
+    if (disable_led := config.get(CONF_DISABLE_WIFI_LED)) is not None:
+        cg.add(var.disable_wifi_led(disable_led))
 
-    if CONF_FCU_TCJ_TEMP in config:
-        sens = await sensor.new_sensor(config[CONF_FCU_TCJ_TEMP])
-        cg.add(var.set_fcu_tcj_temp_sensor(sens))
-        _mark_auto(var, config, CONF_FCU_TCJ_TEMP, sens)
-
-    if CONF_FCU_FAN_RPM in config:
-        sens = await sensor.new_sensor(config[CONF_FCU_FAN_RPM])
-        cg.add(var.set_fcu_fan_rpm_sensor(sens))
-        _mark_auto(var, config, CONF_FCU_FAN_RPM, sens)
-
-    if CONF_PWR_SELECT in config:
-        sel = await select.new_select(config[CONF_PWR_SELECT], options=['50 %', '75 %', '100 %'])
-        await cg.register_parented(sel, config[CONF_ID])
-        cg.add(var.set_pwr_select(sel))
-        _mark_auto(var, config, CONF_PWR_SELECT, sel)
-
-    if CONF_VERTICAL_AIR_DIRECTION in config:
-        sel = await select.new_select(config[CONF_VERTICAL_AIR_DIRECTION], options=['Off', 'Swing', 'Top', 'Middle Top', 'Middle', 'Middle Bottom', 'Bottom'])
-        await cg.register_parented(sel, config[CONF_ID])
-        cg.add(var.set_vertical_air_direction_select(sel))
-        _mark_auto(var, config, CONF_VERTICAL_AIR_DIRECTION, sel)
-    if CONF_SELF_CLEAN in config:
-        sens = await binary_sensor.new_binary_sensor(config[CONF_SELF_CLEAN])
-        cg.add(var.set_self_clean_sensor(sens))
-        _mark_auto(var, config, CONF_SELF_CLEAN, sens)
-
-    if CONF_OFF_TIMER in config:
-        sens = await binary_sensor.new_binary_sensor(config[CONF_OFF_TIMER])
-        cg.add(var.set_off_timer_sensor(sens))
-        _mark_auto(var, config, CONF_OFF_TIMER, sens)
-
-    if CONF_OFF_TIMER_REMAINING in config:
-        sens = await sensor.new_sensor(config[CONF_OFF_TIMER_REMAINING])
-        cg.add(var.set_off_timer_remaining_sensor(sens))
-        _mark_auto(var, config, CONF_OFF_TIMER_REMAINING, sens)
-
-    if CONF_FCU_MODEL in config:
-        sens = await text_sensor.new_text_sensor(config[CONF_FCU_MODEL])
-        cg.add(var.set_fcu_model_text_sensor(sens))
-        _mark_auto(var, config, CONF_FCU_MODEL, sens)
-
-    if CONF_FCU_SERIAL in config:
-        sens = await text_sensor.new_text_sensor(config[CONF_FCU_SERIAL])
-        cg.add(var.set_fcu_serial_text_sensor(sens))
-        _mark_auto(var, config, CONF_FCU_SERIAL, sens)
-
-    if CONF_FCU_FIRMWARE in config:
-        sens = await text_sensor.new_text_sensor(config[CONF_FCU_FIRMWARE])
-        cg.add(var.set_fcu_firmware_text_sensor(sens))
-        _mark_auto(var, config, CONF_FCU_FIRMWARE, sens)
-
-    if CONF_CDU_MODEL in config:
-        sens = await text_sensor.new_text_sensor(config[CONF_CDU_MODEL])
-        cg.add(var.set_cdu_model_text_sensor(sens))
-        _mark_auto(var, config, CONF_CDU_MODEL, sens)
-
-    if CONF_CDU_SERIAL in config:
-        sens = await text_sensor.new_text_sensor(config[CONF_CDU_SERIAL])
-        cg.add(var.set_cdu_serial_text_sensor(sens))
-        _mark_auto(var, config, CONF_CDU_SERIAL, sens)
-
-    if CONF_CDU_FIRMWARE in config:
-        sens = await text_sensor.new_text_sensor(config[CONF_CDU_FIRMWARE])
-        cg.add(var.set_cdu_firmware_text_sensor(sens))
-        _mark_auto(var, config, CONF_CDU_FIRMWARE, sens)
-
-    if CONF_ERROR_CODE in config:
-        sens = await text_sensor.new_text_sensor(config[CONF_ERROR_CODE])
-        cg.add(var.set_error_code_text_sensor(sens))
-        _mark_auto(var, config, CONF_ERROR_CODE, sens)
-
-    if FEATURE_HORIZONTAL_SWING in config:
-        cg.add(var.set_horizontal_swing(config[FEATURE_HORIZONTAL_SWING]))
-
-    if MIN_TEMP in config:
-        cg.add(var.set_min_temp(config[MIN_TEMP]))
-
-    if DISABLE_HEAT_MODE in config:
-        cg.add(var.disable_heat_mode(True))
-
-    if DISABLE_WIFI_LED in config:
-        cg.add(var.disable_wifi_led(True))
-
-    if CONF_SUPPORTED_PRESETS in config:
-        presets = config[CONF_SUPPORTED_PRESETS]
-        cg.add(var.set_supported_presets(presets))
-        if "8 degrees" in presets:
-            # if "8 degrees" feature is in the list, set the min visual temperature to 5
-            cg.add(var.set_min_temp(5))
+    if presets := config.get(CONF_SUPPORTED_PRESETS):
+        _set_presets(var, presets)
 
     # CONF_SPECIAL_MODE is deprecated - replaced by CONF_SUPPORTED_PRESETS
     # Keep it for backward compatibility
-    if CONF_SPECIAL_MODE in config:
-        presets = config[CONF_SPECIAL_MODE][CONF_SPECIAL_MODE_MODES]
-        cg.add(var.set_supported_presets(presets))
-        if "8 degrees" in presets:
-            # if "8 degrees" feature is in the list, set the min visual temperature to 5
-            cg.add(var.set_min_temp(5))
+    if special_mode := config.get(CONF_SPECIAL_MODE):
+        _set_presets(var, special_mode[CONF_SPECIAL_MODE_MODES])
 
-    if CONF_TIME_ID in config:
-        time_ = await cg.get_variable(config[CONF_TIME_ID])
+    if time_id := config.get(CONF_TIME_ID):
+        time_ = await cg.get_variable(time_id)
         cg.add(var.set_time(time_))
 
-    if CONF_TIME_SYNC_INTERVAL in config:
-        cg.add(var.set_time_sync_interval(config[CONF_TIME_SYNC_INTERVAL]))
-
-    if CONF_ENERGY in config:
-        sens = await sensor.new_sensor(config[CONF_ENERGY])
-        cg.add(var.set_energy_sensor(sens))
-        _mark_auto(var, config, CONF_ENERGY, sens)
-
-    if CONF_POWER in config:
-        sens = await sensor.new_sensor(config[CONF_POWER])
-        cg.add(var.set_power_sensor(sens))
-        _mark_auto(var, config, CONF_POWER, sens)
+    cg.add(var.set_time_sync_interval(config[CONF_TIME_SYNC_INTERVAL]))

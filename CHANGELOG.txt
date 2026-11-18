@@ -1,4 +1,40 @@
 ***
+Nov 18th 2026
+
+Compatibility with ESPHome 2026.11 and ESPHome coding standards.
+
+* Requires ESPHome 2026.11 or newer; the configuration check reports older
+  versions. For ESPHome 2026.4 - 2026.10 use the tag 2026.10.
+
+* Builds with ESPHome 2026.11 (format_hex_pretty() is no longer reachable
+  through helpers.h).
+
+* Log tag changed from "ToshibaClimateUart" to "toshiba_suzumi". Update
+  `logger: logs:` entries that use the old tag.
+
+* Values received from the unit, commands sent and frame dumps are logged at
+  VERBOSE instead of DEBUG. Rejected requests and unknown properties are still
+  logged at DEBUG.
+
+* The uart: block is checked at compile time: 9600 baud, 8 data bits, EVEN
+  parity, 1 stop bit.
+
+* special_mode (deprecated since 2025.09) now logs a warning. Use
+  supported_presets with the same list instead.
+
+* min_temp accepts 5 - 30 only.
+
+* After five missed keepalive replies the component shows a warning status in
+  Home Assistant until the unit answers again.
+
+* disable_heat_mode: false and disable_wifi_led: false now really keep heat
+  mode / the Wi-Fi LED on (before, listing the key at all disabled it).
+
+* No heap allocation in the UART path after setup: commands are queued in a
+  fixed-size queue and frames are built when sent; received frames use a
+  fixed buffer.
+
+***
 Nov 13th 2026
 
 Automatic feature detection and ionizer.
