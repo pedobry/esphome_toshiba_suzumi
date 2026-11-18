@@ -1469,7 +1469,11 @@ void ToshibaClimateUart::dump_config() {
   auto log_hidden = [this](const char *label, EntityBase *entity) {
     if (!this->is_hidden_auto_entity_(entity))
       return false;
+#if ESPHOME_VERSION_CODE >= VERSION_CODE(2026, 11, 0)
+    ESP_LOGCONFIG(TAG, "%s '%s': hidden (feature not detected)", label, LOG_STR_ARG(entity->get_log_name()));
+#else
     ESP_LOGCONFIG(TAG, "%s '%s': hidden (feature not detected)", label, entity->get_name().c_str());
+#endif
     return true;
   };
   if (this->ionizer_switch_ != nullptr && !log_hidden("Ionizer", this->ionizer_switch_)) {
