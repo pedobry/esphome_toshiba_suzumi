@@ -6,9 +6,128 @@ Toshiba air conditioner has an option for connecting remote module purchased sep
 
 This component use ESPHome UART to connect with Toshiba AC and communicates directly with Home Assistant.
 
-<a href="https://www.buymeacoffee.com/pedobryk" target="_blank"><img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" alt="Buy Me A Coffee" style="height: 60px !important;width: 217px !important;" ></a>
+## Contents
 
-## ESPHome versions
+- [Supported Toshiba units](#supported-toshiba-units)
+- [Hardware](#hardware)
+  - [Pinout](#pinout)
+  - [ESP32 (WROOM 32D)](#esp32-wroom-32d)
+  - [ESP8266 (Lolin D1 mini)](#esp8266-lolin-d1-mini)
+  - [Units with a 4-pin CN22](#units-with-a-4-pin-cn22)
+- [Installation](#installation)
+  - [ESPHome versions](#esphome-versions)
+  - [Configuration](#configuration)
+  - [Optional settings](#optional-settings)
+  - [Home Assistant](#home-assistant)
+- [Automatic feature detection](#automatic-feature-detection)
+  - [Detecting features again](#detecting-features-again)
+  - [Examples](#examples)
+- [Climate control](#climate-control)
+  - [Temperature range](#temperature-range)
+  - [Vertical air directions](#vertical-air-directions)
+- [Sensors](#sensors)
+  - [Filtering incorrect values](#filtering-incorrect-values)
+  - [Self-cleaning status](#self-cleaning-status)
+  - [OFF timer](#off-timer)
+  - [Error code](#error-code)
+  - [Unit model information](#unit-model-information)
+  - [Indoor and outdoor unit diagnostics](#indoor-and-outdoor-unit-diagnostics)
+- [Energy and power](#energy-and-power)
+  - [Native energy and power monitoring](#native-energy-and-power-monitoring)
+  - [Estimating power from compressor load](#estimating-power-from-compressor-load)
+- [Reporting an issue](#reporting-an-issue)
+- [Protocol analysis](#protocol-analysis)
+- [Links](#links)
+
+## Supported Toshiba units
+
+Any unit which have an option to purchase a WiFi adapter RB-N105S-G/RB-N106S-G:
+
+* Seiya RAS-B24 J2KVG-E
+* Suzumi Plus RAS-B18, B22 and B24 PKVSG-E
+* Shorai Premium RAS-B18, B22 and B24 J2KVRG-E
+* Daiseikai 9 RAS-B10, B13 and B16 PKVPG-E
+* Shorai Edge RAS-B07, B10, B13, B16, B18, B22 and B24 J2KVSG-E
+* Seiya RAS-B10, B13, B16 and B18 J2KVG-E
+* Suzumi Plus RAS-B10, B13 and B16 PKVSG-E
+* Mirai RAS-13BKV-E (4-pin CN22, see [Units with a 4-pin CN22](#units-with-a-4-pin-cn22))
+* Shorai Premium RAS-B10, B13 and B16 J2KVRG-E
+* SHORAI CURVE RAS-B13P2KVSG, RAS-B10P2KVSG
+
+**2026 units:** it seems that some 2026 units ship already with new built-in wifi module (SHORAI CURVE RAS-B13P2KVSG, RAS-B10P2KVSG). This adapter is model WRE-T00BJ10 based on RTL8710C (ARM Thumb). Seems to have the same funtionality as RB-N105S-G/RB-N106S-G and can be replaced by custom ESP adapter.
+
+## Hardware
+
+‼️‼️<br>
+**WARNING: Do NOT connect PIN 5 (the outermost pink wire) to anything. Double check that you have wired the ESP device correctly. Only connect and disconnect the ESP while the AC unit is disconnected from main power. Shorts or wrong wiring will damage AC unit board.**<br>
+‼️‼️
+
+* tested with ESP32 (WROOM 32D)
+* tested with ESP8266 (Lolin D1 mini)
+* connection adapter can be used the same as with this solution (https://github.com/toremick/shorai-esp32).
+* Alternatively, you can use only a level shifter between 5V (AC unit) and 3.3V (ESP32) (search Aliexpress for "level shifter"). That's what I use and it works fine.
+
+### Pinout
+
+AC unit has a wifi connector CN22 with an extension cable, usually with pink and blue colors (see the schema below).
+
+<p align="center">
+
+|pin number| color | ESP32 pin  |ESP8266 pin|
+|----------|-------|------------|-----------|
+|    1     |🟦 blue  | 33 (TX)    | GPIO13 / D7 (TX) |
+|    2     |🟪 pink  | GND        | GND       |
+|    3     |⬛️ black | \+5V (Vin) | \+5V (5V pin) |
+|    4     |⬜️ white | 32 (RX)    | GPIO12 / D6 (RX) |
+|    5     |🟪 pink  | **do NOT use** | **do NOT use** |
+
+</p>
+
+The matching connector is JST PA2.0 ([Aliexpress](https://www.aliexpress.com/item/1005007176563512.html))
+
+### ESP32 (WROOM 32D)
+
+   ![schema](/images/schema.jpg)
+
+   Please pay attention to correctly wire the level shifter - it must have both High Voltage (5V and GND from the AC unit) and Low Voltage (3.3V and GND from ESP) connected.
+
+
+   ![adapter](/images/adapter.jpg)
+
+### ESP8266 (Lolin D1 mini)
+
+   ![d1_mini](/images/D1_mini.jpg)
+
+**Do not use the boot strapping pins** GPIO15 (D8), GPIO0 (D3) and GPIO2 (D4) for RX or TX. At reset GPIO15 must be low and GPIO0/GPIO2 high. The level shifter holds an idle UART line high, so with RX on GPIO15 the D1 mini fails to boot or flash, and GPIO0/GPIO2 can be pulled low when the unit transmits during a reset. GPIO13 (D7) and GPIO12 (D6) are safe ([#22](https://github.com/pedobry/esphome_toshiba_suzumi/issues/22)).
+
+**Keep the configuration small.** After Wi-Fi, the API with encryption and this component, an ESP8266 has little free memory left. When it runs out, the closed Wi-Fi library crashes, typically while processing a beacon from the access point. The log after the restart then shows `CRASH DETECTED ON PREVIOUS BOOT`, `StoreProhibit`, `EXCVADDR: 0x00000000` and a backtrace through `ieee80211_*` / `sta_input`. To avoid it:
+
+* Do not add `web_server`. It is the biggest memory user on an ESP8266, and Home Assistant does not need it. `captive_portal` is fine, because it runs only while the fallback hotspot is active.
+* Leave out other optional components you do not need (`prometheus`, `mqtt` next to `api`, extra sensors).
+* Keep `logger` at `INFO` or lower. `DEBUG` formats many more messages for every log client.
+* Limit API connections: `api: max_connections: 2`.
+
+To check the free memory, add the `debug` component with the `free` and `block` (largest free block) sensors. If the largest block keeps dropping toward 2–4 KB, the device is running out of memory. If you need `web_server` or many extra components, use an ESP32.
+
+A 3D-printable case for a D1 mini with a level shifter, made to fit inside the unit (tested in a Shorai Edge), was shared by jocelyngate38 in [#22](https://github.com/pedobry/esphome_toshiba_suzumi/issues/22) ([Onshape](https://cad.onshape.com/documents/5ec90b698b3d5ae268445e7c/w/77ac5ffb3ec384a32b4f8aa5/e/bcca1c92ac79022cd00207c1)).
+
+### Units with a 4-pin CN22
+
+Some 2017/2018 units have only a 4-pin CN22 on the main board and no extension cable. Toshiba listed them as Wi-Fi ready with adapter RB-N102S-G plus cable 43T60480, which maps CN22 pins 1-4 straight to the adapter's pins 1-4 (pin 5 goes elsewhere). The pinout of pins 1-4 is the same as above: 1 = AC RX, 2 = GND, 3 = +5V, 4 = AC TX.
+
+Confirmed working on a Mirai RAS-13BKV-E with main board WP-026 (sticker B22N3KV2-E1, the same board family as Suzumi RAS-B10/B13/B16/B18/B22 N3KV2-E1):
+
+<p align="center"><img src="images/wp026-overview.jpg" width="45%"> <img src="images/wp026-cn22-pinout.jpg" width="52%"></p>
+
+
+- GND and +5V are the two middle pins; +5V is the one nearer the board edge. The silkscreen marks pin 1 (next to J37) and pin 4. Pin 4 (AC TX) is the outermost pin at the board edge, pin 1 (AC RX) the innermost. Check with a multimeter (continuity to the board's GND test point, unit unplugged) before connecting.
+- Power, mode, fan, swing on/off and setpoint work in both directions; outdoor temperature, power level and self-clean are reported.
+- Not available on this unit: room temperature (0xBB reads 127), Hi POWER and ECO (0xF7 neither answered nor acted on), fixed louver positions (acknowledged but ignored), energy and ODU/IDU data.
+
+## Installation
+
+### ESPHome versions
+
 Current main branch supports latest ESPHome **2026.1**. There have been some internal changes in climate entity in ESPHome which makes it incompatible with previous ESPHome versions.
 
 If you use ESPHome **2025.10 or earlier**, use tag `2025.10` like this:
@@ -36,80 +155,7 @@ external_components:
 
 These older version won't be maintained, I'd recommend to upgrade to ESPHome 2026.1
 
-## Supported Toshiba units
-
-Any unit which have an option to purchase a WiFi adapter RB-N105S-G/RB-N106S-G:
-
-* Seiya RAS-B24 J2KVG-E
-* Suzumi Plus RAS-B18, B22 and B24 PKVSG-E
-* Shorai Premium RAS-B18, B22 and B24 J2KVRG-E
-* Daiseikai 9 RAS-B10, B13 and B16 PKVPG-E
-* Shorai Edge RAS-B07, B10, B13, B16, B18, B22 and B24 J2KVSG-E
-* Seiya RAS-B10, B13, B16 and B18 J2KVG-E
-* Suzumi Plus RAS-B10, B13 and B16 PKVSG-E
-* Mirai RAS-13BKV-E (4-pin CN22, see [Pinout](#pinout))
-* Shorai Premium RAS-B10, B13 and B16 J2KVRG-E
-* SHORAI CURVE RAS-B13P2KVSG, RAS-B10P2KVSG
-
-#### 2026 units
-It seems that some 2026 units ship already with new built-in wifi module (SHORAI CURVE RAS-B13P2KVSG, RAS-B10P2KVSG). This adapter is model WRE-T00BJ10 based on RTL8710C (ARM Thumb). Seems to have the same funtionality as RB-N105S-G/RB-N106S-G and can be replaced by custom ESP adapter.
-
-## Hardware
-
-* tested with ESP32 (WROOM 32D)
-* tested with ESP8266 (Lolin D1 mini)
-* connection adapter can be used the same as with this solution (https://github.com/toremick/shorai-esp32).
-* Alternatively, you can use only a level shifter between 5V (AC unit) and 3.3V (ESP32) (search Aliexpress for "level shifter"). That's what I use and it works fine.
-
-### ESP32 (WROOM 32D)
-
-   ![schema](/images/schema.jpg)
-
-   Please pay attention to correctly wire the level shifter - it must have both High Voltage (5V and GND from the AC unit) and Low Voltage (3.3V and GND from ESP) connected.
-  
-
-   ![adapter](/images/adapter.jpg)
-
-### ESP 8266EX (Lolin D1 mini)
-
-   ![d1_mini](/images/D1_mini.jpg)
-
-### Pinout
-
-AC unit has a wifi connector CN22 with an extension cable, usually with pink and blue colors (see the schema above).
-
-<p align="center">
-
-|pin number| color | ESP32 pin  |ESP8266 pin|
-|----------|-------|------------|-----------|
-|    1     |🟦 blue  | 33 (TX)    | 13 (TX)   |
-|    2     |🟪 pink  | GND        | GND       |
-|    3     |⬛️ black | \+5V (Vin) | \+5V (Vin)|
-|    4     |⬜️ white | 32 (RX)    | 12 (RX)   |
-|    5     |🟪 pink  | **do NOT use** | **do NOT use** |
-
-</p>
-
-The matching connector is JST PA2.0 ([Aliexpress](https://www.aliexpress.com/item/1005007176563512.html))
-
-#### Units with a 4-pin CN22 (2017/2018 models)
-
-Some 2017/2018 units have only a 4-pin CN22 on the main board and no extension cable. Toshiba listed them as Wi-Fi ready with adapter RB-N102S-G plus cable 43T60480, which maps CN22 pins 1-4 straight to the adapter's pins 1-4 (pin 5 goes elsewhere). The pinout of pins 1-4 is the same as above: 1 = AC RX, 2 = GND, 3 = +5V, 4 = AC TX.
-
-Confirmed working on a Mirai RAS-13BKV-E with main board WP-026 (sticker B22N3KV2-E1, the same board family as Suzumi RAS-B10/B13/B16/B18/B22 N3KV2-E1):
-
-<p align="center"><img src="images/wp026-overview.jpg" width="45%"> <img src="images/wp026-cn22-pinout.jpg" width="52%"></p>
-
-
-- GND and +5V are the two middle pins; +5V is the one nearer the board edge. The silkscreen marks pin 1 (next to J37) and pin 4. Pin 4 (AC TX) is the outermost pin at the board edge, pin 1 (AC RX) the innermost. Check with a multimeter (continuity to the board's GND test point, unit unplugged) before connecting.
-- Power, mode, fan, swing on/off and setpoint work in both directions; outdoor temperature, power level and self-clean are reported.
-- Not available on this unit: room temperature (0xBB reads 127), Hi POWER and ECO (0xF7 neither answered nor acted on), fixed louver positions (acknowledged but ignored), energy and ODU/IDU data.
-
-‼️‼️<br>
-**WARNING: Do NOT connect PIN 5 (the outermost pink wire) to anything. Double check that you have wired the ESP device correctly. Only connect and disconnect the ESP while the AC unit is disconnected from main power. Shorts or wrong wiring will damage AC unit board.**<br>
-‼️‼️
-
-## Installation
+### Configuration
 
 1. install Home Assistant and [ESPHome Addon](https://esphome.io/guides/getting_started_hassio.html)
 
@@ -120,6 +166,10 @@ Confirmed working on a Mirai RAS-13BKV-E with main board WP-026 (sticker B22N3KV
 3. edit code configuration and setup UART and Climate modules. See [example.yaml](https://github.com/pedobry/esphome_toshiba_suzumi/blob/main/example.yaml) for configuration details.
 
 ```yaml
+substitutions:
+  climate_name: Living Room
+  climate_id: living_room   # used as id(${climate_id}) in lambdas
+
 ...
 external_components:
   - source: 
@@ -134,71 +184,92 @@ uart:
   parity: EVEN
   baud_rate: 9600
 
-# Optional. Required only if the energy/power sensor feature is enabled.
+# Optional. Needed for the energy / power sensors (the unit clock is set from it).
 # time:
 #   - platform: homeassistant
 #     id: hass_time
 
 climate:
   - platform: toshiba_suzumi
-    name: living-room
-    id: living_room
+    name: ${climate_name}
+    id: ${climate_id}
     uart_id: uart_bus
-    #time_id: hass_time  # Optional. Required only if the energy/power sensor feature is enabled.
-    #time_sync_interval: 24h  # Optional. Time sync interval. Default 24h. Set to 0 to sync only at startup.
-    #energy:  # Optional. Daily energy consumption sensor (Wh).
-    #  name: "Daily Energy"
-    #power:  # Optional. Estimated real-time power sensor (W).
-    #  name: "Realtime Power"
-    #indoor_temp:        # Optional. Indoor temperature sensor
+    #time_id: hass_time  # Optional. Enables energy / power on units that have them.
+
+button:
+  # Optional. Forget the detected unit features and detect them again (restarts the ESP).
+  - platform: template
+    name: "Detect AC features again"
+    icon: "mdi:magnify-scan"
+    entity_category: config
+    on_press:
+      then:
+        - lambda: id(${climate_id}).reset_capabilities();
+...
+```
+
+The component is automatically installed directly from Github during compilation.
+
+That is all that is needed: the component finds out what the unit supports and creates the
+matching Home Assistant entities and presets (see [Automatic feature detection](#automatic-feature-detection)).
+
+### Optional settings
+
+Every option below is optional and only needed to rename an entity or to override detection:
+
+```yaml
+climate:
+  - platform: toshiba_suzumi
+    ...
+    #auto_detect: false      # Turn detection off: only what is listed here is created (old behaviour)
+    #time_sync_interval: 24h # Clock sync interval. Default 24h. Set to 0 to sync only at startup.
+    #disable_wifi_led: true  # Keep the indoor-unit Wi-Fi LED off (EPC 0xDE/0xDF).
+    # Entities. Listing one always shows it, with your name; otherwise it is created
+    # with a default name and shown only when the unit supports it.
+    #indoor_temp:            # Not created automatically (the climate entity shows the room temperature)
     #  name: Indoor Temp
-    outdoor_temp:        # Optional. Outdoor temperature sensor
-      name: Outdoor Temp
-    power_select:
-      name: "Power level"
-    #vertical_air_direction: # Optional. Fixed vertical air direction.
-      # Controls the Toshiba horizontal louver, which directs air up/down.
-      #name: "Vertical air direction"
-    #self_clean:              # Optional. Enables self-clean detection and reports its status.
-      #name: "Self Clean"
-    #off_timer:              # Optional. ON while the OFF timer set on the remote is running.
-      #name: "Off timer"
-    #off_timer_remaining:    # Optional. Minutes until the OFF timer switches the unit off.
-      #name: "Off timer remaining"
-    #horizontal_swing: true # Optional. Uncomment if your HVAC supports also horizontal swing
-    #supported_presets:          # Optional. Enable only the features your HVAC
-      #- "Standard"
+    #outdoor_temp:
+    #  name: Outdoor Temp
+    #power_select:
+    #  name: "Power level"
+    #vertical_air_direction: # Fixed louver position (Toshiba "horizontal louver", air up/down)
+    #  name: "Vertical air direction"
+    #ionizer:                # Ionizer / air purifier on/off (EPC 0xC7)
+    #  name: "Ionizer"
+    #self_clean:             # Post-shutdown self-cleaning status
+    #  name: "Self Clean"
+    #off_timer:              # ON while the OFF timer set on the remote is running
+    #  name: "Off timer"
+    #off_timer_remaining:    # Minutes until the OFF timer switches the unit off
+    #  name: "Off timer remaining"
+    #error_code:             # Fault code reported by the unit ("none" when OK)
+    #  name: Error Code
+    #energy:                 # Daily energy consumption (Wh), needs time_id
+    #  name: "Daily Energy"
+    #power:                  # Estimated real-time power (W), needs time_id
+    #  name: "Realtime Power"
+    #fcu_model / fcu_serial / fcu_firmware / cdu_model / cdu_serial / cdu_firmware: unit information
+    #cdu_load / cdu_iac / cdu_td_temp / cdu_ts_temp / cdu_te_temp: outdoor unit diagnostics
+    #fcu_tc_temp / fcu_tcj_temp / fcu_fan_rpm: indoor unit diagnostics
+    # Climate features. Setting one replaces the detected value.
+    #horizontal_swing: true  # Offer horizontal swing
+    #disable_heat_mode: true # Cooling-only unit
+    #min_temp: 5
+    #supported_presets:      # Exactly these presets. "Sleep" and "Comfort" are never detected
+      #- "Standard"          # (they have no capability bit), list them here if your remote has them.
       #- "Hi POWER"
       #- "ECO"
       #- "Fireplace 1"
       #- "Fireplace 2"
-      #- "8 degrees"             # When enabling this mode, the temp range is set to 5-30°C
+      #- "8 degrees"         # The temp range is then 5-30°C
       #- "Silent#1"
       #- "Silent#2"
       #- "Sleep"
       #- "Floor"
       #- "Comfort"
-    #disable_wifi_led: true # Optional. Disable Wifi LED on internal unit.
-    #cdu_load:                    # Optional. Compressor load (%) - useful for estimating power consumption
-    #  name: "Compressor Load"
-    #cdu_iac:                     # Optional. Compressor current
-    #  name: "Compressor Current"
-    #cdu_td_temp:                 # Optional. CDU discharge pipe temperature
-    #  name: "CDU Discharge Temp"
-    #cdu_ts_temp:                 # Optional. CDU suction pipe temperature
-    #  name: "CDU Suction Temp"
-    #cdu_te_temp:                 # Optional. CDU evaporator temperature
-    #  name: "CDU Evaporator Temp"
-    #fcu_tc_temp:                 # Optional. FCU heat exchanger temperature
-    #  name: "FCU Heat Exchanger Temp"
-    #fcu_tcj_temp:                # Optional. FCU heat exchanger junction temperature
-    #  name: "FCU Junction Temp"
-    #fcu_fan_rpm:                 # Optional. FCU fan speed (RPM)
-    #  name: "FCU Fan RPM"
-...
 ```
 
-The component is automatically installed directly from Github during compilation.
+### Home Assistant
 
 When configured correctly, new ESPHome device will appear in Home Assistant integrations and you'll be asked to provide encryption key (it's in the node configuration from step 2.). All entities then populate automatically.
 
@@ -208,24 +279,103 @@ You can then create a Thermostat card on the dashboard.
 
 ![HomeAssistant card](/images/HA_card.png)
 
-### Temperature range (FrostGuard)
-Homeassistant thermostat component is by default set with a range of 17-30°C.
-If your unit is equipped with "8 degress" aka FrostGuard, you can enable that in YAML configuration (Supported presets). The range is then automatically set to 5-30°C and when you set target temp above 17°C, it will switch to Standard mode, when you set target temp below 17°C, it will switch automatically to FrostGuard.
+## Automatic feature detection
 
-## Filtering incorrect values (127 / 254 / 255)
+The component finds out what the unit supports from:
 
-The component automatically filters out incorrect sensor readings at the code level:
-- Temperature readings of `127` (which the unit transmits when it cannot measure the temperature or when it is off) are ignored.
-- Compressor load and current values of `254` or `255` are also ignored.
+- the unit identification bytes in the handshake (logged as the unit profile),
+- the unit's feature mask, EPC `0xEE` (special modes, cooling-only / heating-only, horizontal louver, energy, fixed louver positions, ionizer),
+- which properties the unit answers (outdoor temperature, power level, self-clean, OFF timer, fault code) and which status messages it sends (indoor / outdoor diagnostics, unit information).
 
-Therefore, you do not need to add manual filters in your YAML configuration for these values. However, if you need to filter out other values, you can still add ESPHome filters like this:
+Presets: units that report a feature mask get "Standard", "ECO" and "Hi POWER", plus "8 degrees", "Fireplace 1/2", "Silent#1/#2" and "Floor" when the mask has them. Units without the mask get no special modes. "Sleep" and "Comfort" are not in the mask and are offered only when you list them in `supported_presets`.
+
+Home Assistant reads entities and presets only when it connects, and ESPHome can hide entities only at startup. The result is therefore stored in flash and applied at the next start: **the first time (and whenever something new is found) the device restarts once**, about 30 seconds after connecting to the unit. You will see `Unit capabilities changed ... Restarting` in the log. For the same indoor unit features are only added, never removed.
+
+The exception is a unit that sends its diagnostics or unit information only later (profile 1 and 2 units push `0xE0`/`0xE4`/`0xE5` on their own, sometimes hours after the start). Those only add sensors, so the device stores them without a restart (`New unit features ... stored without a restart` in the log). Home Assistant shows the new sensors after the next restart, or right away if you reload the ESPHome integration.
+
+On ESP8266 the stored result survives restarts but not a power cut unless `esp8266: restore_from_flash: true` is set; without it the device simply detects again after power is restored.
+
+### Detecting features again
+
+Because detected features are only ever added, a feature that was found by mistake (or that belonged to a different unit) stays until the stored result is cleared. Both example configurations include an optional button that does this:
 
 ```yaml
-    outdoor_temp:
-      name: Outdoor Temp
-      filters:
-        - filter_out: 127
+button:
+  # Optional. Forget the detected unit features and detect them again (restarts the ESP).
+  - platform: template
+    name: "Detect AC features again"
+    icon: "mdi:magnify-scan"
+    entity_category: config
+    on_press:
+      then:
+        - lambda: id(${climate_id}).reset_capabilities();
 ```
+
+Pressing **Detect AC features again** (in the device's *Configuration* section in Home Assistant) calls `reset_capabilities()`, which erases the stored result and restarts the ESP. After the restart the device starts with nothing detected, finds the features again and restarts once more when detection finishes (about 30 seconds after connecting to the unit), the same as on the first start. Entities and presets that the unit does not support then disappear from Home Assistant.
+
+Use it when:
+
+- the ESP was moved to a different unit (normally detected automatically by model and serial, the button forces it),
+- an entity or preset is shown that the unit does not actually support,
+- you want to check detection again after updating the component.
+
+The button is not required for normal operation; leave it out if you do not want it in Home Assistant. Anything set manually in the YAML (listed entities, `supported_presets`, `horizontal_swing`, ...) is not affected by the reset. With `auto_detect: false` the button does nothing.
+
+### Examples
+
+The profile comes from the identification bytes. Profile 3 units answer requests for indoor / outdoor diagnostics. Profile 2 units only send them on their own, if at all. The feature mask `0xEE` then decides which special modes are offered.
+
+**Profile 2: RAS-10PKVSG-E**
+
+```
+[I][ToshibaClimateUart]: Unit profile 2 level 0 (00 01 00 00)
+[I][ToshibaClimateUart]: Profile 2: diagnostics only when the unit pushes them
+[C][ToshibaClimateUart]:   Auto-detected capabilities: 0x0E03F (profile 2, 0xEE 0C 00), 8 of 24 optional entities shown
+```
+
+| Detected | Entities / presets |
+|---|---|
+| Heat and cool (`0xEE` byte 1 bits 1..0 = `00`) | all modes |
+| ECO / Hi POWER (every unit with a feature mask) | presets "ECO", "Hi POWER" |
+| 8 °C mode (`0xEE` byte 1 bit 2) | preset "8 degrees", range 5–30 °C |
+| Fireplace (`0xEE` byte 1 bit 3) | presets "Fireplace 1/2" |
+| Answered `0xBE`, `0x87`, `0xCB`, `0x94`, `0x88` | Outdoor Temperature, Power Level, Self Clean, Off Timer, Off Timer Remaining, Error Code |
+| Identity reply | Indoor Unit Model, Indoor Unit Serial |
+| **Not detected** | Ionizer, Silent, Floor, horizontal swing; IDU / ODU diagnostics and unit information unless the unit sends them; energy and fixed louver positions are not read from the mask on profile 2 |
+
+Horizontal swing (`0xEE` byte 1 bit 6) is read on profile 2 as well, e.g. RAS-10PKVPG (`0xEE 7C 00`) has it. The Toshiba app ignores this bit on profile 2; if your unit reports it but has no horizontal louver, set `horizontal_swing: false`.
+
+**Profile 3: RAS-13NKVRG**
+
+```
+[C][ToshibaClimateUart]:   Unit profile 3 level 1 (00 01 01 01), diagnostics polled
+[C][ToshibaClimateUart]:   Unit feature mask 0xEE: 2C 03
+[C][ToshibaClimateUart]:   Auto-detected capabilities: 0x1E7BF (profile 3, 0xEE 2C 03), 3 of 8 optional entities shown
+```
+
+| Detected | Entities / presets |
+|---|---|
+| Heat and cool, ECO / Hi POWER, 8 °C mode, Fireplace | same as above |
+| Silent (`0xEE` byte 1 bit 5) | presets "Silent#1/#2" |
+| Energy (`0xEE` byte 2 bit 0) | Energy, Power (needs `time:`) |
+| Fixed louver positions (`0xEE` byte 2 bit 1) | Vertical Air Direction |
+| Polled `0xE4` / `0xE5` | indoor coil / fan and outdoor compressor diagnostics |
+| Answered `0xBE`, `0x87`, `0xCB`, `0x94`, `0x88`; identity reply | as above |
+| **Not detected** | Ionizer, Floor, horizontal swing (`0xEE` byte 1 bit 6); unit information until the unit sends `0xE0` |
+
+"X of Y optional entities shown" counts only the entities in your YAML: Y is how many you configured, X is how many the unit supports.
+
+## Climate control
+
+### Temperature range
+
+Homeassistant thermostat component is by default set with a range of 17-30°C.
+If your unit has the "8°C operation" (frost protection, FrostGuard), the range is 5-30°C (detected automatically, or add "8 degrees" to `supported_presets`):
+- a target temperature below 17°C turns 8 °C mode on (5-16°C, as Haori units do from their own remote; Seiya units accept only 5-13°C in this mode) and switches the unit to Heat (the mode heats only),
+- a target temperature of 17°C or more turns it off,
+- selecting the "8 degrees" preset sets 8°C, leaving it sets 20°C (unless the current target already fits the new mode).
+
+The setpoint and the special mode are always sent together, so the unit never keeps an 8 °C mode setpoint (temperature + 16 on the wire) after the mode changes. On units that report a feature mask they go out in one `0xF8` frame (mode, setpoint, fan and special mode).
 
 ### Vertical air directions
 
@@ -239,6 +389,23 @@ Some units support fixed vertical air directions in addition to vertical swing. 
 In Toshiba service documentation this corresponds to the horizontal louver, which controls vertical air direction.
 
 The select provides `Off`, `Swing`, `Top`, `Middle Top`, `Middle`, `Middle Bottom`, and `Bottom`.
+
+## Sensors
+
+### Filtering incorrect values
+
+The component automatically filters out incorrect sensor readings at the code level:
+- Temperature readings of `127` (which the unit transmits when it cannot measure the temperature or when it is off) are ignored.
+- Compressor load and current values of `254` or `255` are also ignored.
+
+Therefore, you do not need to add manual filters in your YAML configuration for these values. However, if you need to filter out other values, you can still add ESPHome filters like this:
+
+```yaml
+    outdoor_temp:
+      name: Outdoor Temp
+      filters:
+        - filter_out: 127
+```
 
 ### Self-cleaning status
 
@@ -255,7 +422,7 @@ How the cycle behaves (per the Toshiba service manual):
 
 - It runs only after cooling or dry operation, and only if that ran for at least 10 minutes; it then runs for a fixed ~30 minutes. It does not run after heating, fan-only, or a short (<10 min) cooling/dry run.
 - During the cycle the indoor fan runs at low speed to dry the unit; the compressor stays off. The unit reports itself as not operating, which is why the climate entity is OFF.
-- The service manual documents enabling/disabling the self-clean cycle as a unit-side procedure (the indoor unit's `RESET` button together with a remote-control diagnosis code). This component reports the cycle but does not control it.
+- The service manual documents enabling/disabling the self-clean cycle as a unit-side procedure (the indoor unit's `RESET` button together with a remote-control diagnosis code). `0xCB` is the ECHONET "self-cleaning function setting", but the meaning of the Toshiba bits for writing is not known, so this component reports the cycle but does not control it.
 
 ### OFF timer
 
@@ -270,15 +437,32 @@ The OFF timer set on the IR remote can be shown in Home Assistant:
 
 `off_timer` follows register 0x94, which the unit pushes when the timer starts or ends. `off_timer_remaining` reads register 0x96 (two bytes: hours and minutes) and reports minutes. The unit doesn't push 0x96, so it is polled at the component's update interval while the timer runs, and reported as 0 when no timer is set. The unit updates 0x96 in coarse steps (a 30 min timer read 0:30, then 0:15). Setting the timer from Home Assistant isn't supported.
 
-## Outdoor/Indoor unit diagnostics (ODU/IDU sensors)
+### Error code
 
-Some Toshiba AC units periodically send extended status messages from the outdoor unit (ODU) and indoor unit (IDU). These messages contain diagnostic data such as compressor load, refrigerant temperatures, and fan speed. The component can parse these and expose them as optional sensors.
+The optional `error_code` text sensor shows the fault code reported by the unit:
 
-**Available sensors:**
+```yaml
+    error_code:
+      name: "Error Code"
+```
+
+Property `0x88` (ECHONET "fault status") tells whether a fault is present, and only then
+the 9-byte property `0x86` (manufacturer's fault code) is read. The sensor shows `none` when there is no fault, or the
+code byte in hex (for example `0x1C`). The full `0x86` data is written to the log as a
+warning. The mapping of these codes to the codes shown on the remote (E01, F02, ...) is not
+known yet.
+
+### Unit model information
+
+`fcu_model` and `fcu_serial` come from the handshake. The outdoor unit (CDU) model, serial and firmware, and the indoor unit firmware, come from a model-info message (EPC `0xE0`) that the unit sends on its own. These sensors stay empty until the unit sends that message, and some units may never send it. When it arrives, everything it carries is also logged and shown in `dump_config`.
+
+### Indoor and outdoor unit diagnostics
+
+Some Toshiba AC units send extended status messages from the outdoor unit (ODU, EPC `0xE5`) and indoor unit (IDU, EPC `0xE4`). These messages contain diagnostic data such as compressor load, refrigerant temperatures, and fan speed. The component can parse these and expose them as optional sensors.
 
 | Sensor | Description | Unit |
 |--------|-------------|------|
-| `cdu_load` | Compressor load (frequency) | % |
+| `cdu_load` | Compressor load, derived from the compressor frequency byte (raw / 1.7) | % |
 | `cdu_iac` | Compressor current / EEV actuation | A |
 | `cdu_td_temp` | CDU discharge pipe temperature | °C |
 | `cdu_ts_temp` | CDU suction pipe temperature | °C |
@@ -287,9 +471,11 @@ Some Toshiba AC units periodically send extended status messages from the outdoo
 | `fcu_tcj_temp` | FCU heat exchanger junction temperature | °C |
 | `fcu_fan_rpm` | FCU fan speed | RPM |
 
-These sensors are all optional — only add the ones you need to your YAML configuration. The data arrives automatically from the unit (no polling required).
+These sensors are all optional — only add the ones you need to your YAML configuration. On units of profile 3 the component polls `0xE4` / `0xE5` after connect and on each update interval; other units publish the values only when they push a status frame. With automatic detection the sensors appear once the unit has sent them.
 
-### Native Energy and Power monitoring
+## Energy and power
+
+### Native energy and power monitoring
 
 If your AC unit supports it, you can now get native energy consumption data. This requires adding a `time` component to your configuration so the component can sync the current time with the AC unit.
 
@@ -302,15 +488,21 @@ climate:
   - platform: toshiba_suzumi
     # ...
     time_id: hass_time
-    energy:
-      name: "Daily Energy"
-    power:
-      name: "Realtime Power"
 ```
 
 The `power` sensor provides a real-time estimate in Watts, calculated from the rate of change in the AC's internal energy counters.
 
-### Estimating power consumption (Fallback)
+The daily energy register (`0xD8`) holds 24 hourly values bucketed by the unit's own clock. Until the clock is set, the unit reports zeros, so `energy` and `power` stay at 0. Only units that support energy reporting answer `0xD8` (with automatic detection the sensors appear only on such units).
+
+How the clock is set:
+
+- The component first sends a weekly-schedule frame (EPC `0x99`) with the current date and time and an empty schedule. Most units accept it. Note that it also clears a weekly schedule stored in the unit by the Toshiba app.
+- Some units ignore `0x99` completely, for example the Carrier 40WHP (Toshiba Haori). If there is no acknowledgement within 15 seconds, the component sends the plain clock frame (EPC `0x98`) instead and keeps alternating until one of them is acknowledged: four quick attempts, then one every 5 minutes.
+- The format that worked is used for the periodic sync (`time_sync_interval`, default 24 h), and the clock is synced again after the UART link is re-established.
+
+Look for `AC unit acknowledged time synchronization (EPC 0x99)` or `(EPC 0x98)` in the log. If neither appears, your unit most likely has no clock / energy support.
+
+### Estimating power from compressor load
 
 For older units that do not support the native energy registers, you can still estimate power using `cdu_load`. `cdu_load` reports the compressor load as a percentage, which correlates with power usage. You can combine it with your unit's rated power input to estimate consumption in Home Assistant using a template sensor:
 
@@ -326,28 +518,46 @@ sensor:
 
 Replace `880` with your unit's rated power input in watts (check the datasheet). You can then use the [HA Riemann sum integral integration](https://www.home-assistant.io/integrations/integration/) to track energy consumption over time.
 
-## Scan for unknown sensors
+## Reporting an issue
 
-The code here was developed on certain Toshiba AC unit which provides only certain set of features. Newer or different units might offer more features (ie. horizontal swing etc.). While these are not implemented, you can add a button which scans for all sensors and prints the answers from AC unit. This might help developers to identify these new features.
+The component logs how it classified the unit after connect:
 
-You can enable this by adding a new button:
-
-```yaml
-button:
-  - platform: template
-    name: "Scan for unknown sensors"
-    icon: "mdi:reload"
-    on_press:
-      then:
-        - lambda: |-
-            auto* controller = static_cast<toshiba_suzumi::ToshibaClimateUart*>(id(living_room));
-            controller->scan();
+```
+[C][ToshibaClimateUart:1386]:   FCU Model: 'RAS-13NKVRG'
+[C][ToshibaClimateUart:1389]:   FCU Serial: 'xxxxxxx'
+[C][ToshibaClimateUart:1399]:   Unit profile 3 level 1 (00 01 01 01), diagnostics polled
+[C][ToshibaClimateUart:1408]:   Unit feature mask 0xEE: 2C 03
+[C][ToshibaClimateUart:1412]:   Auto-detected capabilities: 0x1E7BF (profile 3, 0xEE 2C 03), 3 of 8 optional entities shown
 ```
 
-and then watching ESPHome logs for data:
+Please include these lines (and your model) when reporting an issue. If the identity reply
+never arrives, the component falls back to reading the basic climate status (logged as
+`No unit identity; loading basic status without diagnostics`).
 
-![ESPHome log](/images/scan_log.png)
-    ```
+## Protocol analysis
+
+What is known about the UART protocol is described in [PROTOCOL.md](PROTOCOL.md): the frame
+format, the handshake, the ECHONET Lite properties of the home air conditioner object
+(`01 30 01`) and the Toshiba-specific ones, and which of them this component implements.
+
+Short summary:
+
+- 9600 baud, 8E1. Frames are `STX(02) | FT(u16) | CN | FN | DL(u16) | FD | FCC`, where FCC
+  is the two's complement of the sum of all bytes except STX.
+- After the handshake, all climate traffic uses `FT=0x0003` with the home air-conditioner
+  object `01 30 01`:
+  - Get: `CN=0x10`, `FD = 01 30 01 00 01 <EPC>`
+  - Set: `CN=0x10`, `FD = 01 30 01 00 02 <EPC> <value>`
+  - Reply: `CN=0x90`, `FD = 01 30 01 00 00 <len u16> <EPC> <data>`
+  - Notify from the unit (IR remote, internal change): `CN=0x11`, `FD = 01 30 01 <len u16> <EPC> <data>`,
+    acknowledged with `CN=0x91`.
+- The identity reply in the handshake carries the indoor unit model and serial and four
+  identification bytes.
+
+### References
+
+- [maxmacstn/ToshibaCarrierController](https://github.com/maxmacstn/ToshibaCarrierController) — handshake indexing and model-info offsets
+- [ormsport/ToshibaCarrierHvac](https://github.com/ormsport/ToshibaCarrierHvac) — earlier community UART library
 
 ## Links
 

@@ -17,8 +17,8 @@ constexpr const char* CUSTOM_PWR_LEVEL_100 = "100 %";
 constexpr const char* SPECIAL_MODE_STANDARD = "Standard";
 constexpr const char* SPECIAL_MODE_HI_POWER = "Hi POWER";
 constexpr const char* SPECIAL_MODE_ECO = "ECO";
-// Special modes described at:
-// https://partner.toshiba-klima.at/data/01_RAS/02_Multi/01_R32/01_multi_indoor/02_SHORAI_EDGE_J2KVSG/02_Manuals/OM_RAS_18_B22_B24_J2KVSG_J2AVSG_E_ML.pdf
+// Special modes are described in the owner's manuals of the indoor units
+// (e.g. Seiya RAS-xxE2KVG, Haori RAS-Bxx N4KVRG, Shorai Edge RAS-xxJ2KVSG).
 constexpr const char* SPECIAL_MODE_FIREPLACE_1 = "Fireplace 1";
 constexpr const char* SPECIAL_MODE_FIREPLACE_2 = "Fireplace 2";
 constexpr const char* SPECIAL_MODE_EIGHT_DEG = "8 degrees";
@@ -28,8 +28,12 @@ constexpr const char* SPECIAL_MODE_SLEEP = "Sleep";
 constexpr const char* SPECIAL_MODE_FLOOR = "Floor";
 constexpr const char* SPECIAL_MODE_COMFORT = "Comfort";
 
-// codes as reverse engineered from Toshiba AC communication with original Wifi module.
+// Value encodings (ECHONET Lite home air conditioner class plus Toshiba
+// specifics). See PROTOCOL.md for the EPC map.
+
+// EPC 0xB0 (ECHONET operation mode).
 enum class MODE { HEAT_COOL = 65, COOL = 66, HEAT = 67, DRY = 68, FAN_ONLY = 69 };
+// EPC 0xA0 (ECHONET air flow rate): Toshiba levels 0x31..0x36, 0x41 auto.
 enum class FAN {
   FAN_QUIET = 49,
   FAN_LOW = 50,
@@ -39,6 +43,7 @@ enum class FAN {
   FAN_HIGH = 54,
   FAN_AUTO = 65
 };
+// EPC 0xA3 (ECHONET automatic swing) plus Toshiba fixed louver positions 0x50..0x54.
 enum class SWING {
   OFF = 49,
   BOTH = 67,
@@ -50,11 +55,28 @@ enum class SWING {
   VERTICAL_FIX_POSITION_4 = 83,
   VERTICAL_FIX_POSITION_5 = 84
 };
+// EPC 0x80.
 enum class STATE { ON = 48, OFF = 49 };
+// EPC 0x87 (ECHONET current limit setting), Toshiba power level 50 / 75 / 100 %.
 enum class PWR_LEVEL { PCT_50 = 50, PCT_75 = 75, PCT_100 = 100 };
-// Values documented by maxmacstn/ToshibaCarrierController.
+// EPC 0xCB status bits 3..4. Values documented by maxmacstn/ToshibaCarrierController.
 enum class SELF_CLEAN_STATE : uint8_t { RUNNING = 0x18, OFF = 0x10 };
 
+// Wi-Fi LED on the indoor unit front panel. Units use either 0xDE or 0xDF;
+// this component writes both, which is harmless on units that ignore one.
+enum class WIFI_LED : uint8_t {
+  // Values for EPC 0xDE
+  DE_OFF = 0x00,
+  DE_BLINK = 0x01,
+  DE_ON = 0x05,
+  // Values for EPC 0xDF
+  DF_ON = 0x00,
+  DF_OFF = 0x80,
+};
+
+// EPC 0xF7 special mode ("merit") byte. Low nibble = merit A (0..7, 0x0A),
+// high nibble = merit B (0x00, 0x20, 0x30). Units with a feature mask get mode,
+// temp, fan and merit together in one 0xF8 frame; others get plain 0xF7 / 0xB3 Sets.
 enum SPECIAL_MODE {
   STANDARD = 0,
   HI_POWER = 1,
@@ -69,37 +91,71 @@ enum SPECIAL_MODE {
   COMFORT = 7
 };
 
+// UART framing (captured on the wire):
+//   STX(02) | FT(u16 BE) | CN | FN | DL(u16 BE) | FD[DL] | FCC
+// FCC = two's complement of the sum of all bytes except STX.
+// Property traffic uses FT=0x0003 and EOJ 01 30 01 (home air conditioner).
+//   CN=0x10  Get/Set request from the adapter
+//   CN=0x90  reply from the unit
+//   CN=0x11  unsolicited notify from the unit (IR remote, internal change)
+//   CN=0x91  adapter ACK of a notify (FN echoed)
+// Requests use FN=0x00; the unit answers with the same FN.
+//
+// FD of a request or notify:
+//   01 30 01 | LEN(u16 BE) | EPC | EDT[LEN-1]
+//   LEN counts EPC + EDT, so a Get is 01 30 01 00 01 <EPC> and a one-byte Set
+//   is 01 30 01 00 02 <EPC> <VAL>. (Byte 4 is NOT an opcode.)
+// FD of a reply:
+//   01 30 01 | STATUS(u16, 00 00 = OK) | LEN(u16 BE) | EPC | EDT[LEN-1]
+// A Set reply carries the EPC with no EDT.
+static constexpr uint8_t FRAME_STX = 0x02;
+static constexpr uint16_t FRAME_FT_PROPERTY = 0x0003;
+static constexpr uint16_t FRAME_FT_IDENTITY = 0x0002;
+static constexpr uint8_t FRAME_CN_PROPERTY = 0x10;
+static constexpr uint8_t FRAME_CN_PROPERTY_REPLY = 0x90;
+static constexpr uint8_t FRAME_CN_NOTIFY = 0x11;
+static constexpr uint8_t FRAME_CN_NOTIFY_ACK = 0x91;
+
+// Property codes (EPC), ECHONET Lite names where the code is a standard one.
 enum class ToshibaCommandType : uint8_t {
   HANDSHAKE = 0,  // dummy command to handle all handshake requests
-  DELAY = 1, // dummy command to issue a delay in communication
-  POWER_STATE = 128,
-  POWER_SEL = 135,
-  COMFORT_SLEEP = 148, // { ON = 65, OFF = 66 } - also set while the remote's OFF timer runs
-  OFF_TIMER_REMAINING = 150, // 0x96, 2 bytes (hours, minutes) until the OFF timer switches the unit off
-  FAN = 160,
-  SWING = 163,
-  MODE = 176,
-  TARGET_TEMP = 179,
-  ROOM_TEMP = 187,
-  OUTDOOR_TEMP = 190,
-  WIFI_LED_1 = 222,
-  WIFI_LED_2 = 223,
-  SELF_CLEAN = 0xCB,
-  SPECIAL_MODE = 247,
-  ENERGY_DAILY = 0xD8,
+  DELAY = 1,      // dummy command to issue a delay in communication
+  POWER_STATE = 0x80,          // operation status ON/OFF; also the keepalive Get
+  ERROR_DETAIL = 0x86,         // manufacturer's fault code, 9 bytes, code in byte 8; read when 0x88 == 0x41
+  POWER_SEL = 0x87,            // current limit setting: power level 50/75/100 %
+  FAULT_STATUS = 0x88,         // 0x41 = fault present, 0x42 = no fault
+  COMFORT_SLEEP = 0x94,        // OFF timer reservation: 0x41 set, 0x42 not set
+  OFF_TIMER_REMAINING = 0x96,  // OFF timer relative time: hours, minutes
+  CLOCK_SET = 0x98,            // unit clock, 7 bytes; clock sync for units that ignore 0x99
+  SCHEDULE_PROGRAM = 0x99,     // weekly schedule (date/time + 7x4 programs); default clock sync
+  FAN = 0xA0,                  // air flow rate
+  SWING = 0xA3,                // air flow direction / swing
+  MODE = 0xB0,                 // operation mode
+  TARGET_TEMP = 0xB3,          // set temperature
+  ROOM_TEMP = 0xBB,            // measured indoor temperature
+  OUTDOOR_TEMP = 0xBE,         // measured outdoor temperature
+  AIR_PURIFIER = 0xC7,         // air purifier function setting (ionizer): 0x18 on, 0x10 off
+  FILTER_STATUS = 0xCA,        // keepalive Get on profile 3 units with level >= 3
+  SELF_CLEAN = 0xCB,           // self-cleaning function setting / status
+  ENERGY_DAILY = 0xD8,         // unit clock (6) + 24 x u16 LE hourly energy
   ENERGY_WEEKLY = 0xD9,
   ENERGY_MONTHLY = 0xDA,
   ENERGY_YEARLY = 0xDB,
-  SET_DATE_TIME = 0xEA,
-  IDU_STATUS = 0xE4,   // 228 - Indoor unit status (unsolicited)
-  ODU_STATUS = 0xE5,   // 229 - Outdoor unit status (unsolicited)
+  WIFI_LED_1 = 0xDE,           // Wi-Fi LED register (one of two, depends on the unit)
+  WIFI_LED_2 = 0xDF,           // Wi-Fi LED register (one of two, depends on the unit)
+  MODEL_INFO = 0xE0,           // notify only: FCU and CDU model, serial, firmware, EEPROM (100 bytes)
+  IDU_STATUS = 0xE4,           // indoor unit diagnostics: Tc, Tcj, fan
+  ODU_STATUS = 0xE5,           // outdoor unit diagnostics: Td, Ts, Te, load, Iac
+  MERIT_SUPPORT = 0xEE,        // 2 bytes: unit feature mask
+  SPECIAL_MODE = 0xF7,         // merit / special mode
+  BUNDLE = 0xF8,               // mode, temp, fan, merit in one frame
 };
 
-const MODE ClimateModeToInt(climate::ClimateMode mode);
-const climate::ClimateMode IntToClimateMode(MODE mode);
+MODE ClimateModeToInt(climate::ClimateMode mode);
+climate::ClimateMode IntToClimateMode(MODE mode);
 
-const SWING ClimateSwingModeToInt(climate::ClimateSwingMode mode);
-const climate::ClimateSwingMode IntToClimateSwingMode(SWING mode);
+SWING ClimateSwingModeToInt(climate::ClimateSwingMode mode);
+climate::ClimateSwingMode IntToClimateSwingMode(SWING mode);
 
 const optional<FAN> ClimateFanModeToInt(climate::ClimateFanMode mode);
 
@@ -109,7 +165,7 @@ const optional<FAN> StringToFanLevel(const char* mode);
 const char* IntToCustomFanMode(FAN mode);
 
 const optional<PWR_LEVEL> StringToPwrLevel(const std::string &mode);
-const std::string IntToPowerLevel(PWR_LEVEL mode);
+const char *IntToPowerLevel(PWR_LEVEL mode);
 
 const optional<SWING> StringToVerticalAirDirection(const std::string &position);
 const char* SwingToVerticalAirDirection(SWING mode);
@@ -120,7 +176,6 @@ const char* SpecialModeToPreset(SPECIAL_MODE mode);
 
 const optional<climate::ClimatePreset> StringToClimatePreset(const char *preset);
 const char* ClimatePresetToString(climate::ClimatePreset preset);
-const optional<SPECIAL_MODE> ClimatePresetToSpecialMode(climate::ClimatePreset preset);
 const optional<climate::ClimatePreset> SpecialModeToClimatePreset(SPECIAL_MODE mode);
 
 }  // namespace toshiba_suzumi

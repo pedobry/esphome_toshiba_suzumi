@@ -1,2 +1,5 @@
 .history
 __pycache__
+
+# Private protocol notes (firmware / app analysis), never commit
+PROTOCOL_DETAILED.md
