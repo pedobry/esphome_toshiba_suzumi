@@ -529,8 +529,8 @@ Please include these lines (and your model) when reporting an issue. If the iden
 never arrives, the component falls back to reading the basic climate status (logged as
 `No unit identity; loading basic status without diagnostics`).
 
-Values received from the unit and the frames on the wire are logged at `VERBOSE`. To include
-them, raise the level for this component only:
+Values received from the unit are logged at `DEBUG`, commands sent and the frames on the wire
+at `VERBOSE`. To include those, raise the level for this component only:
 
 ```yaml
 logger:

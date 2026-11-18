@@ -1076,7 +1076,7 @@ void ToshibaClimateUart::parse_response_(const uint8_t *data, size_t len) {
 
   // Handshake identity reply: FT=0x0002, long payload with FCU model/serial.
   if (ft == FRAME_FT_IDENTITY && len >= UNIT_INFO_MIN_LEN) {
-    ESP_LOGV(TAG, "Received unit identity frame (%u bytes) FN=0x%02X", static_cast<unsigned>(len), fn);
+    ESP_LOGD(TAG, "Received unit identity frame (%u bytes) FN=0x%02X", static_cast<unsigned>(len), fn);
     this->parse_unit_identity_(data, len);
     return;
   }
@@ -1090,7 +1090,7 @@ void ToshibaClimateUart::parse_response_(const uint8_t *data, size_t len) {
   // Indoor unit pushed a status change (IR remote, etc.). ACK before parsing so the
   // unit does not retry, including EPCs this component does not apply.
   if (cn == FRAME_CN_NOTIFY) {
-    ESP_LOGV(TAG, "Received notify FN=0x%02X DL=%u", fn, dl);
+    ESP_LOGD(TAG, "Received notify FN=0x%02X DL=%u", fn, dl);
     this->send_notify_ack_(fn);
   }
 
@@ -1198,7 +1198,7 @@ void ToshibaClimateUart::parse_response_(const uint8_t *data, size_t len) {
         ESP_LOGW(TAG, "Daily energy EDT too short (%u)", static_cast<unsigned>(edt_len));
         break;
       }
-      ESP_LOGV(TAG, "Received daily energy update");
+      ESP_LOGD(TAG, "Received daily energy update");
       uint32_t total_energy = 0;
 #ifdef USE_TIME
       uint8_t current_hour = (this->time_ != nullptr) ? this->time_->now().hour : 25;
@@ -1210,7 +1210,7 @@ void ToshibaClimateUart::parse_response_(const uint8_t *data, size_t len) {
         uint16_t hour_val = (hours[i * 2 + 1] << 8) | hours[i * 2];
         total_energy += hour_val;
         if (i == current_hour) {
-          ESP_LOGV(TAG, "  Current hour (%d) consumption: %u Wh", i, hour_val);
+          ESP_LOGD(TAG, "  Current hour (%d) consumption: %u Wh", i, hour_val);
         }
       }
       if (this->energy_sensor_ != nullptr) {
@@ -1220,30 +1220,30 @@ void ToshibaClimateUart::parse_response_(const uint8_t *data, size_t len) {
       break;
     }
     case ToshibaCommandType::TARGET_TEMP:
-      ESP_LOGV(TAG, "Received target temp: %d", value);
+      ESP_LOGD(TAG, "Received target temp: %d", value);
       this->raw_target_temp_ = value;
       this->update_target_temperature_();
       break;
     case ToshibaCommandType::FAN: {
       this->raw_fan_ = value;
       if (static_cast<ToshibaFan>(value) == ToshibaFan::FAN_AUTO) {
-        ESP_LOGV(TAG, "Received fan mode: AUTO");
+        ESP_LOGD(TAG, "Received fan mode: AUTO");
         this->set_fan_mode_(CLIMATE_FAN_AUTO);
       } else if (static_cast<ToshibaFan>(value) == ToshibaFan::FAN_QUIET) {
-        ESP_LOGV(TAG, "Received fan mode: QUIET");
+        ESP_LOGD(TAG, "Received fan mode: QUIET");
         this->set_fan_mode_(CLIMATE_FAN_QUIET);
       } else if (static_cast<ToshibaFan>(value) == ToshibaFan::FAN_LOW) {
-        ESP_LOGV(TAG, "Received fan mode: LOW");
+        ESP_LOGD(TAG, "Received fan mode: LOW");
         this->set_fan_mode_(CLIMATE_FAN_LOW);
       } else if (static_cast<ToshibaFan>(value) == ToshibaFan::FAN_MEDIUM) {
-        ESP_LOGV(TAG, "Received fan mode: MEDIUM");
+        ESP_LOGD(TAG, "Received fan mode: MEDIUM");
         this->set_fan_mode_(CLIMATE_FAN_MEDIUM);
       } else if (static_cast<ToshibaFan>(value) == ToshibaFan::FAN_HIGH) {
-        ESP_LOGV(TAG, "Received fan mode: HIGH");
+        ESP_LOGD(TAG, "Received fan mode: HIGH");
         this->set_fan_mode_(CLIMATE_FAN_HIGH);
       } else {
         auto fan_mode_name = toshiba_fan_to_custom_fan_mode(static_cast<ToshibaFan>(value));
-        ESP_LOGV(TAG, "Received fan mode: %s", fan_mode_name);
+        ESP_LOGD(TAG, "Received fan mode: %s", fan_mode_name);
         this->climate_changed_ |= this->set_custom_fan_mode_(fan_mode_name);
       }
       break;
@@ -1252,7 +1252,7 @@ void ToshibaClimateUart::parse_response_(const uint8_t *data, size_t len) {
       auto swing = static_cast<ToshibaSwing>(value);
       auto air_direction = vertical_air_direction_to_string(swing);
       if (air_direction != nullptr) {
-        ESP_LOGV(TAG, "Received vertical air direction: %s", air_direction);
+        ESP_LOGD(TAG, "Received vertical air direction: %s", air_direction);
         this->publish_vertical_air_direction_(swing);
       }
 
@@ -1260,7 +1260,7 @@ void ToshibaClimateUart::parse_response_(const uint8_t *data, size_t len) {
         this->swing_mode = climate::CLIMATE_SWING_OFF;
       } else {
         auto climate_swing = from_toshiba_swing(swing);
-        ESP_LOGV(TAG, "Received swing mode: %s", LOG_STR_ARG(climate_swing_mode_to_string(climate_swing)));
+        ESP_LOGD(TAG, "Received swing mode: %s", LOG_STR_ARG(climate_swing_mode_to_string(climate_swing)));
         this->swing_mode = climate_swing;
       }
       break;
@@ -1268,7 +1268,7 @@ void ToshibaClimateUart::parse_response_(const uint8_t *data, size_t len) {
     case ToshibaCommandType::MODE: {
       this->raw_mode_ = value;
       auto mode = from_toshiba_mode(static_cast<ToshibaMode>(value));
-      ESP_LOGV(TAG, "Received AC mode: %s", LOG_STR_ARG(climate_mode_to_string(mode)));
+      ESP_LOGD(TAG, "Received AC mode: %s", LOG_STR_ARG(climate_mode_to_string(mode)));
       if (this->power_state_ == PowerState::ON && !this->self_clean_running_) {
         this->mode = mode;
       }
@@ -1276,7 +1276,7 @@ void ToshibaClimateUart::parse_response_(const uint8_t *data, size_t len) {
     }
     case ToshibaCommandType::ROOM_TEMP:
       if (value != 127) {
-        ESP_LOGV(TAG, "Received room temp: %d °C", value);
+        ESP_LOGD(TAG, "Received room temp: %d °C", value);
         this->current_temperature = value;
         if (this->indoor_temp_sensor_ != nullptr) {
           this->indoor_temp_sensor_->publish_state((int8_t) value);
@@ -1288,7 +1288,7 @@ void ToshibaClimateUart::parse_response_(const uint8_t *data, size_t len) {
       if (edt_len < 2)
         break;
       uint16_t minutes = edt[0] * 60 + edt[1];
-      ESP_LOGV(TAG, "Received OFF timer remaining: %uh %02umin", edt[0], edt[1]);
+      ESP_LOGD(TAG, "Received OFF timer remaining: %uh %02umin", edt[0], edt[1]);
       if (this->off_timer_remaining_sensor_ != nullptr) {
         this->off_timer_remaining_sensor_->publish_state(this->off_timer_active_ ? minutes : 0);
       }
@@ -1298,7 +1298,7 @@ void ToshibaClimateUart::parse_response_(const uint8_t *data, size_t len) {
       // 0x94 is the OFF timer reservation (0x41 set / 0x42 not set); the
       // remote's sleep timer sets it too.
       bool active = value == 65;
-      ESP_LOGV(TAG, "Received OFF timer state: %s", active ? "ON" : "OFF");
+      ESP_LOGD(TAG, "Received OFF timer state: %s", active ? "ON" : "OFF");
       bool changed = active != this->off_timer_active_;
       this->off_timer_active_ = active;
       if (this->off_timer_sensor_ != nullptr) {
@@ -1318,14 +1318,14 @@ void ToshibaClimateUart::parse_response_(const uint8_t *data, size_t len) {
     case ToshibaCommandType::OUTDOOR_TEMP:
       if (value != 127) {
         if (this->outdoor_temp_sensor_ != nullptr) {
-          ESP_LOGV(TAG, "Received outdoor temp: %d °C", (int8_t) value);
+          ESP_LOGD(TAG, "Received outdoor temp: %d °C", (int8_t) value);
           this->outdoor_temp_sensor_->publish_state((int8_t) value);
         }
       }
       break;
     case ToshibaCommandType::POWER_SEL: {
       auto pwr_level = power_level_to_string(static_cast<PowerLevel>(value));
-      ESP_LOGV(TAG, "Received power select: %d", value);
+      ESP_LOGD(TAG, "Received power select: %d", value);
       if (this->pwr_select_ != nullptr) {
         this->pwr_select_->publish_state(pwr_level);
       }
@@ -1356,7 +1356,7 @@ void ToshibaClimateUart::parse_response_(const uint8_t *data, size_t len) {
       break;
     case ToshibaCommandType::POWER_STATE: {
       auto power_state = static_cast<PowerState>(value);
-      ESP_LOGV(TAG, "Received AC unit power state: %s", LOG_STR_ARG(power_state_to_string(power_state)));
+      ESP_LOGD(TAG, "Received AC unit power state: %s", LOG_STR_ARG(power_state_to_string(power_state)));
       if (power_state == PowerState::OFF) {
         // AC unit was just powered off, set mode to OFF
         this->mode = climate::CLIMATE_MODE_OFF;
@@ -1406,7 +1406,7 @@ void ToshibaClimateUart::parse_response_(const uint8_t *data, size_t len) {
       break;
     }
     case ToshibaCommandType::SPECIAL_MODE: {
-      ESP_LOGV(TAG, "Received special mode: %s (0x%02X)", special_mode_to_preset(static_cast<SpecialMode>(value)),
+      ESP_LOGD(TAG, "Received special mode: %s (0x%02X)", special_mode_to_preset(static_cast<SpecialMode>(value)),
                value);
       this->raw_merit_ = value;
       this->publish_special_mode_preset_(value);
@@ -1421,7 +1421,9 @@ void ToshibaClimateUart::parse_response_(const uint8_t *data, size_t len) {
         ESP_LOGW(TAG, "ODU status EDT too short (%u)", static_cast<unsigned>(edt_len));
         break;
       }
-      ESP_LOGV(TAG, "Received ODU status");
+      // Raw values in one line; 127 (temperatures) and 254+ (load, current) mean not measured.
+      ESP_LOGD(TAG, "ODU status: Td=%d Ts=%d Te=%d load=%u (%.1f %%) Iac=%u A", static_cast<int8_t>(edt[0]),
+               static_cast<int8_t>(edt[1]), static_cast<int8_t>(edt[2]), edt[3], edt[3] / 1.7f, edt[6]);
       if (this->cdu_td_temp_sensor_ != nullptr) {
         int8_t val = static_cast<int8_t>(edt[0]);
         if (val != 127) {
@@ -1459,7 +1461,7 @@ void ToshibaClimateUart::parse_response_(const uint8_t *data, size_t len) {
       this->handle_model_info_(edt, edt_len);
       break;
     case ToshibaCommandType::AIR_PURIFIER:
-      ESP_LOGV(TAG, "Received ionizer state: 0x%02X", value);
+      ESP_LOGD(TAG, "Received ionizer state: 0x%02X", value);
       if (this->ionizer_switch_ != nullptr)
         this->ionizer_switch_->publish_state((value & 0x08) != 0);
       break;
@@ -1469,7 +1471,9 @@ void ToshibaClimateUart::parse_response_(const uint8_t *data, size_t len) {
         ESP_LOGW(TAG, "IDU status EDT too short (%u)", static_cast<unsigned>(edt_len));
         break;
       }
-      ESP_LOGV(TAG, "Received IDU status");
+      // Raw values in one line; 127 (temperatures) means not measured.
+      ESP_LOGD(TAG, "IDU status: Tc=%d Tcj=%d fan=%u", static_cast<int8_t>(edt[0]), static_cast<int8_t>(edt[1]),
+               edt[2]);
       if (this->fcu_tc_temp_sensor_ != nullptr) {
         int8_t val = static_cast<int8_t>(edt[0]);
         if (val != 127) {
@@ -2055,7 +2059,7 @@ void ToshibaClimateUart::sync_time_() {
  * is reported (0x41).
  */
 void ToshibaClimateUart::handle_fault_status_(uint8_t fault) {
-  ESP_LOGV(TAG, "Received fault status: 0x%02X", fault);
+  ESP_LOGD(TAG, "Received fault status: 0x%02X", fault);
   if (this->error_code_text_sensor_ == nullptr)
     return;
   if (fault == 0x41) {

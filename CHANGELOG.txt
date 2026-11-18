@@ -12,9 +12,9 @@ Compatibility with ESPHome 2026.11 and ESPHome coding standards.
 * Log tag changed from "ToshibaClimateUart" to "toshiba_suzumi". Update
   `logger: logs:` entries that use the old tag.
 
-* Values received from the unit, commands sent and frame dumps are logged at
-  VERBOSE instead of DEBUG. Rejected requests and unknown properties are still
-  logged at DEBUG.
+* Commands sent and the related traffic messages are logged at VERBOSE
+  instead of DEBUG. Values received from the unit stay at DEBUG; the indoor /
+  outdoor diagnostics now log all their values in one DEBUG line.
 
 * The uart: block is checked at compile time: 9600 baud, 8 data bits, EVEN
   parity, 1 stop bit.
