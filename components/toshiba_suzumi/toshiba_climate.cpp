@@ -1263,6 +1263,7 @@ void ToshibaClimateUart::parse_response_(const uint8_t *data, size_t len) {
       break;
     }
     case ToshibaCommandType::SWING: {
+      ESP_LOGD(TAG, "Received swing mode: %d", value);
       auto swing = static_cast<ToshibaSwing>(value);
       this->publish_hada_care_(swing == ToshibaSwing::HADA_CARE);
       auto air_direction = vertical_air_direction_to_string(swing);
