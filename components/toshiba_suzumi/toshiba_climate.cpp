@@ -572,6 +572,8 @@ uint32_t ToshibaClimateUart::derived_features_() const {
     f |= FEATURE_HADA;
   if (b2 & 0x20)
     f |= FEATURE_LOUVER_FIXED_LR;
+  if (b2 & 0x40)
+    f |= FEATURE_STRONG_DEFROST;
   return f;
 }
 
@@ -656,6 +658,33 @@ void ToshibaClimateUart::set_ionizer(bool on) {
   this->send_cmd_(ToshibaCommandType::AIR_PURIFIER, on ? 0x18 : 0x10);
   if (this->ionizer_switch_ != nullptr)
     this->ionizer_switch_->publish_state(on);
+}
+
+/**
+ * Strong Defrost mode: 0xCB bit 0. Like the Toshiba app, write only the low
+ * bits and clear the defrost-now bit.
+ */
+void ToshibaClimateUart::set_strong_defrost(bool on) {
+  const uint8_t value = on ? DEFROST_STRONG : 0;
+  ESP_LOGV(TAG, "Setting Strong Defrost %s", on ? "ON" : "OFF");
+  this->send_cmd_(ToshibaCommandType::SELF_CLEAN, value);
+  this->defrost_bits_ = value;
+  if (this->strong_defrost_switch_ != nullptr)
+    this->strong_defrost_switch_->publish_state(on);
+}
+
+/**
+ * Run one defrost now: 0xCB bit 1, keeping Strong Defrost. The unit decides
+ * when it ends. The Toshiba app offers it in Heat mode only.
+ */
+void ToshibaClimateUart::start_defrost() {
+  if (this->mode != climate::CLIMATE_MODE_HEAT) {
+    ESP_LOGW(TAG, "Defrost works in Heat mode only");
+    return;
+  }
+  const uint8_t value = static_cast<uint8_t>((this->defrost_bits_ & DEFROST_STRONG) | DEFROST_NOW);
+  ESP_LOGI(TAG, "Starting defrost");
+  this->send_cmd_(ToshibaCommandType::SELF_CLEAN, value);
 }
 
 bool ToshibaClimateUart::has_idu_diagnostics_(bool probe) const {
@@ -804,7 +833,7 @@ void ToshibaClimateUart::start_status_reads_() {
 void ToshibaClimateUart::request_init_data_() {
   ESP_LOGV(TAG, "Requesting initial data from AC unit");
   this->request_data_(ToshibaCommandType::POWER_STATE);
-  if (this->self_clean_sensor_ != nullptr) {
+  if (this->self_clean_sensor_ != nullptr || this->strong_defrost_switch_ != nullptr) {
     this->request_data_(ToshibaCommandType::SELF_CLEAN);
   }
   this->request_data_(ToshibaCommandType::MODE);
@@ -1375,6 +1404,11 @@ void ToshibaClimateUart::parse_response_(const uint8_t *data, size_t len) {
       break;
     }
     case ToshibaCommandType::SELF_CLEAN: {
+      // Bits 3..4 self-clean status, bit 0 Strong Defrost, bit 1 defrost now.
+      ESP_LOGD(TAG, "Received self-clean / defrost state: 0x%02X", value);
+      this->defrost_bits_ = value & DEFROST_MASK;
+      if (this->strong_defrost_switch_ != nullptr)
+        this->strong_defrost_switch_->publish_state((value & DEFROST_STRONG) != 0);
       auto self_clean_state = static_cast<SelfCleanState>(value & SELF_CLEAN_STATUS_MASK);
       bool was_running = this->self_clean_running_;
       if (self_clean_state == SelfCleanState::RUNNING) {
@@ -1550,6 +1584,12 @@ void ToshibaClimateUart::dump_config() {
   };
   if (this->ionizer_switch_ != nullptr && !log_hidden("Ionizer", this->ionizer_switch_)) {
     LOG_SWITCH("", "Ionizer", this->ionizer_switch_);
+  }
+  if (this->strong_defrost_switch_ != nullptr && !log_hidden("Strong Defrost", this->strong_defrost_switch_)) {
+    LOG_SWITCH("", "Strong Defrost", this->strong_defrost_switch_);
+  }
+  if (this->defrost_button_ != nullptr && !log_hidden("Defrost", this->defrost_button_)) {
+    LOG_BUTTON("", "Defrost", this->defrost_button_);
   }
   if (this->fcu_model_text_sensor_ != nullptr && !log_hidden("FCU Model", this->fcu_model_text_sensor_)) {
     LOG_TEXT_SENSOR("", "FCU Model", this->fcu_model_text_sensor_);

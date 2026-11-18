@@ -3,7 +3,7 @@ import logging
 import esphome.codegen as cg
 import esphome.config_validation as cv
 import esphome.final_validate as fv
-from esphome.components import binary_sensor, climate, select, sensor, switch, text_sensor, uart
+from esphome.components import binary_sensor, button, climate, select, sensor, switch, text_sensor, uart
 from esphome.const import (
     CONF_ENERGY,
     CONF_ID,
@@ -17,6 +17,7 @@ from esphome.const import (
     DEVICE_CLASS_POWER,
     DEVICE_CLASS_RUNNING,
     DEVICE_CLASS_TEMPERATURE,
+    ENTITY_CATEGORY_CONFIG,
     ENTITY_CATEGORY_DIAGNOSTIC,
     STATE_CLASS_MEASUREMENT,
     STATE_CLASS_TOTAL_INCREASING,
@@ -35,7 +36,7 @@ from . import DOMAIN
 _LOGGER = logging.getLogger(__name__)
 
 DEPENDENCIES = ["uart"]
-AUTO_LOAD = ["binary_sensor", "sensor", "select", "switch", "text_sensor"]
+AUTO_LOAD = ["binary_sensor", "button", "sensor", "select", "switch", "text_sensor"]
 
 CONF_INDOOR_TEMP = "indoor_temp"
 CONF_OUTDOOR_TEMP = "outdoor_temp"
@@ -64,6 +65,8 @@ CONF_CDU_SERIAL = "cdu_serial"
 CONF_CDU_FIRMWARE = "cdu_firmware"
 CONF_ERROR_CODE = "error_code"
 CONF_IONIZER = "ionizer"
+CONF_STRONG_DEFROST = "strong_defrost"
+CONF_DEFROST = "defrost"
 CONF_AUTO_DETECT = "auto_detect"
 
 # Preset names, the same strings as SPECIAL_MODE_* in toshiba_climate_mode.h.
@@ -113,6 +116,8 @@ ToshibaClimateUart = toshiba_ns.class_("ToshibaClimateUart", cg.PollingComponent
 ToshibaPwrModeSelect = toshiba_ns.class_("ToshibaPwrModeSelect", select.Select)
 ToshibaAirDirectionSelect = toshiba_ns.class_("ToshibaAirDirectionSelect", select.Select)
 ToshibaIonizerSwitch = toshiba_ns.class_("ToshibaIonizerSwitch", switch.Switch)
+ToshibaStrongDefrostSwitch = toshiba_ns.class_("ToshibaStrongDefrostSwitch", switch.Switch)
+ToshibaDefrostButton = toshiba_ns.class_("ToshibaDefrostButton", button.Button)
 
 # Unit features, the UnitFeature enum in toshiba_climate.h.
 UnitFeature = toshiba_ns.enum("UnitFeature")
@@ -190,6 +195,11 @@ ENTITY_SCHEMAS = {
     ),
     # Ionizer / air purifier, EPC 0xC7.
     CONF_IONIZER: switch.switch_schema(ToshibaIonizerSwitch, icon="mdi:air-purifier"),
+    # Strong Defrost mode (EPC 0xCB bit 0) and one defrost now (bit 1, Heat mode only).
+    CONF_STRONG_DEFROST: switch.switch_schema(
+        ToshibaStrongDefrostSwitch, icon="mdi:snowflake-melt", entity_category=ENTITY_CATEGORY_CONFIG
+    ),
+    CONF_DEFROST: button.button_schema(ToshibaDefrostButton, icon="mdi:snowflake-melt"),
 }
 
 # Entities created automatically when `auto_detect` is on and the key is not in
@@ -200,6 +210,8 @@ AUTO_ENTITIES = {
     CONF_PWR_SELECT: ("Power Level", UnitFeature.FEATURE_POWER_SEL, False),
     CONF_AIR_DIRECTION: ("Air Direction", toshiba_ns.AIR_DIRECTION_FEATURES, False),
     CONF_IONIZER: ("Ionizer", UnitFeature.FEATURE_PURE, False),
+    CONF_STRONG_DEFROST: ("Strong Defrost", UnitFeature.FEATURE_STRONG_DEFROST, False),
+    CONF_DEFROST: ("Defrost", UnitFeature.FEATURE_STRONG_DEFROST, False),
     CONF_SELF_CLEAN: ("Self Clean", UnitFeature.FEATURE_SELF_CLEAN, False),
     CONF_OFF_TIMER: ("Off Timer", UnitFeature.FEATURE_OFF_TIMER, False),
     CONF_OFF_TIMER_REMAINING: ("Off Timer Remaining", UnitFeature.FEATURE_OFF_TIMER, False),
@@ -367,6 +379,7 @@ TEXT_SENSORS = {
 }
 SWITCHES = {
     CONF_IONIZER: "set_ionizer_switch",
+    CONF_STRONG_DEFROST: "set_strong_defrost_switch",
 }
 SELECTS = {
     CONF_PWR_SELECT: ("set_pwr_select", PWR_SELECT_OPTIONS),
@@ -413,6 +426,12 @@ async def to_code(config):
             sens = await text_sensor.new_text_sensor(conf)
             cg.add(getattr(var, setter)(sens))
             _mark_auto(var, config, key, sens)
+
+    if conf := config.get(CONF_DEFROST):
+        btn = await button.new_button(conf)
+        await cg.register_parented(btn, config[CONF_ID])
+        cg.add(var.set_defrost_button(btn))
+        _mark_auto(var, config, CONF_DEFROST, btn)
 
     for key, (setter, options) in SELECTS.items():
         if conf := config.get(key):

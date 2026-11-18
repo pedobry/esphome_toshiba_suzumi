@@ -116,7 +116,7 @@ the home air conditioner class).
 | `0xBB` | Measured room temperature | 1 B signed | `0x7F` = not available |
 | `0xBE` | Measured outdoor air temperature | 1 B signed | `0x7F` = not available |
 | `0xC7` | Air purifier function setting | 1 B | Toshiba values are vendor specific *(observed: `0x18`)* |
-| `0xCB` | Self-cleaning function setting | 1 B | Toshiba status in bits 3–4: `0x18` running, `0x10` idle; low bits are settings, e.g. `0x11` = idle with self-clean enabled *(observed)* |
+| `0xCB` | Self-cleaning function setting | 1 B | self-cleaning status in bits 3–4: `0x18` running, `0x10` idle *(observed)*; bit 0 Strong Defrost mode, bit 1 run one defrost now (as set by the Toshiba app, which writes only bits 0–1) |
 
 Toshiba specifics *(observed)*: fan levels `0x31`–`0x36` (quiet, low, low-medium, medium,
 medium-high, high). Further values of `0xA3`, as in the Toshiba app: fixed up/down louver positions
@@ -207,6 +207,7 @@ built-in adapter):
 | Power level | `87` | implemented |
 | Room / outdoor temperature | `BB BE` | implemented |
 | Ionizer (air purifier) | `C7` | implemented (`ionizer` switch) |
+| Strong Defrost mode, defrost now | `CB` bits 0, 1 | implemented (`strong_defrost` switch, `defrost` button) |
 | Fixed louver positions, HADA Care Flow | `A3` = `50`–`54`, `60`–`65` | implemented (`air_direction` select) |
 | Self-clean status | `CB` | implemented (read only) |
 | OFF timer state and remaining time | `94 96` | implemented (read only) |
