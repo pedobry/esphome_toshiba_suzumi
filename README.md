@@ -26,10 +26,6 @@ This component use ESPHome UART to connect with Toshiba AC and communicates dire
   - [Temperature range](#temperature-range)
   - [Air direction](#air-direction)
 - [Sensors](#sensors)
-  - [Filtering incorrect values](#filtering-incorrect-values)
-  - [Self-cleaning status](#self-cleaning-status)
-  - [OFF timer](#off-timer)
-  - [Error code](#error-code)
   - [Unit model information](#unit-model-information)
   - [Indoor and outdoor unit diagnostics](#indoor-and-outdoor-unit-diagnostics)
 - [Energy and power](#energy-and-power)
@@ -58,9 +54,10 @@ Any unit which have an option to purchase a WiFi adapter RB-N105S-G/RB-N106S-G:
 
 ## Hardware
 
-‼️‼️<br>
-**WARNING: Do NOT connect PIN 5 (the outermost pink wire) to anything. Double check that you have wired the ESP device correctly. Only connect and disconnect the ESP while the AC unit is disconnected from main power. Shorts or wrong wiring will damage AC unit board.**<br>
-‼️‼️
+> 🛑  **Warning: Wrong wiring or a short can damage the board of the AC unit.**
+> - **Do not connect pin 5** (the outermost pink wire) to anything.
+> - Connect and disconnect the ESP only while the AC unit is **disconnected from mains power**.
+> - Double-check the wiring before you power the unit again.
 
 * tested with ESP32 (WROOM 32D)
 * tested with ESP8266 (Lolin D1 mini)
@@ -399,66 +396,6 @@ Without auto-detection, or before the first detection, the select offers all opt
 In Toshiba service documentation the up/down flap is called the horizontal louver.
 
 ## Sensors
-
-### Filtering incorrect values
-
-The component automatically filters out incorrect sensor readings at the code level:
-- Temperature readings of `127` (which the unit transmits when it cannot measure the temperature or when it is off) are ignored.
-- Compressor load and current values of `254` or `255` are also ignored.
-
-Therefore, you do not need to add manual filters in your YAML configuration for these values. However, if you need to filter out other values, you can still add ESPHome filters like this:
-
-```yaml
-    outdoor_temp:
-      name: Outdoor Temp
-      filters:
-        - filter_out: 127
-```
-
-### Self-cleaning status
-
-Some Toshiba units run a post-shutdown self-cleaning cycle. During this cycle the indoor fan can continue running even though the climate entity is off. Configure the optional `self_clean` binary sensor to enable self-clean detection and expose the cycle in Home Assistant:
-
-```yaml
-    self_clean:
-      name: "Self Clean"
-```
-
-The climate entity remains OFF while self-cleaning is active. ESPHome climate entities do not have a self-cleaning mode or action, so the binary sensor reports this separate operating state. Without `self_clean`, the component does not query self-clean status and retains its existing climate behavior.
-
-How the cycle behaves (per the Toshiba service manual):
-
-- It runs only after cooling or dry operation, and only if that ran for at least 10 minutes; it then runs for a fixed ~30 minutes. It does not run after heating, fan-only, or a short (<10 min) cooling/dry run.
-- During the cycle the indoor fan runs at low speed to dry the unit; the compressor stays off. The unit reports itself as not operating, which is why the climate entity is OFF.
-- The service manual documents enabling/disabling the self-clean cycle as a unit-side procedure (the indoor unit's `RESET` button together with a remote-control diagnosis code). `0xCB` is the ECHONET "self-cleaning function setting", but the meaning of the Toshiba bits for writing is not known, so this component reports the cycle but does not control it.
-
-### OFF timer
-
-The OFF timer set on the IR remote can be shown in Home Assistant:
-
-```yaml
-    off_timer:
-      name: "Off timer"
-    off_timer_remaining:
-      name: "Off timer remaining"
-```
-
-`off_timer` follows register 0x94, which the unit pushes when the timer starts or ends. `off_timer_remaining` reads register 0x96 (two bytes: hours and minutes) and reports minutes. The unit doesn't push 0x96, so it is polled at the component's update interval while the timer runs, and reported as 0 when no timer is set. The unit updates 0x96 in coarse steps (a 30 min timer read 0:30, then 0:15). Setting the timer from Home Assistant isn't supported.
-
-### Error code
-
-The optional `error_code` text sensor shows the fault code reported by the unit:
-
-```yaml
-    error_code:
-      name: "Error Code"
-```
-
-Property `0x88` (ECHONET "fault status") tells whether a fault is present, and only then
-the 9-byte property `0x86` (manufacturer's fault code) is read. The sensor shows `none` when there is no fault, or the
-code byte in hex (for example `0x1C`). The full `0x86` data is written to the log as a
-warning. The mapping of these codes to the codes shown on the remote (E01, F02, ...) is not
-known yet.
 
 ### Unit model information
 
