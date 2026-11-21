@@ -128,8 +128,9 @@ positions.
 ### Fault code (`0x88`, `0x86`)
 
 `0x88` tells whether a fault is present. `0x86` holds the manufacturer's code; on Toshiba units
-it has 9 bytes and the component reports the last byte. The mapping to the codes shown on the
-remote (E01, F02, …) is not known.
+it has 9 bytes and the component reports the last byte, as the Toshiba adapter does. A zero last
+byte means no error, even when `0x88` reports a fault *(observed: `05 00 00 17 00 00 00 03 00`)*.
+The mapping to the codes shown on the remote (E01, F02, …) is not known.
 
 ### Toshiba-specific properties *(observed)*
 

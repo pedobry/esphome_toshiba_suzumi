@@ -52,6 +52,10 @@ Compatibility with ESPHome 2026.11 and ESPHome coding standards.
   still works with a deprecation warning. 0x60 no longer logs
   "Invalid swing mode 96".
 
+* error_code shows "none" instead of "unknown" when the unit sets the fault
+  status (0x88) but the error code (last byte of 0x86) is 0, as the Toshiba
+  adapter and app do. This case is logged at DEBUG instead of WARN.
+
 * Long frames (the 247-byte 0x99 time sync) are sent over several loop()
   passes as the UART takes them, instead of blocking loop() until the TX FIFO
   has taken the whole frame ("took a long time for an operation" warning).

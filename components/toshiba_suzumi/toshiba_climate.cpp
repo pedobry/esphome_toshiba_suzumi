@@ -2142,8 +2142,10 @@ void ToshibaClimateUart::handle_fault_status_(uint8_t fault) {
 }
 
 /**
- * EPC 0x86 (manufacturer's fault code): 9 bytes, byte 8 is the error code
- * (0 is treated as "no code"). Published as a hex string, e.g. "0x1C".
+ * EPC 0x86 (manufacturer's fault code): 9 bytes, byte 8 is the error code.
+ * As in the stock adapter and the Toshiba app, only byte 8 is used and 0 means
+ * no error, even when 0x88 reports a fault (units send e.g.
+ * 05.00.00.17.00.00.00.03.00). Published as a hex string, e.g. "0x1C".
  */
 void ToshibaClimateUart::publish_error_code_(const uint8_t *edt, size_t len) {
   if (this->error_code_text_sensor_ == nullptr)
@@ -2152,16 +2154,14 @@ void ToshibaClimateUart::publish_error_code_(const uint8_t *edt, size_t len) {
     ESP_LOGW(TAG, "Error detail EDT too short (%u)", static_cast<unsigned>(len));
     return;
   }
-#if ESPHOME_LOG_LEVEL >= ESPHOME_LOG_LEVEL_WARN
-  {
-    char hex_buf[format_hex_pretty_size(LOG_HEX_MAX_BYTES)];
-    ESP_LOGW(TAG, "Unit reports a fault, detail [%s]", format_hex_pretty_to(hex_buf, edt, len));
-  }
-#endif
+  [[maybe_unused]] char hex_buf[format_hex_pretty_size(LOG_HEX_MAX_BYTES)];
   if (edt[8] == 0x00) {
-    this->error_code_text_sensor_->publish_state("unknown");
+    ESP_LOGD(TAG, "Fault status set, but no error code [%s]", format_hex_pretty_to(hex_buf, edt, len));
+    if (this->error_code_text_sensor_->get_state() != "none")
+      this->error_code_text_sensor_->publish_state("none");
     return;
   }
+  ESP_LOGW(TAG, "Unit reports error code 0x%02X, detail [%s]", edt[8], format_hex_pretty_to(hex_buf, edt, len));
   char buf[8];
   snprintf(buf, sizeof(buf), "0x%02X", edt[8]);
   this->error_code_text_sensor_->publish_state(buf);
