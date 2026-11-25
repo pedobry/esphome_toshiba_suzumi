@@ -65,10 +65,14 @@ Captured on the wire:
 | Absolute offset | Content |
 |-----------------|---------|
 | 171–174 | four unit identification bytes (`FD[0xA4..0xA7]`) |
-| 180 | FCU model string length |
-| 181… | FCU model ASCII, followed by the serial ASCII |
+| 180 | model string length |
+| 181… | EEPROM data model ASCII, followed by `NO.` and the EEPROM number |
 
 Example: `0F "RAS-13PKVSG E2 " "NO.01243D"`.
+
+These strings identify the indoor board's EEPROM data set, not the rating label. A
+RAS-B13P2KVSG-E reports `"RAS-13NKVRG"` / `"NO.022021"`, and its `0xE0` message carries
+model `RAS-B13P2KVSG-E` with EEPROM info `022021`.
 
 ## Property frames (FT = 0x0003)
 

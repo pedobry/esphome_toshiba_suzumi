@@ -38,16 +38,16 @@ static const uint8_t NORMAL_MODE_DEF_TEMP = 20;
 
 // Init sequence (FT/CN handshake, then identity queries), captured on the wire.
 // HANDSHAKE_5 is "request model/unit info" (FT=0x0002); the AC replies with a
-// long frame (DL > 0xA7) that carries the indoor unit (FCU) model and serial.
-// The outdoor unit (CDU) model is not part of it; the unit sends it in an
-// unsolicited EPC 0xE0 frame (see MODEL_INFO_* below).
+// long frame (DL > 0xA7) that carries the indoor board's EEPROM data model and
+// number. The rating-label models and serials of the indoor (FCU) and outdoor
+// (CDU) units come in an unsolicited EPC 0xE0 frame (see MODEL_INFO_* below).
 // The frames themselves are in toshiba_climate.cpp (HANDSHAKE_0..5).
 
 // Unit-info tail inside handshake identity reply (FT=0x0002, CN=0x80, DL>0xA7).
 // Confirmed by live capture (e.g. RAS-13PKVSG):
 //   abs[171..174] = FD[0xA4..0xA7] unit identification bytes
 //   abs[180]      = model string length
-//   abs[181..]    = model ASCII (length-prefixed), then serial ASCII
+//   abs[181..]    = EEPROM data model ASCII (length-prefixed), then "NO.<eeprom>"
 static constexpr size_t UNIT_INFO_MIN_LEN = 182;
 static constexpr size_t UNIT_INFO_FD_VER0 = 7 + 0xA4;  // absolute 171
 static constexpr size_t UNIT_INFO_MODEL_LEN_IDX = 180;
@@ -93,7 +93,7 @@ enum UnitFeature : uint32_t {
   FEATURE_SELF_CLEAN = 1u << 2,        // 0xCB answered
   FEATURE_OFF_TIMER = 1u << 3,         // 0x94 answered
   FEATURE_ERROR_CODE = 1u << 4,        // 0x88 answered
-  FEATURE_FCU_IDENTITY = 1u << 5,      // FCU model in the handshake identity
+  FEATURE_FCU_IDENTITY = 1u << 5,      // model string in the handshake identity
   FEATURE_MODEL_INFO = 1u << 6,        // 0xE0 notify seen
   FEATURE_IDU_DIAG = 1u << 7,          // 0xE4 seen
   FEATURE_ODU_DIAG = 1u << 8,          // 0xE5 seen
@@ -363,8 +363,11 @@ class ToshibaClimateUart final : public PollingComponent, public climate::Climat
   uint8_t time_sync_attempts_ = 0;  // unacknowledged attempts since the last ACK
   uint32_t next_time_sync_at_ = 0;  // millis() of the next sync attempt
   uint32_t time_sync_interval_{86400000};
-  char fcu_model_[UNIT_INFO_MODEL_MAX + 1]{};
-  char fcu_serial_[UNIT_INFO_SERIAL_MAX + 1]{};
+  // Handshake identity strings: EEPROM data model and number ("NO.xxxxxx").
+  // They key the stored capabilities, so they keep that role even though the
+  // label model and serial come from 0xE0.
+  char id_model_[UNIT_INFO_MODEL_MAX + 1]{};
+  char id_eeprom_[UNIT_INFO_SERIAL_MAX + 1]{};
   // From the 0xE0 notify; empty until the unit sends it.
   UnitModelInfo fcu_info_{};
   UnitModelInfo cdu_info_{};
@@ -440,6 +443,9 @@ class ToshibaClimateUart final : public PollingComponent, public climate::Climat
   void apply_capabilities_();
   uint32_t derived_features_() const;
   uint32_t unit_hash_() const;
+  const char *fcu_model_() const;
+  const char *fcu_serial_() const;
+  void publish_fcu_model_serial_();
   void note_feature_(uint32_t features);
   void evaluate_capabilities_();
   // Saves to flash and makes it the applied set; returns the previous features.

@@ -459,10 +459,11 @@ static const uint32_t CAPS_MAGIC = 0x54534301;  // "TSC" v1
 static const uint32_t CAPS_EVALUATE_DELAY = 30000;
 
 uint32_t ToshibaClimateUart::unit_hash_() const {
-  if (this->fcu_model_[0] == '\0' && this->fcu_serial_[0] == '\0')
+  if (this->id_model_[0] == '\0' && this->id_eeprom_[0] == '\0')
     return 0;
-  // Same value as fnv1_hash(model + "|" + serial), which older versions stored.
-  return fnv1_extend(fnv1_extend(fnv1_extend(FNV1_OFFSET_BASIS, this->fcu_model_), "|"), this->fcu_serial_);
+  // Same value as fnv1_hash(model + "|" + serial), which older versions stored
+  // from the same identity strings.
+  return fnv1_extend(fnv1_extend(fnv1_extend(FNV1_OFFSET_BASIS, this->id_model_), "|"), this->id_eeprom_);
 }
 
 void ToshibaClimateUart::load_capabilities_() {
@@ -530,7 +531,7 @@ void ToshibaClimateUart::apply_capabilities_() {
  */
 uint32_t ToshibaClimateUart::derived_features_() const {
   uint32_t f = 0;
-  if (this->fcu_model_[0] != '\0')
+  if (this->id_model_[0] != '\0')
     f |= FEATURE_FCU_IDENTITY;
   const uint8_t profile = this->unit_profile_;
   if (!this->feature_mask_known_ || (profile != 2 && profile != 3))
@@ -1027,18 +1028,7 @@ void ToshibaClimateUart::handle_model_info_(const uint8_t *edt, size_t len) {
            this->fcu_info_.model, this->fcu_info_.serial, this->fcu_info_.firmware, fcu_eeprom, this->cdu_info_.model,
            this->cdu_info_.serial, this->cdu_info_.firmware, cdu_eeprom);
 
-  // The handshake identity is the primary source of the FCU model and serial;
-  // use 0xE0 only when the identity reply did not carry them.
-  if (this->fcu_model_[0] == '\0' && this->fcu_info_.model[0] != '\0') {
-    copy_string(this->fcu_model_, this->fcu_info_.model);
-    if (this->fcu_model_text_sensor_ != nullptr)
-      this->fcu_model_text_sensor_->publish_state(this->fcu_model_);
-  }
-  if (this->fcu_serial_[0] == '\0' && this->fcu_info_.serial[0] != '\0') {
-    copy_string(this->fcu_serial_, this->fcu_info_.serial);
-    if (this->fcu_serial_text_sensor_ != nullptr)
-      this->fcu_serial_text_sensor_->publish_state(this->fcu_serial_);
-  }
+  this->publish_fcu_model_serial_();
 
   if (this->fcu_firmware_text_sensor_ != nullptr && this->fcu_info_.firmware[0] != '\0')
     this->fcu_firmware_text_sensor_->publish_state(this->fcu_info_.firmware);
@@ -1059,11 +1049,14 @@ void ToshibaClimateUart::parse_unit_identity_(const uint8_t *data, size_t len) {
                                    data[UNIT_INFO_FD_VER0 + 3]);
   }
 
-  // FCU model at abs[181..], serial ("NO.xxxxx") follows. The byte at abs[180] does not
-  // match the model length on every unit (seen one too high, swallowing the serial's 'N'),
-  // so split at "NO." when present and use the length byte only as a fallback.
-  this->fcu_model_[0] = '\0';
-  this->fcu_serial_[0] = '\0';
+  // EEPROM data model at abs[181..], EEPROM number ("NO.xxxxx") follows. These
+  // describe the indoor board's EEPROM data set, not the rating label: e.g. a
+  // RAS-B13P2KVSG-E reports "RAS-13NKVRG" / "NO.022021", and 0xE0 carries the
+  // same number as its FCU EEPROM info. The byte at abs[180] does not match the
+  // model length on every unit (seen one too high, swallowing the 'N'), so split
+  // at "NO." when present and use the length byte only as a fallback.
+  this->id_model_[0] = '\0';
+  this->id_eeprom_[0] = '\0';
 
   if (len > UNIT_INFO_MODEL_DATA) {
     size_t model_len = data[UNIT_INFO_MODEL_LEN_IDX];
@@ -1078,19 +1071,34 @@ void ToshibaClimateUart::parse_unit_identity_(const uint8_t *data, size_t len) {
       }
     }
 
-    extract_unit_field(data, len, UNIT_INFO_MODEL_DATA, model_len, this->fcu_model_, sizeof(this->fcu_model_));
+    extract_unit_field(data, len, UNIT_INFO_MODEL_DATA, model_len, this->id_model_, sizeof(this->id_model_));
     const size_t serial_off = UNIT_INFO_MODEL_DATA + model_len;
-    extract_unit_field(data, len, serial_off, UNIT_INFO_SERIAL_MAX, this->fcu_serial_, sizeof(this->fcu_serial_));
+    extract_unit_field(data, len, serial_off, UNIT_INFO_SERIAL_MAX, this->id_eeprom_, sizeof(this->id_eeprom_));
   }
 
-  ESP_LOGI(TAG, "FCU model='%s' serial='%s'", this->fcu_model_, this->fcu_serial_);
+  ESP_LOGI(TAG, "Identity: EEPROM model='%s' number='%s'", this->id_model_, this->id_eeprom_);
+  this->publish_fcu_model_serial_();
+}
 
-  if (this->fcu_model_text_sensor_ != nullptr && this->fcu_model_[0] != '\0') {
-    this->fcu_model_text_sensor_->publish_state(this->fcu_model_);
-  }
-  if (this->fcu_serial_text_sensor_ != nullptr && this->fcu_serial_[0] != '\0') {
-    this->fcu_serial_text_sensor_->publish_state(this->fcu_serial_);
-  }
+/**
+ * The FCU model and serial from 0xE0 are the ones on the rating label. Until
+ * (or unless) the unit sends 0xE0, fall back to the handshake identity strings.
+ */
+const char *ToshibaClimateUart::fcu_model_() const {
+  return this->fcu_info_.model[0] != '\0' ? this->fcu_info_.model : this->id_model_;
+}
+
+const char *ToshibaClimateUart::fcu_serial_() const {
+  return this->fcu_info_.serial[0] != '\0' ? this->fcu_info_.serial : this->id_eeprom_;
+}
+
+void ToshibaClimateUart::publish_fcu_model_serial_() {
+  const char *model = this->fcu_model_();
+  const char *serial = this->fcu_serial_();
+  if (this->fcu_model_text_sensor_ != nullptr && model[0] != '\0')
+    this->fcu_model_text_sensor_->publish_state(model);
+  if (this->fcu_serial_text_sensor_ != nullptr && serial[0] != '\0')
+    this->fcu_serial_text_sensor_->publish_state(serial);
 }
 
 void ToshibaClimateUart::parse_response_(const uint8_t *data, size_t len) {
@@ -1541,12 +1549,15 @@ void ToshibaClimateUart::parse_response_(const uint8_t *data, size_t len) {
 void ToshibaClimateUart::dump_config() {
   ESP_LOGCONFIG(TAG, "Toshiba climate:");
   LOG_CLIMATE("", "Thermostat", this);
-  if (this->fcu_model_[0] != '\0' || this->fcu_serial_[0] != '\0') {
+  if (this->fcu_model_()[0] != '\0' || this->fcu_serial_()[0] != '\0') {
     ESP_LOGCONFIG(TAG,
                   "  FCU Model: '%s'\n"
                   "  FCU Serial: '%s'\n"
                   "  FCU Firmware: '%s'",
-                  this->fcu_model_, this->fcu_serial_, this->fcu_info_.firmware);
+                  this->fcu_model_(), this->fcu_serial_(), this->fcu_info_.firmware);
+  }
+  if (this->id_model_[0] != '\0' || this->id_eeprom_[0] != '\0') {
+    ESP_LOGCONFIG(TAG, "  FCU EEPROM data: '%s' '%s'", this->id_model_, this->id_eeprom_);
   }
   if (this->cdu_info_.model[0] != '\0' || this->cdu_info_.serial[0] != '\0') {
     ESP_LOGCONFIG(TAG, "  CDU Model: '%s' Serial: '%s' Firmware: '%s'", this->cdu_info_.model, this->cdu_info_.serial,
