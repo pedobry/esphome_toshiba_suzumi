@@ -1,4 +1,70 @@
 ***
+Nov 18th 2026
+
+Compatibility with ESPHome 2026.11 and ESPHome coding standards.
+
+* Requires ESPHome 2026.11 or newer; the configuration check reports older
+  versions. For ESPHome 2026.4 - 2026.10 use the tag 2026.10.
+
+* Builds with ESPHome 2026.11 (format_hex_pretty() is no longer reachable
+  through helpers.h).
+
+* Log tag changed from "ToshibaClimateUart" to "toshiba_suzumi". Update
+  `logger: logs:` entries that use the old tag.
+
+* Commands sent and the related traffic messages are logged at VERBOSE
+  instead of DEBUG. Values received from the unit stay at DEBUG; the indoor /
+  outdoor diagnostics now log all their values in one DEBUG line.
+
+* The uart: block is checked at compile time: 9600 baud, 8 data bits, EVEN
+  parity, 1 stop bit.
+
+* special_mode (deprecated since 2025.09) now logs a warning. Use
+  supported_presets with the same list instead.
+
+* min_temp accepts 5 - 30 only.
+
+* After five missed keepalive replies the component shows a warning status in
+  Home Assistant until the unit answers again.
+
+* disable_heat_mode: false and disable_wifi_led: false now really keep heat
+  mode / the Wi-Fi LED on (before, listing the key at all disabled it).
+
+* A feature found later (e.g. diagnostics a profile 1/2 unit sends hours
+  after the start) restarts the device once, like any other detection
+  change. Before, the entities were shown without a restart, which uses
+  set_internal() after setup: an error in ESPHome 2026.11, ignored from
+  2027.3.
+
+* Self-clean status (0xCB) uses only bits 3-4; values with defrost settings in
+  the low bits (e.g. 0x11, Strong Defrost on) no longer log "unknown self-clean
+  state".
+
+* New Strong Defrost switch (0xCB bit 0, active right away) and Defrost button
+  (0xCB bit 1, runs one defrost); both in Heat mode only, as in the Toshiba
+  app. Shown automatically on
+  units with 0xEE byte 2 bit 6. The unit ends the defrost on its own.
+
+* The vertical_air_direction select is now air_direction and offers every
+  louver setting of the Toshiba app: Off, Swing, the five up/down positions,
+  the five left/right positions (0xA3 = 0x61-0x65) and HADA Care Flow (0x60).
+  It offers only what the unit reports in 0xEE byte 2. vertical_air_direction
+  still works with a deprecation warning. 0x60 no longer logs
+  "Invalid swing mode 96".
+
+* error_code shows "none" instead of "unknown" when the unit sets the fault
+  status (0x88) but the error code (last byte of 0x86) is 0, as the Toshiba
+  adapter and app do. This case is logged at DEBUG instead of WARN.
+
+* Long frames (the 247-byte 0x99 time sync) are sent over several loop()
+  passes as the UART takes them, instead of blocking loop() until the TX FIFO
+  has taken the whole frame ("took a long time for an operation" warning).
+
+* No heap allocation in the UART path after setup: commands are queued in a
+  fixed-size queue and frames are built when sent; received frames use a
+  fixed buffer.
+
+***
 Nov 13th 2026
 
 Automatic feature detection and ionizer.

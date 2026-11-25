@@ -1,10 +1,13 @@
 #pragma once
 
-#include <string>
+#include <array>
+#include <cstddef>
+#include <cstdint>
 #include <vector>
 
 #include "esphome/core/component.h"
 #include "esphome/components/binary_sensor/binary_sensor.h"
+#include "esphome/components/button/button.h"
 #include "esphome/components/climate/climate.h"
 #include "esphome/components/uart/uart.h"
 #include "esphome/components/sensor/sensor.h"
@@ -20,7 +23,6 @@ class RealTimeClock;
 }  // namespace time
 namespace toshiba_suzumi {
 
-static const char *const TAG = "ToshibaClimateUart";
 // default max temp for units
 static const uint8_t MAX_TEMP = 30;
 // default min temp for units without 8° heating mode
@@ -64,43 +66,55 @@ static constexpr size_t MODEL_INFO_EEPROM_OFF = 0x2B, MODEL_INFO_EEPROM_LEN = 6;
 
 // Indoor (FCU) or outdoor (CDU) unit info from the 0xE0 notify.
 struct UnitModelInfo {
-  std::string model;
-  std::string serial;
-  std::string firmware;
+  char model[MODEL_INFO_MODEL_LEN + 1];
+  char serial[MODEL_INFO_SERIAL_LEN + 1];
+  char firmware[MODEL_INFO_FIRMWARE_LEN + 1];
 };
+
+// Frame buffers. A frame is STX | FT(2) | CN | FN | DL(2) | FD[DL] | FCC.
+static constexpr size_t FRAME_HEADER_LEN = 7;
+// Received frames: longer ones are dropped as corrupt (index of FCC <= 512).
+static constexpr size_t RX_FRAME_MAX = 513;
+// Longest EDT kept in a queued command (mode/temp/fan/merit bundle, 7-byte clock).
+static constexpr size_t COMMAND_EDT_MAX = 7;
+// 0x99 Set: clock (7 bytes), two zero bytes, 7 days x 4 empty programs x 8 bytes.
+static constexpr size_t SCHEDULE_EDT_LEN = 7 + 2 + 224;
+// Request FD is 01 30 01 | LEN(2) | EPC | EDT.
+static constexpr size_t TX_FRAME_MAX = FRAME_HEADER_LEN + 6 + SCHEDULE_EDT_LEN + 1;
+// Enough for the handshake, all reads at connect and a burst of Sets.
+static constexpr size_t COMMAND_QUEUE_SIZE = 48;
 
 // Unit capabilities for automatic entity setup. Bits are persisted in flash,
 // so keep the values stable. Sources: replies to Gets / notifies seen on the
 // wire, the identity profile and the unit's feature mask (EPC 0xEE).
 enum UnitFeature : uint32_t {
-  FEATURE_OUTDOOR_TEMP = 1u << 0,   // 0xBE answered
-  FEATURE_POWER_SEL = 1u << 1,      // 0x87 answered
-  FEATURE_SELF_CLEAN = 1u << 2,     // 0xCB answered
-  FEATURE_OFF_TIMER = 1u << 3,      // 0x94 answered
-  FEATURE_ERROR_CODE = 1u << 4,     // 0x88 answered
-  FEATURE_FCU_IDENTITY = 1u << 5,   // FCU model in the handshake identity
-  FEATURE_MODEL_INFO = 1u << 6,     // 0xE0 notify seen
-  FEATURE_IDU_DIAG = 1u << 7,       // 0xE4 seen
-  FEATURE_ODU_DIAG = 1u << 8,       // 0xE5 seen
-  FEATURE_ENERGY = 1u << 9,         // profile 3, 0xEE byte 2 bit 0
-  FEATURE_LOUVER_FIXED = 1u << 10,  // profile 3, 0xEE byte 2 bit 1
-  FEATURE_PURE = 1u << 11,          // profile 2/3, 0xEE byte 1 bit 4
-  FEATURE_LR_LOUVER = 1u << 12,     // profile 2/3, 0xEE byte 1 bit 6
-  FEATURE_ECO_HIPOWER = 1u << 13,   // profile 2/3
-  FEATURE_EIGHT_DEG = 1u << 14,     // profile 2/3, 0xEE byte 1 bit 2
-  FEATURE_FIREPLACE = 1u << 15,     // profile 2/3, 0xEE byte 1 bit 3
-  FEATURE_SILENT = 1u << 16,        // profile 2/3, 0xEE byte 1 bit 5
-  FEATURE_FLOOR = 1u << 17,         // profile 2/3, 0xEE byte 1 bit 7
-  FEATURE_COOL_ONLY = 1u << 18,     // 0xEE byte 1 bits 1..0 = 10
-  FEATURE_HEAT_ONLY = 1u << 19,     // 0xEE byte 1 bits 1..0 = 01
+  FEATURE_OUTDOOR_TEMP = 1u << 0,      // 0xBE answered
+  FEATURE_POWER_SEL = 1u << 1,         // 0x87 answered
+  FEATURE_SELF_CLEAN = 1u << 2,        // 0xCB answered
+  FEATURE_OFF_TIMER = 1u << 3,         // 0x94 answered
+  FEATURE_ERROR_CODE = 1u << 4,        // 0x88 answered
+  FEATURE_FCU_IDENTITY = 1u << 5,      // FCU model in the handshake identity
+  FEATURE_MODEL_INFO = 1u << 6,        // 0xE0 notify seen
+  FEATURE_IDU_DIAG = 1u << 7,          // 0xE4 seen
+  FEATURE_ODU_DIAG = 1u << 8,          // 0xE5 seen
+  FEATURE_ENERGY = 1u << 9,            // profile 3, 0xEE byte 2 bit 0
+  FEATURE_LOUVER_FIXED = 1u << 10,     // profile 3, 0xEE byte 2 bit 1
+  FEATURE_PURE = 1u << 11,             // profile 2/3, 0xEE byte 1 bit 4
+  FEATURE_LR_LOUVER = 1u << 12,        // profile 2/3, 0xEE byte 1 bit 6
+  FEATURE_ECO_HIPOWER = 1u << 13,      // profile 2/3
+  FEATURE_EIGHT_DEG = 1u << 14,        // profile 2/3, 0xEE byte 1 bit 2
+  FEATURE_FIREPLACE = 1u << 15,        // profile 2/3, 0xEE byte 1 bit 3
+  FEATURE_SILENT = 1u << 16,           // profile 2/3, 0xEE byte 1 bit 5
+  FEATURE_FLOOR = 1u << 17,            // profile 2/3, 0xEE byte 1 bit 7
+  FEATURE_COOL_ONLY = 1u << 18,        // 0xEE byte 1 bits 1..0 = 10
+  FEATURE_HEAT_ONLY = 1u << 19,        // 0xEE byte 1 bits 1..0 = 01
+  FEATURE_HADA = 1u << 20,             // profile 2/3, 0xEE byte 2 bit 2 (HADA Care Flow)
+  FEATURE_LOUVER_FIXED_LR = 1u << 21,  // profile 2/3, 0xEE byte 2 bit 5 (left/right positions)
+  FEATURE_STRONG_DEFROST = 1u << 22,   // profile 2/3, 0xEE byte 2 bit 6 (Strong Defrost, defrost now)
 };
 
-// Features that change the climate traits or presets. Home Assistant reads
-// those once per connection, so adding one needs a restart; the others only
-// show entities.
-static constexpr uint32_t TRAIT_FEATURES = FEATURE_LR_LOUVER | FEATURE_ECO_HIPOWER | FEATURE_EIGHT_DEG |
-                                           FEATURE_FIREPLACE | FEATURE_SILENT | FEATURE_FLOOR | FEATURE_COOL_ONLY |
-                                           FEATURE_HEAT_ONLY;
+// The air direction select is shown when the unit has any of these.
+static constexpr uint32_t AIR_DIRECTION_FEATURES = FEATURE_LOUVER_FIXED | FEATURE_LOUVER_FIXED_LR | FEATURE_HADA;
 
 // Persisted detection result (flash / RTC preferences).
 struct UnitCapabilities {
@@ -112,17 +126,71 @@ struct UnitCapabilities {
   uint8_t reserved;
 } __attribute__((packed));
 
-struct ToshibaCommand {
-  ToshibaCommandType cmd;
-  std::vector<uint8_t> payload;
-  int delay;
-  // Set on the periodic link check. The reply (or its absence) updates the fail counter.
-  bool keepalive = false;
+enum class CommandKind : uint8_t {
+  RAW,         // fixed frame (handshake)
+  GET,         // property Get of `cmd`
+  SET,         // property Set of `cmd` with `edt`
+  NOTIFY_ACK,  // ACK of an unsolicited frame, echoes `fn`
+  DELAY,       // pause of `delay` ms, nothing is sent
 };
 
-class ToshibaClimateUart : public PollingComponent, public climate::Climate, public uart::UARTDevice {
- public:
+// A queued command. The frame is built only when the command is sent, so the
+// queue holds no frame buffers.
+struct ToshibaCommand {
+  ToshibaCommandType cmd{ToshibaCommandType::HANDSHAKE};
+  CommandKind kind{CommandKind::RAW};
+  // Set on the periodic link check. The reply (or its absence) updates the fail counter.
+  bool keepalive{false};
+  uint8_t fn{0};
+  uint8_t edt_len{0};
+  // SET data. For SCHEDULE_PROGRAM only the clock; the empty schedule is added when sent.
+  uint8_t edt[COMMAND_EDT_MAX]{};
+  uint16_t delay{0};
+  const uint8_t *raw{nullptr};
+  uint8_t raw_len{0};
+};
 
+// Fixed-capacity FIFO for the command queue.
+template<typename T, size_t N> class CommandQueue {
+ public:
+  bool push_back(const T &item) {
+    if (this->count_ == N)
+      return false;
+    this->items_[(this->head_ + this->count_) % N] = item;
+    this->count_++;
+    return true;
+  }
+  bool push_front(const T &item) {
+    if (this->count_ == N)
+      return false;
+    this->head_ = (this->head_ + N - 1) % N;
+    this->items_[this->head_] = item;
+    this->count_++;
+    return true;
+  }
+  const T &front() const { return this->items_[this->head_]; }
+  void pop_front() {
+    if (this->count_ == 0)
+      return;
+    this->head_ = (this->head_ + 1) % N;
+    this->count_--;
+  }
+  const T &operator[](size_t index) const { return this->items_[(this->head_ + index) % N]; }
+  void clear() {
+    this->head_ = 0;
+    this->count_ = 0;
+  }
+  bool empty() const { return this->count_ == 0; }
+  size_t size() const { return this->count_; }
+
+ protected:
+  std::array<T, N> items_{};
+  size_t head_{0};
+  size_t count_{0};
+};
+
+class ToshibaClimateUart final : public PollingComponent, public climate::Climate, public uart::UARTDevice {
+ public:
   void setup() override;
   void loop() override;
   void dump_config() override;
@@ -130,57 +198,66 @@ class ToshibaClimateUart : public PollingComponent, public climate::Climate, pub
   void set_wifi_led(bool enabled);
   float get_setup_priority() const override { return setup_priority::LATE; }
 
-  void set_indoor_temp_sensor(sensor::Sensor *indoor_temp_sensor) { indoor_temp_sensor_ = indoor_temp_sensor; }
-  void set_outdoor_temp_sensor(sensor::Sensor *outdoor_temp_sensor) { outdoor_temp_sensor_ = outdoor_temp_sensor; }
-  void set_cdu_td_temp_sensor(sensor::Sensor *sensor) { cdu_td_temp_sensor_ = sensor; }
-  void set_cdu_ts_temp_sensor(sensor::Sensor *sensor) { cdu_ts_temp_sensor_ = sensor; }
-  void set_cdu_te_temp_sensor(sensor::Sensor *sensor) { cdu_te_temp_sensor_ = sensor; }
-  void set_cdu_load_sensor(sensor::Sensor *sensor) { cdu_load_sensor_ = sensor; }
-  void set_cdu_iac_sensor(sensor::Sensor *sensor) { cdu_iac_sensor_ = sensor; }
-  void set_fcu_tc_temp_sensor(sensor::Sensor *sensor) { fcu_tc_temp_sensor_ = sensor; }
-  void set_fcu_tcj_temp_sensor(sensor::Sensor *sensor) { fcu_tcj_temp_sensor_ = sensor; }
-  void set_fcu_fan_rpm_sensor(sensor::Sensor *sensor) { fcu_fan_rpm_sensor_ = sensor; }
-  void set_time(time::RealTimeClock *time) { time_ = time; }
-  void set_energy_sensor(sensor::Sensor *sensor) { energy_sensor_ = sensor; }
-  void set_power_sensor(sensor::Sensor *sensor) { power_sensor_ = sensor; }
-  void set_pwr_select(select::Select *pws_select) { pwr_select_ = pws_select; }
-  void set_vertical_air_direction_select(select::Select *vertical_air_direction_select) {
-    vertical_air_direction_select_ = vertical_air_direction_select;
+  void set_indoor_temp_sensor(sensor::Sensor *indoor_temp_sensor) { this->indoor_temp_sensor_ = indoor_temp_sensor; }
+  void set_outdoor_temp_sensor(sensor::Sensor *outdoor_temp_sensor) {
+    this->outdoor_temp_sensor_ = outdoor_temp_sensor;
   }
-  void set_self_clean_sensor(binary_sensor::BinarySensor *self_clean_sensor) { self_clean_sensor_ = self_clean_sensor; }
-  void set_off_timer_sensor(binary_sensor::BinarySensor *sensor) { off_timer_sensor_ = sensor; }
-  void set_off_timer_remaining_sensor(sensor::Sensor *sensor) { off_timer_remaining_sensor_ = sensor; }
-  void set_fcu_model_text_sensor(text_sensor::TextSensor *sensor) { fcu_model_text_sensor_ = sensor; }
-  void set_fcu_serial_text_sensor(text_sensor::TextSensor *sensor) { fcu_serial_text_sensor_ = sensor; }
-  void set_error_code_text_sensor(text_sensor::TextSensor *sensor) { error_code_text_sensor_ = sensor; }
-  void set_fcu_firmware_text_sensor(text_sensor::TextSensor *sensor) { fcu_firmware_text_sensor_ = sensor; }
-  void set_cdu_model_text_sensor(text_sensor::TextSensor *sensor) { cdu_model_text_sensor_ = sensor; }
-  void set_cdu_serial_text_sensor(text_sensor::TextSensor *sensor) { cdu_serial_text_sensor_ = sensor; }
-  void set_cdu_firmware_text_sensor(text_sensor::TextSensor *sensor) { cdu_firmware_text_sensor_ = sensor; }
+  void set_cdu_td_temp_sensor(sensor::Sensor *sensor) { this->cdu_td_temp_sensor_ = sensor; }
+  void set_cdu_ts_temp_sensor(sensor::Sensor *sensor) { this->cdu_ts_temp_sensor_ = sensor; }
+  void set_cdu_te_temp_sensor(sensor::Sensor *sensor) { this->cdu_te_temp_sensor_ = sensor; }
+  void set_cdu_load_sensor(sensor::Sensor *sensor) { this->cdu_load_sensor_ = sensor; }
+  void set_cdu_iac_sensor(sensor::Sensor *sensor) { this->cdu_iac_sensor_ = sensor; }
+  void set_fcu_tc_temp_sensor(sensor::Sensor *sensor) { this->fcu_tc_temp_sensor_ = sensor; }
+  void set_fcu_tcj_temp_sensor(sensor::Sensor *sensor) { this->fcu_tcj_temp_sensor_ = sensor; }
+  void set_fcu_fan_rpm_sensor(sensor::Sensor *sensor) { this->fcu_fan_rpm_sensor_ = sensor; }
+  void set_time(time::RealTimeClock *time) { this->time_ = time; }
+  void set_energy_sensor(sensor::Sensor *sensor) { this->energy_sensor_ = sensor; }
+  void set_power_sensor(sensor::Sensor *sensor) { this->power_sensor_ = sensor; }
+  void set_pwr_select(select::Select *pws_select) { this->pwr_select_ = pws_select; }
+  void set_air_direction_select(select::Select *air_direction_select) {
+    this->air_direction_select_ = air_direction_select;
+  }
+  void set_self_clean_sensor(binary_sensor::BinarySensor *self_clean_sensor) {
+    this->self_clean_sensor_ = self_clean_sensor;
+  }
+  void set_off_timer_sensor(binary_sensor::BinarySensor *sensor) { this->off_timer_sensor_ = sensor; }
+  void set_off_timer_remaining_sensor(sensor::Sensor *sensor) { this->off_timer_remaining_sensor_ = sensor; }
+  void set_fcu_model_text_sensor(text_sensor::TextSensor *sensor) { this->fcu_model_text_sensor_ = sensor; }
+  void set_fcu_serial_text_sensor(text_sensor::TextSensor *sensor) { this->fcu_serial_text_sensor_ = sensor; }
+  void set_error_code_text_sensor(text_sensor::TextSensor *sensor) { this->error_code_text_sensor_ = sensor; }
+  void set_fcu_firmware_text_sensor(text_sensor::TextSensor *sensor) { this->fcu_firmware_text_sensor_ = sensor; }
+  void set_cdu_model_text_sensor(text_sensor::TextSensor *sensor) { this->cdu_model_text_sensor_ = sensor; }
+  void set_cdu_serial_text_sensor(text_sensor::TextSensor *sensor) { this->cdu_serial_text_sensor_ = sensor; }
+  void set_cdu_firmware_text_sensor(text_sensor::TextSensor *sensor) { this->cdu_firmware_text_sensor_ = sensor; }
   void set_horizontal_swing(bool enabled) {
-    horizontal_swing_ = enabled;
-    horizontal_swing_explicit_ = true;
+    this->horizontal_swing_ = enabled;
+    this->horizontal_swing_explicit_ = true;
   }
   void disable_heat_mode(bool disabled) {
-    heat_mode_disabled_ = disabled;
-    heat_mode_explicit_ = true;
+    this->heat_mode_disabled_ = disabled;
+    this->heat_mode_explicit_ = true;
   }
-  void set_ionizer_switch(switch_::Switch *sw) { ionizer_switch_ = sw; }
-  void set_auto_detect(bool enabled) { auto_detect_ = enabled; }
-  void set_caps_volatile(bool v) { caps_volatile_ = v; }
+  void set_ionizer_switch(switch_::Switch *sw) { this->ionizer_switch_ = sw; }
+  void set_strong_defrost_switch(switch_::Switch *sw) { this->strong_defrost_switch_ = sw; }
+  void set_defrost_button(button::Button *button) { this->defrost_button_ = button; }
+  void set_auto_detect(bool enabled) { this->auto_detect_ = enabled; }
+  void set_caps_volatile(bool v) { this->caps_volatile_ = v; }
   // Entity created by the component (not listed in YAML); hidden from Home
   // Assistant unless the unit has `feature`.
-  void add_auto_entity(EntityBase *entity, uint32_t feature) { auto_entities_.push_back({entity, feature}); }
+  void add_auto_entity(EntityBase *entity, uint32_t feature) { this->auto_entities_.push_back({entity, feature}); }
   // Forget the detected capabilities and detect again (restarts the device).
   void reset_capabilities();
   void set_ionizer(bool on);
-  void disable_wifi_led(bool disabled) { wifi_led_disabled_ = disabled; }
-  void set_supported_presets(const std::vector<const char *> &presets) { supported_presets_ = presets; }
+  // Strong Defrost mode (0xCB bit 0) and one defrost now (bit 1, Heat mode only).
+  void set_strong_defrost(bool on);
+  void start_defrost();
+  void disable_wifi_led(bool disabled) { this->wifi_led_disabled_ = disabled; }
+  void set_supported_presets(const std::vector<const char *> &presets) { this->supported_presets_ = presets; }
   void set_min_temp(uint8_t min_temp) {
-    min_temp_ = min_temp;
-    min_temp_explicit_ = true;
+    this->min_temp_ = min_temp;
+    this->min_temp_explicit_ = true;
   }
-  void set_time_sync_interval(uint32_t interval) { time_sync_interval_ = interval; }
+  void set_time_sync_interval(uint32_t interval) { this->time_sync_interval_ = interval; }
 
  protected:
   /// Override control to change settings of the climate device.
@@ -189,14 +266,20 @@ class ToshibaClimateUart : public PollingComponent, public climate::Climate, pub
   /// Return the traits of this controller.
   climate::ClimateTraits traits() override;
 
- private:
-  std::vector<uint8_t> rx_message_;
-  std::vector<uint8_t> rx_frame_;  // complete frame being parsed (swapped with rx_message_)
-  bool climate_changed_ = false;    // set by set_custom_*_() while parsing a frame
-  std::vector<ToshibaCommand> command_queue_;
+  std::array<uint8_t, RX_FRAME_MAX> rx_buf_{};
+  size_t rx_len_ = 0;
+  // Frame being sent. A long frame (the 247-byte 0x99 time sync) does not fit
+  // the UART TX FIFO, so it goes out over several loop() passes instead of
+  // blocking loop() until the FIFO has taken all of it.
+  std::array<uint8_t, TX_FRAME_MAX> tx_buf_{};
+  size_t tx_len_ = 0;
+  size_t tx_sent_ = 0;
+  uint32_t last_tx_write_ = 0;
+  bool climate_changed_ = false;  // set by set_custom_*_() while parsing a frame
+  CommandQueue<ToshibaCommand, COMMAND_QUEUE_SIZE> command_queue_;
   uint32_t last_command_timestamp_ = 0;
   uint32_t last_rx_char_timestamp_ = 0;
-  STATE power_state_ = STATE::OFF;
+  PowerState power_state_ = PowerState::OFF;
   // True while the unit is running its post-shutdown self-cleaning cycle.
   bool self_clean_running_ = false;
   // Last raw values of 0xB0 / 0xA0 / 0xB3 / 0xF7 seen on the wire (Get replies,
@@ -210,7 +293,10 @@ class ToshibaClimateUart : public PollingComponent, public climate::Climate, pub
   // Set when the unit rejects 0xF8; later changes then use single Sets.
   bool bundle_rejected_ = false;
   select::Select *pwr_select_ = nullptr;
-  select::Select *vertical_air_direction_select_ = nullptr;
+  select::Select *air_direction_select_ = nullptr;
+  // Swing value of each option the select offers (set in setup()).
+  std::array<ToshibaSwing, AIR_DIRECTION_COUNT> air_direction_values_{};
+  uint8_t air_direction_count_ = 0;
   binary_sensor::BinarySensor *self_clean_sensor_ = nullptr;
   binary_sensor::BinarySensor *off_timer_sensor_ = nullptr;
   sensor::Sensor *off_timer_remaining_sensor_ = nullptr;
@@ -236,7 +322,7 @@ class ToshibaClimateUart : public PollingComponent, public climate::Climate, pub
   text_sensor::TextSensor *cdu_serial_text_sensor_ = nullptr;
   text_sensor::TextSensor *cdu_firmware_text_sensor_ = nullptr;
   bool horizontal_swing_ = false;
-  uint8_t min_temp_ = 17; // default min temp for units without 8° heating mode
+  uint8_t min_temp_ = 17;  // default min temp for units without 8° heating mode
   bool heat_mode_disabled_ = false;
   bool heat_only_ = false;
   bool horizontal_swing_explicit_ = false;
@@ -244,6 +330,9 @@ class ToshibaClimateUart : public PollingComponent, public climate::Climate, pub
   bool min_temp_explicit_ = false;
   bool presets_explicit_ = false;
   switch_::Switch *ionizer_switch_ = nullptr;
+  switch_::Switch *strong_defrost_switch_ = nullptr;
+  button::Button *defrost_button_ = nullptr;
+  uint8_t defrost_bits_ = 0;  // low bits of the last 0xCB value (DEFROST_MASK)
 
   // Automatic capability detection.
   struct AutoEntity {
@@ -254,13 +343,13 @@ class ToshibaClimateUart : public PollingComponent, public climate::Climate, pub
   bool caps_volatile_ = false;  // ESP8266 without restore_from_flash
   std::vector<AutoEntity> auto_entities_;
   ESPPreferenceObject caps_pref_;
-  UnitCapabilities caps_{};       // applied at boot (from flash)
+  UnitCapabilities caps_{};  // applied at boot (from flash)
   bool caps_loaded_ = false;
   uint32_t detected_features_ = 0;  // seen during this boot
   bool caps_evaluated_ = false;
   bool caps_reboot_pending_ = false;
   bool wifi_led_disabled_ = false;
-  std::vector<const char*> supported_presets_;
+  std::vector<const char *> supported_presets_;
   uint32_t last_time_sync_ = 0;  // millis() when the last sync frame was queued
   uint32_t last_energy_sync_ = 0;
   uint32_t last_total_daily_energy_ = 0;
@@ -274,18 +363,18 @@ class ToshibaClimateUart : public PollingComponent, public climate::Climate, pub
   uint8_t time_sync_attempts_ = 0;  // unacknowledged attempts since the last ACK
   uint32_t next_time_sync_at_ = 0;  // millis() of the next sync attempt
   uint32_t time_sync_interval_{86400000};
-  std::string fcu_model_;
-  std::string fcu_serial_;
+  char fcu_model_[UNIT_INFO_MODEL_MAX + 1]{};
+  char fcu_serial_[UNIT_INFO_SERIAL_MAX + 1]{};
   // From the 0xE0 notify; empty until the unit sends it.
-  UnitModelInfo fcu_info_;
-  UnitModelInfo cdu_info_;
+  UnitModelInfo fcu_info_{};
+  UnitModelInfo cdu_info_{};
   // Unit profile and feature level, derived from the identification bytes
   // FD[0xA4..0xA7] (see apply_unit_capabilities_()). Diagnostics 0xE4/0xE5 are
   // polled on profile 3 only.
   uint8_t unit_profile_ = 0;
   uint8_t cap_level_ = 0;
   uint8_t unit_id_bytes_[4] = {0, 0, 0, 0};  // raw FD[0xA4..0xA7], for dump_config()
-  uint8_t feature_mask_[2] = {0, 0};  // EPC 0xEE, for dump_config()
+  uint8_t feature_mask_[2] = {0, 0};         // EPC 0xEE, for dump_config()
   bool feature_mask_known_ = false;
   bool poll_diagnostics_ = false;
   bool status_init_started_ = false;
@@ -298,24 +387,21 @@ class ToshibaClimateUart : public PollingComponent, public climate::Climate, pub
   uint32_t keepalive_sent_at_ = 0;
 
   void enqueue_command_(const ToshibaCommand &command);
-  void send_to_uart(const ToshibaCommand &command);
-  void start_handshake();
-  void parseResponse(const std::vector<uint8_t> &rawData);
-  void parse_unit_identity_(const std::vector<uint8_t> &rawData);
-  static std::string extract_unit_field_(const uint8_t *data, size_t size, size_t offset, size_t max_len);
-  static UnitModelInfo parse_model_info_record_(const uint8_t *record);
+  void send_to_uart_(const ToshibaCommand &command, uint32_t now);
+  void write_pending_tx_(uint32_t now);
+  bool tx_busy_() const { return this->tx_sent_ < this->tx_len_; }
+  void start_handshake_();
+  void parse_response_(const uint8_t *data, size_t len);
+  void parse_unit_identity_(const uint8_t *data, size_t len);
   void handle_model_info_(const uint8_t *edt, size_t len);
-  void requestData(ToshibaCommandType cmd);
+  void request_data_(ToshibaCommandType cmd);
   void process_command_queue_();
-  void sendCmd(ToshibaCommandType cmd, uint8_t value);
+  void send_cmd_(ToshibaCommandType cmd, uint8_t value);
   void send_bundle_(uint8_t mode, uint8_t temp, uint8_t fan, uint8_t merit);
   bool use_bundle_() const;
   bool eight_deg_active_() const;
   void update_target_temperature_();
   void publish_special_mode_preset_(uint8_t merit);
-  static std::vector<uint8_t> make_request_fd_(uint8_t epc, const std::vector<uint8_t> &edt);
-  std::vector<uint8_t> build_frame_(uint8_t cn, uint8_t fn, const std::vector<uint8_t> &fd);
-  std::vector<uint8_t> encode_frame_(const std::vector<uint8_t> &fd);
   void send_notify_ack_(uint8_t fn);
   void apply_unit_capabilities_(uint8_t b0, uint8_t b1, uint8_t b2, uint8_t level);
   void start_status_reads_();
@@ -336,16 +422,19 @@ class ToshibaClimateUart : public PollingComponent, public climate::Climate, pub
       return false;
     return probe || !this->caps_loaded_ || !this->is_hidden_auto_entity_(entity);
   }
-  void getInitData();
+  void request_init_data_();
   void handle_rx_byte_(uint8_t c);
   bool validate_message_();
   void set_self_clean_running_(bool running);
   void handle_fault_status_(uint8_t fault);
   void publish_error_code_(const uint8_t *edt, size_t len);
-  bool has_off_timer_sensors_() const { return off_timer_sensor_ != nullptr || off_timer_remaining_sensor_ != nullptr; }
-  void on_set_pwr_level(const std::string &value);
-  void on_set_vertical_air_direction(const std::string &value);
-  void publish_vertical_air_direction_(SWING swing_mode);
+  bool has_off_timer_sensors_() const {
+    return this->off_timer_sensor_ != nullptr || this->off_timer_remaining_sensor_ != nullptr;
+  }
+  void on_set_pwr_level_(size_t index);
+  void configure_air_direction_options_();
+  void on_set_air_direction_(size_t index);
+  void publish_air_direction_(ToshibaSwing swing_mode);
   void configure_supported_custom_modes_();
   void load_capabilities_();
   void apply_capabilities_();
@@ -371,23 +460,35 @@ class ToshibaClimateUart : public PollingComponent, public climate::Climate, pub
   void estimate_wattage_(uint32_t current_energy);
 
   friend class ToshibaPwrModeSelect;
-  friend class ToshibaVerticalAirDirectionSelect;
+  friend class ToshibaAirDirectionSelect;
   friend class ToshibaIonizerSwitch;
+  friend class ToshibaStrongDefrostSwitch;
+  friend class ToshibaDefrostButton;
 };
 
-class ToshibaPwrModeSelect : public select::Select, public esphome::Parented<ToshibaClimateUart> {
+class ToshibaPwrModeSelect final : public select::Select, public esphome::Parented<ToshibaClimateUart> {
  protected:
-  virtual void control(const std::string &value) override;
+  void control(size_t index) override { this->parent_->on_set_pwr_level_(index); }
 };
 
-class ToshibaIonizerSwitch : public switch_::Switch, public esphome::Parented<ToshibaClimateUart> {
+class ToshibaIonizerSwitch final : public switch_::Switch, public esphome::Parented<ToshibaClimateUart> {
  protected:
-  void write_state(bool state) override { parent_->set_ionizer(state); }
+  void write_state(bool state) override { this->parent_->set_ionizer(state); }
 };
 
-class ToshibaVerticalAirDirectionSelect : public select::Select, public esphome::Parented<ToshibaClimateUart> {
+class ToshibaStrongDefrostSwitch final : public switch_::Switch, public esphome::Parented<ToshibaClimateUart> {
  protected:
-  virtual void control(const std::string &value) override;
+  void write_state(bool state) override { this->parent_->set_strong_defrost(state); }
+};
+
+class ToshibaDefrostButton final : public button::Button, public esphome::Parented<ToshibaClimateUart> {
+ protected:
+  void press_action() override { this->parent_->start_defrost(); }
+};
+
+class ToshibaAirDirectionSelect final : public select::Select, public esphome::Parented<ToshibaClimateUart> {
+ protected:
+  void control(size_t index) override { this->parent_->on_set_air_direction_(index); }
 };
 
 }  // namespace toshiba_suzumi

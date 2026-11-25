@@ -24,12 +24,8 @@ This component use ESPHome UART to connect with Toshiba AC and communicates dire
   - [Examples](#examples)
 - [Climate control](#climate-control)
   - [Temperature range](#temperature-range)
-  - [Vertical air directions](#vertical-air-directions)
+  - [Air direction](#air-direction)
 - [Sensors](#sensors)
-  - [Filtering incorrect values](#filtering-incorrect-values)
-  - [Self-cleaning status](#self-cleaning-status)
-  - [OFF timer](#off-timer)
-  - [Error code](#error-code)
   - [Unit model information](#unit-model-information)
   - [Indoor and outdoor unit diagnostics](#indoor-and-outdoor-unit-diagnostics)
 - [Energy and power](#energy-and-power)
@@ -41,26 +37,46 @@ This component use ESPHome UART to connect with Toshiba AC and communicates dire
 
 ## Supported Toshiba units
 
-Any unit which have an option to purchase a WiFi adapter RB-N105S-G/RB-N106S-G:
+Any unit that Toshiba offered with a Wi-Fi adapter (RB-N10xS-G, e.g. RB-N105S-G/RB-N106S-G) should work.
 
-* Seiya RAS-B24 J2KVG-E
-* Suzumi Plus RAS-B18, B22 and B24 PKVSG-E
-* Shorai Premium RAS-B18, B22 and B24 J2KVRG-E
-* Daiseikai 9 RAS-B10, B13 and B16 PKVPG-E
-* Shorai Edge RAS-B07, B10, B13, B16, B18, B22 and B24 J2KVSG-E
-* Seiya RAS-B10, B13, B16 and B18 J2KVG-E
-* Suzumi Plus RAS-B10, B13 and B16 PKVSG-E
-* Mirai RAS-13BKV-E (4-pin CN22, see [Units with a 4-pin CN22](#units-with-a-4-pin-cn22))
-* Shorai Premium RAS-B10, B13 and B16 J2KVRG-E
-* SHORAI CURVE RAS-B13P2KVSG, RAS-B10P2KVSG
+**CN22** says what the unit has for the Wi-Fi adapter:
 
-**2026 units:** it seems that some 2026 units ship already with new built-in wifi module (SHORAI CURVE RAS-B13P2KVSG, RAS-B10P2KVSG). This adapter is model WRE-T00BJ10 based on RTL8710C (ARM Thumb). Seems to have the same funtionality as RB-N105S-G/RB-N106S-G and can be replaced by custom ESP adapter.
+* **5-pin, cable in unit** – the CN22 extension cable (usually pink/blue) is ready in the unit from the factory; the official adapter RB-N105S-G is mounted inside the unit. Connect the ESP as described in [Pinout](#pinout).
+* **5-pin, no cable** – the unit has a 5-pin CN22 on the main board but no extension cable; the official adapter RB-N106S-G is mounted outside the unit and comes with its own connecting cable. Connect the ESP to CN22 with a JST PA 5-pin cable (see [Pinout](#pinout)).
+* **4-pin, cable 43T60480** – older units with only a 4-pin CN22 on the main board. The official adapter needed cable 43T60480 (ordered separately). See [Units with a 4-pin CN22](#units-with-a-4-pin-cn22).
 
+| Series | Models | CN22 |
+|---|---|---|
+| Seiya | RAS-B07, B10, B13, B16, 18 J2KVG-E | 5-pin, no cable |
+| Seiya | RAS-24 J2KVG-E | 5-pin, cable in unit |
+| Shorai Edge | RAS-B07, B10, B13, B16, 18, B22, B24 J2KVSG-E | 5-pin, cable in unit |
+| Haori | RAS-B10, B13, B16 N4KVRG-E | Built-in module WRE-T00BJ10 |
+| Shorai Premium | RAS-B10, B13, B16 J2KVRG-E | 5-pin, no cable |
+| Shorai Premium | RAS-18, B22, B24 J2KVRG-E | 5-pin, cable in unit |
+| Daiseikai 9 | RAS-10, 13, 16 PKVPG-E | 5-pin, cable in unit |
+| Suzumi Plus R32 (2019) | RAS-B10, B13, B16 PKVSG-E | 5-pin, no cable |
+| Suzumi Plus R32 (2019) | RAS-18, B22, B24 PKVSG-E | 5-pin, cable in unit |
+| Suzumi R32 (split) | RAS-10, 13, 16, 18, 22 PKVSG-E | 4-pin, cable 43T60480 |
+| Suzumi R410A | RAS-B10, B13, B16, 18, B22 N3KV2-E1 | 4-pin, cable 43T60480 |
+| Mirai R410A | RAS-B10, B13, B16, 18, 24 BKV-E(1) | 4-pin, cable 43T60480 |
+| Mirai R32 | RAS-B10, B13, B16, 18, 24 BKVG-E(1) | 4-pin, cable 43T60480 |
+| Daiseikai 8 R410A | RAS-10, 13, 16 G2KVP-E | 4-pin, cable 43T60480 |
+| Floor console R32 (2020/2021) | RAS-B10, B13, B18 U2FVG-E1; J2FVG | 5-pin, no cable |
+| Floor console R410A (2017–2019) | RAS-B10, B13, B18 UFV-E1 | 4-pin, cable 43T60480 |
+
+Of the units that need cable 43T60480, a Mirai RAS-13BKV-E was confirmed working (see [Units with a 4-pin CN22](#units-with-a-4-pin-cn22)).
+
+Not supported (no Toshiba Wi-Fi adapter, only third-party IR control): Daiseikai 6.5 RAS-B10/B13/B16 N3KVP-E, 4-way cassette RAS-M10/M13/M16 SMUV-E, ducted RAS-M10/M13/M16 G3DV-E, slim cassette RAS-B10/M13/M16 U2MUVG-E and ducted RAS-M10–M24 U2DVG-E (Toshiba planned an adapter for the last two).
+
+Newer units: Shorai Curve RAS-B10P2KVSG, RAS-B13P2KVSG (built-in module WRE-T00BJ10, see below).
+
+**Built-in Wi-Fi module WRE-T00BJ10:** some units ship with a built-in Wi-Fi module instead of an optional adapter: Haori RAS-B10/B13/B16 N4KVRG-E (since 2021) and Shorai Curve RAS-B10P2KVSG, RAS-B13P2KVSG. The module is WRE-T00BJ10 (Toshiba spare part 43T66421), based on RTL8710C (ARM Thumb). It uses the same 5V UART (9600 baud, 8E1) and the same protocol as RB-N105S-G/RB-N106S-G, connected with a JST PA cable, so it can be replaced by an ESP.
 ## Hardware
 
-‼️‼️<br>
-**WARNING: Do NOT connect PIN 5 (the outermost pink wire) to anything. Double check that you have wired the ESP device correctly. Only connect and disconnect the ESP while the AC unit is disconnected from main power. Shorts or wrong wiring will damage AC unit board.**<br>
-‼️‼️
+> 🛑  **Warning: Wrong wiring or a short can damage the board of the AC unit.**
+> - **Do not connect pin 5** (the outermost pink wire) to anything.
+> - Connect and disconnect the ESP only while the AC unit is **disconnected from mains power**.
+> - Double-check the wiring before you power the unit again.
 
 * tested with ESP32 (WROOM 32D)
 * tested with ESP8266 (Lolin D1 mini)
@@ -128,32 +144,27 @@ Confirmed working on a Mirai RAS-13BKV-E with main board WP-026 (sticker B22N3KV
 
 ### ESPHome versions
 
-Current main branch supports latest ESPHome **2026.1**. There have been some internal changes in climate entity in ESPHome which makes it incompatible with previous ESPHome versions.
+The main branch needs ESPHome **2026.11** or newer. With an older ESPHome the configuration check stops with `This component requires at least ESPHome version 2026.11.0`.
 
-If you use ESPHome **2025.10 or earlier**, use tag `2025.10` like this:
+For older ESPHome versions, pin a tag of this repository:
 
-```
-external_components:
-  - source: 
-      type: git
-      url: https://github.com/pedobry/esphome_toshiba_suzumi
-      ref: "2025.10"
-    components: [toshiba_suzumi]
-    refresh: 1min
-```
-If you use ESPHome **2025.11 or 2025.12**, use tag `2025.12` like this:
+| ESPHome | Tag |
+|---|---|
+| 2026.4 – 2026.10 | `2026.10` |
+| 2025.11 – 2025.12 | `2025.12` |
+| 2025.10 or earlier | `2025.10` |
 
 ```
 external_components:
   - source: 
       type: git
       url: https://github.com/pedobry/esphome_toshiba_suzumi
-      ref: "2025.12"
+      ref: "2026.10"
     components: [toshiba_suzumi]
     refresh: 1min
 ```
 
-These older version won't be maintained, I'd recommend to upgrade to ESPHome 2026.1
+The tags are not maintained. Automatic feature detection, the ionizer switch and later fixes are only in the main branch, so upgrading ESPHome is recommended.
 
 ### Configuration
 
@@ -232,10 +243,14 @@ climate:
     #  name: Outdoor Temp
     #power_select:
     #  name: "Power level"
-    #vertical_air_direction: # Fixed louver position (Toshiba "horizontal louver", air up/down)
-    #  name: "Vertical air direction"
+    #air_direction:          # Swing off/on, fixed louver positions, HADA Care Flow (EPC 0xA3)
+    #  name: "Air direction"
     #ionizer:                # Ionizer / air purifier on/off (EPC 0xC7)
     #  name: "Ionizer"
+    #strong_defrost:         # Strong Defrost mode on/off (EPC 0xCB bit 0)
+    #  name: "Strong Defrost"
+    #defrost:                # Button: run one defrost now, Heat mode only (EPC 0xCB bit 1)
+    #  name: "Defrost"
     #self_clean:             # Post-shutdown self-cleaning status
     #  name: "Self Clean"
     #off_timer:              # ON while the OFF timer set on the remote is running
@@ -284,14 +299,14 @@ You can then create a Thermostat card on the dashboard.
 The component finds out what the unit supports from:
 
 - the unit identification bytes in the handshake (logged as the unit profile),
-- the unit's feature mask, EPC `0xEE` (special modes, cooling-only / heating-only, horizontal louver, energy, fixed louver positions, ionizer),
+- the unit's feature mask, EPC `0xEE` (special modes, cooling-only / heating-only, horizontal louver, energy, fixed louver positions, HADA Care Flow, Strong Defrost, ionizer),
 - which properties the unit answers (outdoor temperature, power level, self-clean, OFF timer, fault code) and which status messages it sends (indoor / outdoor diagnostics, unit information).
 
 Presets: units that report a feature mask get "Standard", "ECO" and "Hi POWER", plus "8 degrees", "Fireplace 1/2", "Silent#1/#2" and "Floor" when the mask has them. Units without the mask get no special modes. "Sleep" and "Comfort" are not in the mask and are offered only when you list them in `supported_presets`.
 
 Home Assistant reads entities and presets only when it connects, and ESPHome can hide entities only at startup. The result is therefore stored in flash and applied at the next start: **the first time (and whenever something new is found) the device restarts once**, about 30 seconds after connecting to the unit. You will see `Unit capabilities changed ... Restarting` in the log. For the same indoor unit features are only added, never removed.
 
-The exception is a unit that sends its diagnostics or unit information only later (profile 1 and 2 units push `0xE0`/`0xE4`/`0xE5` on their own, sometimes hours after the start). Those only add sensors, so the device stores them without a restart (`New unit features ... stored without a restart` in the log). Home Assistant shows the new sensors after the next restart, or right away if you reload the ESPHome integration.
+This includes units that send their diagnostics or unit information only later (profile 1 and 2 units push `0xE0`/`0xE4`/`0xE5` on their own, sometimes hours after the start): when such a message brings a new feature, the device restarts once at that moment so the new sensors appear. The air conditioner itself keeps running; only the ESP is unreachable for a few seconds.
 
 On ESP8266 the stored result survives restarts but not a power cut unless `esp8266: restore_from_flash: true` is set; without it the device simply detects again after power is restored.
 
@@ -328,9 +343,9 @@ The profile comes from the identification bytes. Profile 3 units answer requests
 **Profile 2: RAS-10PKVSG-E**
 
 ```
-[I][ToshibaClimateUart]: Unit profile 2 level 0 (00 01 00 00)
-[I][ToshibaClimateUart]: Profile 2: diagnostics only when the unit pushes them
-[C][ToshibaClimateUart]:   Auto-detected capabilities: 0x0E03F (profile 2, 0xEE 0C 00), 8 of 24 optional entities shown
+[I][toshiba_suzumi]: Unit profile 2 level 0 (00 01 00 00)
+[I][toshiba_suzumi]: Profile 2: diagnostics only when the unit pushes them
+[C][toshiba_suzumi]:   Auto-detected capabilities: 0x0E03F (profile 2, 0xEE 0C 00), 8 of 24 optional entities shown
 ```
 
 | Detected | Entities / presets |
@@ -348,9 +363,9 @@ Horizontal swing (`0xEE` byte 1 bit 6) is read on profile 2 as well, e.g. RAS-10
 **Profile 3: RAS-13NKVRG**
 
 ```
-[C][ToshibaClimateUart]:   Unit profile 3 level 1 (00 01 01 01), diagnostics polled
-[C][ToshibaClimateUart]:   Unit feature mask 0xEE: 2C 03
-[C][ToshibaClimateUart]:   Auto-detected capabilities: 0x1E7BF (profile 3, 0xEE 2C 03), 3 of 8 optional entities shown
+[C][toshiba_suzumi]:   Unit profile 3 level 1 (00 01 01 01), diagnostics polled
+[C][toshiba_suzumi]:   Unit feature mask 0xEE: 2C 03
+[C][toshiba_suzumi]:   Auto-detected capabilities: 0x1E7BF (profile 3, 0xEE 2C 03), 3 of 8 optional entities shown
 ```
 
 | Detected | Entities / presets |
@@ -358,7 +373,7 @@ Horizontal swing (`0xEE` byte 1 bit 6) is read on profile 2 as well, e.g. RAS-10
 | Heat and cool, ECO / Hi POWER, 8 °C mode, Fireplace | same as above |
 | Silent (`0xEE` byte 1 bit 5) | presets "Silent#1/#2" |
 | Energy (`0xEE` byte 2 bit 0) | Energy, Power (needs `time:`) |
-| Fixed louver positions (`0xEE` byte 2 bit 1) | Vertical Air Direction |
+| Fixed louver positions (`0xEE` byte 2 bit 1) | Air Direction: Top … Bottom |
 | Polled `0xE4` / `0xE5` | indoor coil / fan and outdoor compressor diagnostics |
 | Answered `0xBE`, `0x87`, `0xCB`, `0x94`, `0x88`; identity reply | as above |
 | **Not detected** | Ionizer, Floor, horizontal swing (`0xEE` byte 1 bit 6); unit information until the unit sends `0xE0` |
@@ -377,80 +392,29 @@ If your unit has the "8°C operation" (frost protection, FrostGuard), the range 
 
 The setpoint and the special mode are always sent together, so the unit never keeps an 8 °C mode setpoint (temperature + 16 on the wire) after the mode changes. On units that report a feature mask they go out in one `0xF8` frame (mode, setpoint, fan and special mode).
 
-### Vertical air directions
+### Air direction
 
-Some units support fixed vertical air directions in addition to vertical swing. ESPHome's native climate swing modes are limited to `off`, `vertical`, `horizontal`, and `both`, so fixed positions are exposed as a Home Assistant select entity:
+ESPHome's climate swing modes are limited to `off`, `vertical`, `horizontal` and `both`. The other louver settings of the unit are in a select entity, as in the Toshiba app:
 
 ```yaml
-    vertical_air_direction:
-      name: "Vertical air direction"
+    air_direction:
+      name: "Air direction"
 ```
 
-In Toshiba service documentation this corresponds to the horizontal louver, which controls vertical air direction.
+| Option | EPC `0xA3` | Offered when the unit reports |
+|---|---|---|
+| `Off`, `Swing` (vertical) | `0x31`, `0x41` | always |
+| `Top`, `Middle Top`, `Middle`, `Middle Bottom`, `Bottom` | `0x50`–`0x54` | fixed up/down positions (`0xEE` byte 2 bit 1) |
+| `Left`, `Middle Left`, `Center`, `Middle Right`, `Right` | `0x61`–`0x65` | fixed left/right positions (`0xEE` byte 2 bit 5) |
+| `HADA Care Flow` | `0x60` | HADA Care Flow (`0xEE` byte 2 bit 2) |
 
-The select provides `Off`, `Swing`, `Top`, `Middle Top`, `Middle`, `Middle Bottom`, and `Bottom`.
+All options are values of one property, so only one is active at a time: choosing a left/right position ends a fixed up/down position and the other way round. `HADA Care Flow` moves both louvers to their middle positions and keeps the air flow away from people. A swing mode set on the climate entity shows as `Swing` (vertical or both) or `Off` (horizontal).
+
+Without auto-detection, or before the first detection, the select offers all options. The select was called `vertical_air_direction` before; that key still works but logs a deprecation warning.
+
+In Toshiba service documentation the up/down flap is called the horizontal louver.
 
 ## Sensors
-
-### Filtering incorrect values
-
-The component automatically filters out incorrect sensor readings at the code level:
-- Temperature readings of `127` (which the unit transmits when it cannot measure the temperature or when it is off) are ignored.
-- Compressor load and current values of `254` or `255` are also ignored.
-
-Therefore, you do not need to add manual filters in your YAML configuration for these values. However, if you need to filter out other values, you can still add ESPHome filters like this:
-
-```yaml
-    outdoor_temp:
-      name: Outdoor Temp
-      filters:
-        - filter_out: 127
-```
-
-### Self-cleaning status
-
-Some Toshiba units run a post-shutdown self-cleaning cycle. During this cycle the indoor fan can continue running even though the climate entity is off. Configure the optional `self_clean` binary sensor to enable self-clean detection and expose the cycle in Home Assistant:
-
-```yaml
-    self_clean:
-      name: "Self Clean"
-```
-
-The climate entity remains OFF while self-cleaning is active. ESPHome climate entities do not have a self-cleaning mode or action, so the binary sensor reports this separate operating state. Without `self_clean`, the component does not query self-clean status and retains its existing climate behavior.
-
-How the cycle behaves (per the Toshiba service manual):
-
-- It runs only after cooling or dry operation, and only if that ran for at least 10 minutes; it then runs for a fixed ~30 minutes. It does not run after heating, fan-only, or a short (<10 min) cooling/dry run.
-- During the cycle the indoor fan runs at low speed to dry the unit; the compressor stays off. The unit reports itself as not operating, which is why the climate entity is OFF.
-- The service manual documents enabling/disabling the self-clean cycle as a unit-side procedure (the indoor unit's `RESET` button together with a remote-control diagnosis code). `0xCB` is the ECHONET "self-cleaning function setting", but the meaning of the Toshiba bits for writing is not known, so this component reports the cycle but does not control it.
-
-### OFF timer
-
-The OFF timer set on the IR remote can be shown in Home Assistant:
-
-```yaml
-    off_timer:
-      name: "Off timer"
-    off_timer_remaining:
-      name: "Off timer remaining"
-```
-
-`off_timer` follows register 0x94, which the unit pushes when the timer starts or ends. `off_timer_remaining` reads register 0x96 (two bytes: hours and minutes) and reports minutes. The unit doesn't push 0x96, so it is polled at the component's update interval while the timer runs, and reported as 0 when no timer is set. The unit updates 0x96 in coarse steps (a 30 min timer read 0:30, then 0:15). Setting the timer from Home Assistant isn't supported.
-
-### Error code
-
-The optional `error_code` text sensor shows the fault code reported by the unit:
-
-```yaml
-    error_code:
-      name: "Error Code"
-```
-
-Property `0x88` (ECHONET "fault status") tells whether a fault is present, and only then
-the 9-byte property `0x86` (manufacturer's fault code) is read. The sensor shows `none` when there is no fault, or the
-code byte in hex (for example `0x1C`). The full `0x86` data is written to the log as a
-warning. The mapping of these codes to the codes shown on the remote (E01, F02, ...) is not
-known yet.
 
 ### Unit model information
 
@@ -523,16 +487,28 @@ Replace `880` with your unit's rated power input in watts (check the datasheet).
 The component logs how it classified the unit after connect:
 
 ```
-[C][ToshibaClimateUart:1386]:   FCU Model: 'RAS-13NKVRG'
-[C][ToshibaClimateUart:1389]:   FCU Serial: 'xxxxxxx'
-[C][ToshibaClimateUart:1399]:   Unit profile 3 level 1 (00 01 01 01), diagnostics polled
-[C][ToshibaClimateUart:1408]:   Unit feature mask 0xEE: 2C 03
-[C][ToshibaClimateUart:1412]:   Auto-detected capabilities: 0x1E7BF (profile 3, 0xEE 2C 03), 3 of 8 optional entities shown
+[C][toshiba_suzumi]:   FCU Model: 'RAS-13NKVRG'
+[C][toshiba_suzumi]:   FCU Serial: 'xxxxxxx'
+[C][toshiba_suzumi]:   Unit profile 3 level 1 (00 01 01 01), diagnostics polled
+[C][toshiba_suzumi]:   Unit feature mask 0xEE: 2C 03
+[C][toshiba_suzumi]:   Auto-detected capabilities: 0x1E7BF (profile 3, 0xEE 2C 03), 3 of 8 optional entities shown
 ```
 
 Please include these lines (and your model) when reporting an issue. If the identity reply
 never arrives, the component falls back to reading the basic climate status (logged as
 `No unit identity; loading basic status without diagnostics`).
+
+Values received from the unit are logged at `DEBUG`, commands sent and the frames on the wire
+at `VERBOSE`. To include those, raise the level for this component only:
+
+```yaml
+logger:
+  level: VERBOSE
+  logs:
+    toshiba_suzumi: VERBOSE
+```
+
+Set the global `level` back afterwards (see the memory notes for ESP8266 above).
 
 ## Protocol analysis
 
