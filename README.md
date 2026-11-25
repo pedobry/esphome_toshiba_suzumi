@@ -37,21 +37,40 @@ This component use ESPHome UART to connect with Toshiba AC and communicates dire
 
 ## Supported Toshiba units
 
-Any unit which have an option to purchase a WiFi adapter RB-N105S-G/RB-N106S-G:
+Any unit that Toshiba offered with a Wi-Fi adapter (RB-N10xS-G, e.g. RB-N105S-G/RB-N106S-G) should work.
 
-* Seiya RAS-B24 J2KVG-E
-* Suzumi Plus RAS-B18, B22 and B24 PKVSG-E
-* Shorai Premium RAS-B18, B22 and B24 J2KVRG-E
-* Daiseikai 9 RAS-B10, B13 and B16 PKVPG-E
-* Shorai Edge RAS-B07, B10, B13, B16, B18, B22 and B24 J2KVSG-E
-* Seiya RAS-B10, B13, B16 and B18 J2KVG-E
-* Suzumi Plus RAS-B10, B13 and B16 PKVSG-E
-* Mirai RAS-13BKV-E (4-pin CN22, see [Units with a 4-pin CN22](#units-with-a-4-pin-cn22))
-* Shorai Premium RAS-B10, B13 and B16 J2KVRG-E
-* SHORAI CURVE RAS-B13P2KVSG, RAS-B10P2KVSG
+**CN22** says what the unit has for the Wi-Fi adapter:
 
-**2026 units:** it seems that some 2026 units ship already with new built-in wifi module (SHORAI CURVE RAS-B13P2KVSG, RAS-B10P2KVSG). This adapter is model WRE-T00BJ10 based on RTL8710C (ARM Thumb). Seems to have the same funtionality as RB-N105S-G/RB-N106S-G and can be replaced by custom ESP adapter.
+* **5-pin, cable in unit** – the CN22 extension cable (usually pink/blue) is ready in the unit from the factory; the official adapter RB-N105S-G is mounted inside the unit. Connect the ESP as described in [Pinout](#pinout).
+* **5-pin, no cable** – the unit has a 5-pin CN22 on the main board but no extension cable; the official adapter RB-N106S-G is mounted outside the unit and comes with its own connecting cable. Connect the ESP to CN22 with a JST PA 5-pin cable (see [Pinout](#pinout)).
+* **4-pin, cable 43T60480** – older units with only a 4-pin CN22 on the main board. The official adapter needed cable 43T60480 (ordered separately). See [Units with a 4-pin CN22](#units-with-a-4-pin-cn22).
 
+| Series | Models | CN22 |
+|---|---|---|
+| Seiya | RAS-B07, B10, B13, B16, 18 J2KVG-E | 5-pin, no cable |
+| Seiya | RAS-24 J2KVG-E | 5-pin, cable in unit |
+| Shorai Edge | RAS-B07, B10, B13, B16, 18, B22, B24 J2KVSG-E | 5-pin, cable in unit |
+| Haori | RAS-B10, B13, B16 N4KVRG-E | Built-in module WRE-T00BJ10 |
+| Shorai Premium | RAS-B10, B13, B16 J2KVRG-E | 5-pin, no cable |
+| Shorai Premium | RAS-18, B22, B24 J2KVRG-E | 5-pin, cable in unit |
+| Daiseikai 9 | RAS-10, 13, 16 PKVPG-E | 5-pin, cable in unit |
+| Suzumi Plus R32 (2019) | RAS-B10, B13, B16 PKVSG-E | 5-pin, no cable |
+| Suzumi Plus R32 (2019) | RAS-18, B22, B24 PKVSG-E | 5-pin, cable in unit |
+| Suzumi R32 (split) | RAS-10, 13, 16, 18, 22 PKVSG-E | 4-pin, cable 43T60480 |
+| Suzumi R410A | RAS-B10, B13, B16, 18, B22 N3KV2-E1 | 4-pin, cable 43T60480 |
+| Mirai R410A | RAS-B10, B13, B16, 18, 24 BKV-E(1) | 4-pin, cable 43T60480 |
+| Mirai R32 | RAS-B10, B13, B16, 18, 24 BKVG-E(1) | 4-pin, cable 43T60480 |
+| Daiseikai 8 R410A | RAS-10, 13, 16 G2KVP-E | 4-pin, cable 43T60480 |
+| Floor console R32 (2020/2021) | RAS-B10, B13, B18 U2FVG-E1; J2FVG | 5-pin, no cable |
+| Floor console R410A (2017–2019) | RAS-B10, B13, B18 UFV-E1 | 4-pin, cable 43T60480 |
+
+Of the units that need cable 43T60480, a Mirai RAS-13BKV-E was confirmed working (see [Units with a 4-pin CN22](#units-with-a-4-pin-cn22)).
+
+Not supported (no Toshiba Wi-Fi adapter, only third-party IR control): Daiseikai 6.5 RAS-B10/B13/B16 N3KVP-E, 4-way cassette RAS-M10/M13/M16 SMUV-E, ducted RAS-M10/M13/M16 G3DV-E, slim cassette RAS-B10/M13/M16 U2MUVG-E and ducted RAS-M10–M24 U2DVG-E (Toshiba planned an adapter for the last two).
+
+Newer units: Shorai Curve RAS-B10P2KVSG, RAS-B13P2KVSG (built-in module WRE-T00BJ10, see below).
+
+**Built-in Wi-Fi module WRE-T00BJ10:** some units ship with a built-in Wi-Fi module instead of an optional adapter: Haori RAS-B10/B13/B16 N4KVRG-E (since 2021) and Shorai Curve RAS-B10P2KVSG, RAS-B13P2KVSG. The module is WRE-T00BJ10 (Toshiba spare part 43T66421), based on RTL8710C (ARM Thumb). It uses the same 5V UART (9600 baud, 8E1) and the same protocol as RB-N105S-G/RB-N106S-G, connected with a JST PA cable, so it can be replaced by an ESP.
 ## Hardware
 
 > 🛑  **Warning: Wrong wiring or a short can damage the board of the AC unit.**
