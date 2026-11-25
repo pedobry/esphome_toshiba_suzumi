@@ -418,7 +418,9 @@ In Toshiba service documentation the up/down flap is called the horizontal louve
 
 ### Unit model information
 
-`fcu_model` and `fcu_serial` come from the handshake. The outdoor unit (CDU) model, serial and firmware, and the indoor unit firmware, come from a model-info message (EPC `0xE0`) that the unit sends on its own. These sensors stay empty until the unit sends that message, and some units may never send it. When it arrives, everything it carries is also logged and shown in `dump_config`.
+The indoor and outdoor unit models, serials and firmware come from a model-info message (EPC `0xE0`) that the unit sends on its own. Some units may never send it. When it arrives, everything it carries is also logged and shown in `dump_config`.
+
+The handshake carries only the model and number of the indoor board's EEPROM data (e.g. `RAS-13NKVRG` / `NO.022021` on a RAS-B13P2KVSG-E). Until `0xE0` arrives, `fcu_model` and `fcu_serial` show these instead; the outdoor unit sensors and `fcu_firmware` stay empty.
 
 ### Indoor and outdoor unit diagnostics
 
@@ -487,8 +489,10 @@ Replace `880` with your unit's rated power input in watts (check the datasheet).
 The component logs how it classified the unit after connect:
 
 ```
-[C][toshiba_suzumi]:   FCU Model: 'RAS-13NKVRG'
-[C][toshiba_suzumi]:   FCU Serial: 'xxxxxxx'
+[C][toshiba_suzumi]:   FCU Model: 'RAS-B13P2KVSG-E'
+[C][toshiba_suzumi]:   FCU Serial: 'xxxxxxxx'
+[C][toshiba_suzumi]:   FCU Firmware: '24081500'
+[C][toshiba_suzumi]:   FCU EEPROM data: 'RAS-13NKVRG' 'NO.022021'
 [C][toshiba_suzumi]:   Unit profile 3 level 1 (00 01 01 01), diagnostics polled
 [C][toshiba_suzumi]:   Unit feature mask 0xEE: 2C 03
 [C][toshiba_suzumi]:   Auto-detected capabilities: 0x1E7BF (profile 3, 0xEE 2C 03), 3 of 8 optional entities shown
@@ -527,7 +531,8 @@ Short summary:
   - Reply: `CN=0x90`, `FD = 01 30 01 00 00 <len u16> <EPC> <data>`
   - Notify from the unit (IR remote, internal change): `CN=0x11`, `FD = 01 30 01 <len u16> <EPC> <data>`,
     acknowledged with `CN=0x91`.
-- The identity reply in the handshake carries the indoor unit model and serial and four
+- The identity reply in the handshake carries the indoor board's EEPROM data model and
+  number (not the rating-label model and serial, which come in `0xE0`) and four
   identification bytes.
 
 ### References
